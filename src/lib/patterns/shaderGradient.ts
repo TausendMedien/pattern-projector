@@ -9,6 +9,7 @@ let scene: THREE.Scene | null = null;
 let speed = 0.04;
 let colors = 0.9;
 let saturation = 0.85;
+let blackPoint = 0.0;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -25,6 +26,7 @@ const fragmentShader = /* glsl */ `
   uniform float uSpeed;
   uniform float uColors;
   uniform float uSaturation;
+  uniform float uBlackPoint;
   uniform vec2 uResolution;
 
   float hash(vec2 p) {
@@ -74,6 +76,9 @@ const fragmentShader = /* glsl */ `
     float gray = dot(col, vec3(0.299, 0.587, 0.114));
     col = mix(vec3(gray), col, uSaturation);
 
+    // Black point: crush darks, rescale remaining range
+    col = clamp((col - uBlackPoint) / max(1.0 - uBlackPoint, 0.001), 0.0, 1.0);
+
     gl_FragColor = vec4(col, 1.0);
   }
 `;
@@ -82,9 +87,10 @@ export const shaderGradient: Pattern = {
   id: "shaderGradient",
   name: "Shader Gradient",
   controls: [
-    { label: "Speed",      type: "range", min: 0.005, max: 0.15, step: 0.005, get: () => speed,      set: (v) => { speed = v; } },
-    { label: "Colors",     type: "range", min: 0.0,   max: 1.0,  step: 0.05,  get: () => colors,     set: (v) => { colors = v; } },
-    { label: "Saturation", type: "range", min: 0.0,   max: 1.0,  step: 0.05,  get: () => saturation, set: (v) => { saturation = v; } },
+    { label: "Speed",       type: "range", min: 0.005, max: 0.15, step: 0.005, get: () => speed,       set: (v) => { speed = v; } },
+    { label: "Colors",      type: "range", min: 0.0,   max: 1.0,  step: 0.05,  get: () => colors,      set: (v) => { colors = v; } },
+    { label: "Saturation",  type: "range", min: 0.0,   max: 1.0,  step: 0.05,  get: () => saturation,  set: (v) => { saturation = v; } },
+    { label: "Black Point", type: "range", min: 0.0,   max: 0.8,  step: 0.01,  get: () => blackPoint,  set: (v) => { blackPoint = v; } },
   ],
 
   init(ctx: PatternContext) {
@@ -96,9 +102,10 @@ export const shaderGradient: Pattern = {
       uniforms: {
         uTime:       { value: 0 },
         uSpeed:      { value: speed },
-        uColors:     { value: colors },
-        uSaturation: { value: saturation },
-        uResolution: { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
+        uColors:      { value: colors },
+        uSaturation:  { value: saturation },
+        uBlackPoint:  { value: blackPoint },
+        uResolution:  { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
       },
       vertexShader,
       fragmentShader,
@@ -116,6 +123,7 @@ export const shaderGradient: Pattern = {
     material.uniforms.uSpeed.value = speed;
     material.uniforms.uColors.value = colors;
     material.uniforms.uSaturation.value = saturation;
+    material.uniforms.uBlackPoint.value = blackPoint;
   },
 
   resize(width: number, height: number) {
