@@ -7,12 +7,14 @@ import { parallelLinesStraight } from "./parallelLinesStraight";
 import { parallelLinesWave } from "./parallelLinesWave";
 import { hyperMix } from "./hyperMix";
 import { dotRain } from "./dotRain";
+import { flowLines } from "./flowLines";
 
 export const patterns: Pattern[] = [
   particles,
   parallelLinesStraight,
   parallelLinesWave,
   dotRain,
+  flowLines,
   shaderGradient,
   hyperMix,
   tunnel,
