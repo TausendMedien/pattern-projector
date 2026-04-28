@@ -12,6 +12,7 @@ let waveAmp = 0.04;
 let colorRange = 0.5;
 let saturation = 0.85;
 let colorSpeed = 0.4;
+let waveSpeed = 1.0;
 let rotateSpeed = 0.0;
 
 let colorPhase = 0;
@@ -34,6 +35,7 @@ const fragmentShader = /* glsl */ `
   uniform float uScrollSpeed;
   uniform float uLineWidth;
   uniform float uWaveAmp;
+  uniform float uWaveSpeed;
   uniform float uColorRange;
   uniform float uSaturation;
   uniform float uColorPhase;
@@ -57,8 +59,8 @@ const fragmentShader = /* glsl */ `
     float waveFreq = 3.0;
     float scroll = uTime * uScrollSpeed;
 
-    float wave = sin(uv.y * waveFreq * 3.14159 + uTime * 1.4) * uWaveAmp
-               + sin(uv.y * waveFreq * 1.7  + uTime * 0.9) * uWaveAmp * 0.5;
+    float wave = sin(uv.y * waveFreq * 3.14159 + uTime * 1.4 * uWaveSpeed) * uWaveAmp
+               + sin(uv.y * waveFreq * 1.7  + uTime * 0.9 * uWaveSpeed) * uWaveAmp * 0.5;
 
     float stripe = fract((uv.x + wave) * uLineCount * 0.5 + scroll);
 
@@ -91,6 +93,7 @@ export const parallelLinesWave: Pattern = {
     { label: "Line Width",      type: "range", min: 0.02,max: 0.4,  step: 0.01,  get: () => lineWidth,   set: (v) => { lineWidth = v; } },
     { label: "Wave Amplitude",  type: "range", min: 0.0, max: 0.15, step: 0.005, get: () => waveAmp,     set: (v) => { waveAmp = v; } },
     { label: "Colors",          type: "range", min: 0.0, max: 1.0,  step: 0.05,  get: () => colorRange,  set: (v) => { colorRange = v; } },
+    { label: "Wave Speed",      type: "range", min: 0.0, max: 2.0,  step: 0.05,  get: () => waveSpeed,   set: (v) => { waveSpeed = v; } },
     { label: "Color Speed",     type: "range", min: 0.0, max: 1.0,  step: 0.05,  get: () => colorSpeed,  set: (v) => { colorSpeed = v; } },
     { label: "Saturation",      type: "range", min: 0.0, max: 1.0,  step: 0.05,  get: () => saturation,  set: (v) => { saturation = v; } },
     { label: "Rotate",          type: "range", min: 0.0, max: 0.5,  step: 0.01,  get: () => rotateSpeed, set: (v) => { rotateSpeed = v; } },
@@ -106,6 +109,7 @@ export const parallelLinesWave: Pattern = {
         uScrollSpeed: { value: scrollSpeed },
         uLineWidth:   { value: lineWidth },
         uWaveAmp:     { value: waveAmp },
+        uWaveSpeed:   { value: waveSpeed },
         uColorRange:  { value: colorRange },
         uSaturation:  { value: saturation },
         uColorPhase:  { value: colorPhase },
@@ -132,6 +136,7 @@ export const parallelLinesWave: Pattern = {
     material.uniforms.uScrollSpeed.value = scrollSpeed;
     material.uniforms.uLineWidth.value   = lineWidth;
     material.uniforms.uWaveAmp.value     = waveAmp;
+    material.uniforms.uWaveSpeed.value   = waveSpeed;
     material.uniforms.uColorRange.value  = colorRange;
     material.uniforms.uSaturation.value  = saturation;
     material.uniforms.uColorPhase.value  = colorPhase;
