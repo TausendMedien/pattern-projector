@@ -188,18 +188,18 @@
       <p class="text-xs uppercase tracking-[0.35em] text-white/35">Pattern Projector</p>
     </div>
 
-    <div class="grid grid-cols-3 gap-3 px-10">
+    <div class="grid grid-cols-3 gap-2 px-3 w-full max-w-lg">
       {#each patterns as p, i}
         <button
-          class="relative flex flex-col gap-1.5 rounded-xl border px-7 py-5 text-left transition-all duration-150 cursor-pointer
+          class="relative flex flex-col gap-1 rounded-xl border px-3 py-3 text-left transition-all duration-150 cursor-pointer
             {focusedIndex === i
               ? 'border-white bg-white/10 shadow-[0_0_28px_rgba(255,255,255,0.12)]'
               : 'border-white/15 bg-white/[0.04] hover:border-white/40 hover:bg-white/[0.07]'}"
           onclick={() => activatePattern(i)}
           onmouseenter={() => { focusedIndex = i; switchTo(i); }}
         >
-          <span class="text-[11px] font-mono text-white/35">{i + 1}</span>
-          <span class="text-[15px] font-semibold leading-snug text-white">{p.name}</span>
+          <span class="text-[10px] font-mono text-white/35">{i + 1}</span>
+          <span class="text-[13px] font-semibold leading-snug text-white">{p.name}</span>
           {#if focusedIndex === i}
             <span class="absolute right-3.5 top-3.5 h-1.5 w-1.5 rounded-full bg-white"></span>
           {/if}
