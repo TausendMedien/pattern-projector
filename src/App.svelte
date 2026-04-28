@@ -16,6 +16,8 @@
   let hudVisible = $state(true);
   let hudTimer: ReturnType<typeof setTimeout> | null = null;
   let isTouch = $state(false);
+  let isIosStandalone = $state(false);
+  let isIosBrowser = $state(false);
 
   function poke() {
     hudVisible = true;
@@ -129,6 +131,9 @@
 
   onMount(() => {
     isTouch = "ontouchstart" in window;
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    isIosStandalone = isIos && (navigator as any).standalone === true;
+    isIosBrowser = isIos && !isIosStandalone;
     handle = createRenderer(canvas, patterns[0]);
 
     const detach = attachKeyboard(handleAction);
@@ -187,7 +192,9 @@
     </div>
 
     <div class="flex gap-5 text-[11px] text-white/30">
-      {#if isTouch}
+      {#if isIosBrowser}
+        <span>tap to select · swipe to browse · <span class="text-white/50">Share ↑ → Add to Home Screen</span> for fullscreen</span>
+      {:else if isTouch}
         <span>tap to select · swipe to browse</span>
       {:else}
         <span><kbd class="rounded bg-white/10 px-1.5 py-0.5 font-mono">← →</kbd> browse</span>
@@ -214,12 +221,18 @@
           <div class="text-lg font-semibold">{patterns[index].name}</div>
           <div class="mt-1 text-xs text-white/40">{index + 1} / {patterns.length}</div>
         </div>
-        <button
-          class="pointer-events-auto mt-0.5 rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
-          onclick={() => { handleAction({ type: "fullscreen" }); }}
-        >
-          {fs.isFullscreen() ? "Exit ⛶" : "⛶ Fullscreen"}
-        </button>
+        {#if isIosBrowser}
+          <div class="mt-0.5 max-w-[140px] text-right text-[10px] leading-snug text-white/40">
+            Tap <span class="text-white/60">Share ↑</span> → Add to Home Screen for fullscreen
+          </div>
+        {:else if !isIosStandalone}
+          <button
+            class="pointer-events-auto mt-0.5 rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
+            onclick={() => { handleAction({ type: "fullscreen" }); }}
+          >
+            {fs.isFullscreen() ? "Exit ⛶" : "⛶ Fullscreen"}
+          </button>
+        {/if}
       </div>
       <div class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-white/70">
         {#if isTouch}
