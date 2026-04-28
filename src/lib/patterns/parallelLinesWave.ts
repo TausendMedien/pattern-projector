@@ -9,6 +9,8 @@ let lineCount = 54;
 let scrollSpeed = 0.22;
 let lineWidth = 0.10;
 let waveAmp = 0.04;
+let colorRange = 0.5;
+let saturation = 0.85;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -27,6 +29,8 @@ const fragmentShader = /* glsl */ `
   uniform float uScrollSpeed;
   uniform float uLineWidth;
   uniform float uWaveAmp;
+  uniform float uColorRange;
+  uniform float uSaturation;
 
   vec3 hsl2rgb(float h, float s, float l) {
     vec3 rgb = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
@@ -50,9 +54,15 @@ const fragmentShader = /* glsl */ `
 
     if (line < 0.01) discard;
 
-    float hue = fract(uv.x * 0.25 + uTime * 0.06);
+    // Cyberpunk hue: cyan (0.50) → blue (0.67) → magenta (0.83)
+    float rawHue = fract(uv.x * 0.25 * uColorRange + uTime * 0.06);
+    float hue = 0.5 + rawHue * 0.33;
     float lit = 0.55 + 0.15 * sin(uTime * 0.4 + uv.y * 2.0);
-    vec3 col = hsl2rgb(hue, 0.75, lit);
+    vec3 col = hsl2rgb(hue, 1.0, lit);
+
+    // Saturation (0 = B&W, 1 = full color)
+    float gray = dot(col, vec3(0.299, 0.587, 0.114));
+    col = mix(vec3(gray), col, uSaturation);
 
     float pulse = 0.85 + 0.15 * sin(uTime * 2.0 + stripe * 12.0);
     col *= pulse * line;
@@ -65,22 +75,26 @@ export const parallelLinesWave: Pattern = {
   id: "parallelLinesWave",
   name: "Parallel Lines — Wave",
   controls: [
-    { label: "Line Count", type: "range", min: 10, max: 120, step: 1, get: () => lineCount, set: (v) => { lineCount = v; } },
-    { label: "Scroll Speed", type: "range", min: 0.02, max: 1.0, step: 0.01, get: () => scrollSpeed, set: (v) => { scrollSpeed = v; } },
-    { label: "Line Width", type: "range", min: 0.02, max: 0.4, step: 0.01, get: () => lineWidth, set: (v) => { lineWidth = v; } },
-    { label: "Wave Amplitude", type: "range", min: 0.0, max: 0.15, step: 0.005, get: () => waveAmp, set: (v) => { waveAmp = v; } },
+    { label: "Line Count",      type: "range", min: 10,  max: 120,  step: 1,     get: () => lineCount,   set: (v) => { lineCount = v; } },
+    { label: "Scroll Speed",    type: "range", min: 0.02,max: 1.0,  step: 0.01,  get: () => scrollSpeed, set: (v) => { scrollSpeed = v; } },
+    { label: "Line Width",      type: "range", min: 0.02,max: 0.4,  step: 0.01,  get: () => lineWidth,   set: (v) => { lineWidth = v; } },
+    { label: "Wave Amplitude",  type: "range", min: 0.0, max: 0.15, step: 0.005, get: () => waveAmp,     set: (v) => { waveAmp = v; } },
+    { label: "Colors",          type: "range", min: 0.0, max: 1.0,  step: 0.05,  get: () => colorRange,  set: (v) => { colorRange = v; } },
+    { label: "Saturation",      type: "range", min: 0.0, max: 1.0,  step: 0.05,  get: () => saturation,  set: (v) => { saturation = v; } },
   ],
 
   init(ctx: PatternContext) {
     geometry = new THREE.PlaneGeometry(2, 2);
     material = new THREE.ShaderMaterial({
       uniforms: {
-        uTime: { value: 0 },
-        uResolution: { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
-        uLineCount: { value: lineCount },
+        uTime:        { value: 0 },
+        uResolution:  { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
+        uLineCount:   { value: lineCount },
         uScrollSpeed: { value: scrollSpeed },
-        uLineWidth: { value: lineWidth },
-        uWaveAmp: { value: waveAmp },
+        uLineWidth:   { value: lineWidth },
+        uWaveAmp:     { value: waveAmp },
+        uColorRange:  { value: colorRange },
+        uSaturation:  { value: saturation },
       },
       vertexShader,
       fragmentShader,
@@ -101,6 +115,8 @@ export const parallelLinesWave: Pattern = {
     material.uniforms.uScrollSpeed.value = scrollSpeed;
     material.uniforms.uLineWidth.value = lineWidth;
     material.uniforms.uWaveAmp.value = waveAmp;
+    material.uniforms.uColorRange.value = colorRange;
+    material.uniforms.uSaturation.value = saturation;
   },
 
   resize(width: number, height: number) {

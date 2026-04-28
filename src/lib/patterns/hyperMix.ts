@@ -1,13 +1,13 @@
 import * as THREE from "three";
-import type { Pattern, PatternControl, PatternContext } from "./types";
+import type { Pattern, PatternContext } from "./types";
 
-// Mutable params — read by controls and by the shader uniforms setter
 const params = {
   speed: 0.04,
   curlScale: 0.35,
   spread: 1.6,
   pointSize: 2.0,
   pointCount: 40000,
+  saturation: 0.9,
 };
 
 // ─── Shaders ──────────────────────────────────────────────────────────────────
@@ -79,18 +79,14 @@ vec3 curlNoise(vec3 p) {
   const float e = 0.07;
   const vec3 OFF1 = vec3(31.416, 127.1,  311.7);
   const vec3 OFF2 = vec3(269.5,  183.3,  246.1);
-  // Ax = snoise(p), Ay = snoise(p+OFF1), Az = snoise(p+OFF2)
-  // curl.x = dAz/dy - dAy/dz
   float az_py = snoise(p + vec3(0.,e,0.) + OFF2);
   float az_my = snoise(p - vec3(0.,e,0.) + OFF2);
   float ay_pz = snoise(p + vec3(0.,0.,e) + OFF1);
   float ay_mz = snoise(p - vec3(0.,0.,e) + OFF1);
-  // curl.y = dAx/dz - dAz/dx
   float ax_pz = snoise(p + vec3(0.,0.,e));
   float ax_mz = snoise(p - vec3(0.,0.,e));
   float az_px = snoise(p + vec3(e,0.,0.) + OFF2);
   float az_mx = snoise(p - vec3(e,0.,0.) + OFF2);
-  // curl.z = dAy/dx - dAx/dy
   float ay_px = snoise(p + vec3(e,0.,0.) + OFF1);
   float ay_mx = snoise(p - vec3(e,0.,0.) + OFF1);
   float ax_py = snoise(p + vec3(0.,e,0.));
@@ -103,18 +99,15 @@ vec3 curlNoise(vec3 p) {
 }
 
 void main() {
-  // Life: each particle cycles through [0,1) based on seed + time
-  float period   = 4.0 + aSeed * 8.0;           // individual lifetime 4-12 s
+  float period   = 4.0 + aSeed * 8.0;
   float tLife    = fract((uTime * uSpeed + aSeed * 37.93) / period);
 
-  // Spawn position on a sphere, offset to one side by the emitter
   float theta    = aSeed * 6.2831853;
   float phi      = acos(2. * fract(aSeed * 127.1 + 0.5) - 1.);
   vec3 onSphere  = vec3(sin(phi)*cos(theta), sin(phi)*sin(theta), cos(phi));
   vec3 spawnPos  = onSphere * uSpread;
-  spawnPos.x    += aSide * uSpread * 1.8;       // left / right emitter offset
+  spawnPos.x    += aSide * uSpread * 1.8;
 
-  // Integrate curl field with 6 Euler steps from spawn to current life position
   vec3 pos = spawnPos;
   float noiseTime = uTime * uSpeed * 0.4 + aSeed * 13.7;
   float intDt = tLife / 6.0;
@@ -123,12 +116,9 @@ void main() {
     pos += curlNoise(pos * uCurlScale + tt) * intDt * 3.0;
   }
 
-  // Drift particles gently toward centre (emitter pull decays with life)
   pos.x -= aSide * smoothstep(0., 0.4, tLife) * uSpread * 0.5;
 
   vColorRatio = aSide * 0.5 + 0.5;
-  // Normalize alpha inversely to point area so brightness stays constant as
-  // size changes. Reference size = 2.0; bigger points get proportionally fainter.
   float sizeRef = 2.0;
   float areaNorm = (sizeRef * sizeRef) / (uPtSize * uPtSize);
   vAlpha = smoothstep(0.0, 0.08, tLife) * smoothstep(1.0, 0.75, tLife) * areaNorm;
@@ -143,6 +133,7 @@ const fragmentShader = /* glsl */ `
 
 uniform vec3 uColor1;
 uniform vec3 uColor2;
+uniform float uSaturation;
 
 varying float vColorRatio;
 varying float vAlpha;
@@ -154,6 +145,8 @@ void main() {
   float alpha = smoothstep(0.5, 0.0, d) * vAlpha * 0.7;
   vec3 col = mix(uColor1, uColor2, vColorRatio);
   col = mix(col, vec3(1.0), smoothstep(0.3, 0.0, d) * 0.4);
+  float gray = dot(col, vec3(0.299, 0.587, 0.114));
+  col = mix(vec3(gray), col, uSaturation);
   gl_FragColor = vec4(col, alpha);
 }
 `;
@@ -198,8 +191,8 @@ export const hyperMix: Pattern = {
       min: 0.002,
       max: 0.6,
       step: 0.002,
-      getValue: () => params.speed,
-      setValue: (v) => {
+      get: () => params.speed,
+      set: (v) => {
         params.speed = v;
         if (material) material.uniforms.uSpeed.value = v;
       },
@@ -210,8 +203,8 @@ export const hyperMix: Pattern = {
       min: 0.01,
       max: 2.5,
       step: 0.01,
-      getValue: () => params.curlScale,
-      setValue: (v) => {
+      get: () => params.curlScale,
+      set: (v) => {
         params.curlScale = v;
         if (material) material.uniforms.uCurlScale.value = v;
       },
@@ -222,8 +215,8 @@ export const hyperMix: Pattern = {
       min: 0.1,
       max: 6.0,
       step: 0.1,
-      getValue: () => params.spread,
-      setValue: (v) => {
+      get: () => params.spread,
+      set: (v) => {
         params.spread = v;
         if (material) material.uniforms.uSpread.value = v;
       },
@@ -234,8 +227,8 @@ export const hyperMix: Pattern = {
       min: 0.2,
       max: 12.0,
       step: 0.2,
-      getValue: () => params.pointSize,
-      setValue: (v) => {
+      get: () => params.pointSize,
+      set: (v) => {
         params.pointSize = v;
         if (material) material.uniforms.uPtSize.value = v;
       },
@@ -246,8 +239,8 @@ export const hyperMix: Pattern = {
       min: 5000,
       max: 100000,
       step: 5000,
-      getValue: () => params.pointCount,
-      setValue: (v) => {
+      get: () => params.pointCount,
+      set: (v) => {
         params.pointCount = v;
         if (sceneRef && points && material) {
           sceneRef.remove(points);
@@ -256,6 +249,18 @@ export const hyperMix: Pattern = {
           points = new THREE.Points(geometry, material);
           sceneRef.add(points);
         }
+      },
+    },
+    {
+      label: "Saturation",
+      type: "range",
+      min: 0.0,
+      max: 1.0,
+      step: 0.05,
+      get: () => params.saturation,
+      set: (v) => {
+        params.saturation = v;
+        if (material) material.uniforms.uSaturation.value = v;
       },
     },
   ],
@@ -274,9 +279,10 @@ export const hyperMix: Pattern = {
         uSpeed:     { value: params.speed },
         uCurlScale: { value: params.curlScale },
         uSpread:    { value: params.spread },
-        uPtSize: { value: params.pointSize },
-        uColor1:    { value: new THREE.Color(0x4466ff) },
-        uColor2:    { value: new THREE.Color(0xff44aa) },
+        uPtSize:    { value: params.pointSize },
+        uColor1:    { value: new THREE.Color(0x00ccff) },  // cyan
+        uColor2:    { value: new THREE.Color(0xff00cc) },  // magenta
+        uSaturation: { value: params.saturation },
       },
       vertexShader,
       fragmentShader,

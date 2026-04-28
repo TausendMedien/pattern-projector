@@ -5,9 +5,10 @@ let mesh: THREE.Mesh | null = null;
 let geometry: THREE.PlaneGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
 let camera: THREE.PerspectiveCamera | null = null;
-let savedPos = new THREE.Vector3();
 let scene: THREE.Scene | null = null;
-let speed = 0.15;
+let speed = 0.04;
+let colors = 0.9;
+let saturation = 0.85;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -22,9 +23,10 @@ const fragmentShader = /* glsl */ `
   varying vec2 vUv;
   uniform float uTime;
   uniform float uSpeed;
+  uniform float uColors;
+  uniform float uSaturation;
   uniform vec2 uResolution;
 
-  // hash + value noise
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
   }
@@ -59,13 +61,18 @@ const fragmentShader = /* glsl */ `
     vec2 r = vec2(fbm(p + 4.0 * q + vec2(1.7, 9.2) + t), fbm(p + 4.0 * q + vec2(8.3, 2.8) - t));
     float f = fbm(p + 4.0 * r);
 
+    // Cyberpunk palette: deep indigo → cyan → magenta → electric blue
     vec3 col = mix(
-      vec3(0.05, 0.1, 0.4),
-      vec3(0.95, 0.55, 0.2),
+      vec3(0.02, 0.04, 0.25),        // deep indigo
+      vec3(0.0,  0.85, 1.0),         // bright cyan
       clamp(f * f * 2.4, 0.0, 1.0)
     );
-    col = mix(col, vec3(0.9, 0.2, 0.6), clamp(length(q) * 0.6, 0.0, 1.0));
-    col = mix(col, vec3(0.2, 0.9, 0.7), clamp(r.x * r.y * 1.4, 0.0, 1.0));
+    col = mix(col, vec3(0.95, 0.05, 0.9) * uColors, clamp(length(q) * 0.6, 0.0, 1.0));
+    col = mix(col, vec3(0.1,  0.5,  1.0) * uColors, clamp(r.x * r.y * 1.4, 0.0, 1.0));
+
+    // Saturation (0 = B&W, 1 = full color)
+    float gray = dot(col, vec3(0.299, 0.587, 0.114));
+    col = mix(vec3(gray), col, uSaturation);
 
     gl_FragColor = vec4(col, 1.0);
   }
@@ -75,19 +82,22 @@ export const shaderGradient: Pattern = {
   id: "shaderGradient",
   name: "Shader Gradient",
   controls: [
-    { label: "Speed", type: "range", min: 0.02, max: 0.5, step: 0.01, get: () => speed, set: (v) => { speed = v; } },
+    { label: "Speed",      type: "range", min: 0.005, max: 0.15, step: 0.005, get: () => speed,      set: (v) => { speed = v; } },
+    { label: "Colors",     type: "range", min: 0.0,   max: 1.0,  step: 0.05,  get: () => colors,     set: (v) => { colors = v; } },
+    { label: "Saturation", type: "range", min: 0.0,   max: 1.0,  step: 0.05,  get: () => saturation, set: (v) => { saturation = v; } },
   ],
 
   init(ctx: PatternContext) {
     camera = ctx.camera;
     scene = ctx.scene;
-    savedPos.copy(camera.position);
 
     geometry = new THREE.PlaneGeometry(2, 2);
     material = new THREE.ShaderMaterial({
       uniforms: {
-        uTime: { value: 0 },
-        uSpeed: { value: speed },
+        uTime:       { value: 0 },
+        uSpeed:      { value: speed },
+        uColors:     { value: colors },
+        uSaturation: { value: saturation },
         uResolution: { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
       },
       vertexShader,
@@ -104,6 +114,8 @@ export const shaderGradient: Pattern = {
     if (!material) return;
     material.uniforms.uTime.value = elapsed;
     material.uniforms.uSpeed.value = speed;
+    material.uniforms.uColors.value = colors;
+    material.uniforms.uSaturation.value = saturation;
   },
 
   resize(width: number, height: number) {

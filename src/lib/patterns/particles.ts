@@ -5,6 +5,8 @@ const COUNT = 50000;
 
 let pointSize = 1.6;
 let flowSpeed = 1.0;
+let colorRange = 0.6;
+let saturation = 0.85;
 
 let points: THREE.Points | null = null;
 let geometry: THREE.BufferGeometry | null = null;
@@ -17,7 +19,6 @@ const vertexShader = /* glsl */ `
   attribute float aSeed;
   varying float vSeed;
 
-  // Simple curl-ish flow using cheap trig — fast and visually rich enough.
   uniform float uFlowSpeed;
 
   vec3 flow(vec3 p, float t) {
@@ -32,7 +33,6 @@ const vertexShader = /* glsl */ `
     vec3 p = position;
     vec3 disp = flow(p * 0.5 + aSeed, uTime * uFlowSpeed) * 0.6;
     p += disp;
-    // gentle orbit
     float ang = uTime * 0.05 * uFlowSpeed + aSeed * 0.0002;
     float cs = cos(ang), sn = sin(ang);
     p.xz = mat2(cs, -sn, sn, cs) * p.xz;
@@ -44,13 +44,29 @@ const vertexShader = /* glsl */ `
 `;
 
 const fragmentShader = /* glsl */ `
+  uniform float uColorRange;
+  uniform float uSaturation;
   varying float vSeed;
+
+  vec3 hsl2rgb(float h, float s, float l) {
+    vec3 rgb = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+    return l + s * (rgb - 0.5) * (1.0 - abs(2.0 * l - 1.0));
+  }
+
   void main() {
     vec2 uv = gl_PointCoord - 0.5;
     float d = length(uv);
     if (d > 0.5) discard;
     float alpha = smoothstep(0.5, 0.0, d);
-    vec3 col = 0.5 + 0.5 * cos(vSeed * 6.2831 + vec3(0.0, 2.094, 4.188));
+
+    // Cyberpunk hue: cyan (0.50) → blue (0.67) → magenta (0.83), no green
+    float hue = 0.5 + fract(vSeed * uColorRange) * 0.33;
+    vec3 col = hsl2rgb(hue, 1.0, 0.6);
+
+    // Apply saturation (0 = B&W, 1 = full color)
+    float gray = dot(col, vec3(0.299, 0.587, 0.114));
+    col = mix(vec3(gray), col, uSaturation);
+
     gl_FragColor = vec4(col, alpha);
   }
 `;
@@ -59,8 +75,10 @@ export const particles: Pattern = {
   id: "particles",
   name: "Particle Field",
   controls: [
-    { label: "Point Size", type: "range", min: 0.3, max: 5.0, step: 0.1, get: () => pointSize, set: (v) => { pointSize = v; } },
-    { label: "Flow Speed", type: "range", min: 0.1, max: 3.0, step: 0.1, get: () => flowSpeed, set: (v) => { flowSpeed = v; } },
+    { label: "Point Size",  type: "range", min: 0.3, max: 5.0,  step: 0.1,  get: () => pointSize,   set: (v) => { pointSize = v; } },
+    { label: "Flow Speed",  type: "range", min: 0.1, max: 3.0,  step: 0.1,  get: () => flowSpeed,   set: (v) => { flowSpeed = v; } },
+    { label: "Colors",      type: "range", min: 0.0, max: 1.0,  step: 0.05, get: () => colorRange,  set: (v) => { colorRange = v; } },
+    { label: "Saturation",  type: "range", min: 0.0, max: 1.0,  step: 0.05, get: () => saturation,  set: (v) => { saturation = v; } },
   ],
 
   init(ctx: PatternContext) {
@@ -86,9 +104,11 @@ export const particles: Pattern = {
 
     material = new THREE.ShaderMaterial({
       uniforms: {
-        uTime: { value: 0 },
-        uSize: { value: pointSize },
-        uFlowSpeed: { value: flowSpeed },
+        uTime:       { value: 0 },
+        uSize:       { value: pointSize },
+        uFlowSpeed:  { value: flowSpeed },
+        uColorRange: { value: colorRange },
+        uSaturation: { value: saturation },
       },
       vertexShader,
       fragmentShader,
@@ -106,6 +126,8 @@ export const particles: Pattern = {
     material.uniforms.uTime.value = elapsed;
     material.uniforms.uSize.value = pointSize;
     material.uniforms.uFlowSpeed.value = flowSpeed;
+    material.uniforms.uColorRange.value = colorRange;
+    material.uniforms.uSaturation.value = saturation;
   },
 
   resize() {},
