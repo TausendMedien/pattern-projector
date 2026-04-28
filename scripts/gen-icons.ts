@@ -15,11 +15,11 @@ function makePng(size: number): Uint8Array {
 
   // Draw colourful diagonal lines like the app patterns
   const colors: [number, number, number][] = [
-    [255, 120, 180], // pink
-    [120, 220, 255], // cyan
-    [180, 255, 120], // green
-    [255, 200, 80],  // yellow
-    [160, 120, 255], // purple
+    [255,  0, 200], // hot magenta
+    [  0, 240, 255], // electric cyan
+    [180,  0, 255], // neon purple
+    [  0, 180, 255], // electric blue
+    [255, 40, 100], // neon red-pink
   ];
   const lineWidth = Math.max(2, Math.round(size / 40));
 
