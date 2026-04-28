@@ -6,7 +6,7 @@ let geometry: THREE.PlaneGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
 
 let columnCount = 40;
-let scrollSpeed = 0.3;
+let scrollSpeed = 0.0;
 let dotSize = 0.35;
 let waveAmp = 0.2;
 let bubbleCount = 20;
@@ -78,8 +78,8 @@ const fragmentShader = /* glsl */ `
     vec3 col = dotColor * dotMask;
 
     // --- Large floating bubbles ---
-    int nBubbles = int(clamp(uBubbleCount, 0.0, 40.0));
-    for (int i = 0; i < 40; i++) {
+    int nBubbles = int(clamp(uBubbleCount, 0.0, 150.0));
+    for (int i = 0; i < 150; i++) {
       if (i >= nBubbles) break;
       float fi = float(i);
       float bx = (hash(fi * 3.7) - 0.5) * aspect;
@@ -93,7 +93,8 @@ const fragmentShader = /* glsl */ `
       vec3 bColor = mix(hsl2rgb(bHue, 1.0, 0.5), vec3(1.0), isWhite);
       float bGray = dot(bColor, vec3(0.299, 0.587, 0.114));
       bColor = mix(vec3(bGray), bColor, uSaturation);
-      float bubbleMask = smoothstep(bSize + 0.005, bSize - 0.005, bDist);
+      float aa = max(fwidth(bDist), 0.001);
+      float bubbleMask = smoothstep(bSize + aa, bSize - aa, bDist);
       col = mix(col, bColor, bubbleMask);
     }
 
@@ -109,7 +110,7 @@ export const dotRain: Pattern = {
     { label: "Scroll Speed",   type: "range", min: 0.0,  max: 1.0,  step: 0.01,  get: () => scrollSpeed, set: (v) => { scrollSpeed = v; } },
     { label: "Dot Size",       type: "range", min: 0.05, max: 0.9,  step: 0.01,  get: () => dotSize,     set: (v) => { dotSize = v; } },
     { label: "Wave Amplitude", type: "range", min: 0.0,  max: 0.5,  step: 0.01,  get: () => waveAmp,     set: (v) => { waveAmp = v; } },
-    { label: "Bubble Count",   type: "range", min: 0,    max: 40,   step: 1,     get: () => bubbleCount, set: (v) => { bubbleCount = v; } },
+    { label: "Bubble Count",   type: "range", min: 0,    max: 150,  step: 1,     get: () => bubbleCount, set: (v) => { bubbleCount = v; } },
     { label: "Bubble Size",    type: "range", min: 0.01, max: 0.15, step: 0.005, get: () => bubbleSize,  set: (v) => { bubbleSize = v; } },
     { label: "Colors",         type: "range", min: 0.0,  max: 1.0,  step: 0.05,  get: () => colorRange,  set: (v) => { colorRange = v; } },
     { label: "Color Speed",    type: "range", min: 0.0,  max: 1.0,  step: 0.05,  get: () => colorSpeed,  set: (v) => { colorSpeed = v; } },
