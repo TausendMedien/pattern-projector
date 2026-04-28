@@ -93,7 +93,7 @@ export const parallelLinesWave: Pattern = {
     { label: "Colors",          type: "range", min: 0.0, max: 1.0,  step: 0.05,  get: () => colorRange,  set: (v) => { colorRange = v; } },
     { label: "Color Speed",     type: "range", min: 0.0, max: 1.0,  step: 0.05,  get: () => colorSpeed,  set: (v) => { colorSpeed = v; } },
     { label: "Saturation",      type: "range", min: 0.0, max: 1.0,  step: 0.05,  get: () => saturation,  set: (v) => { saturation = v; } },
-    { label: "Rotate",          type: "range", min: 0.0, max: 1.0,  step: 0.05,  get: () => rotateSpeed, set: (v) => { rotateSpeed = v; } },
+    { label: "Rotate",          type: "range", min: 0.0, max: 0.5,  step: 0.01,  get: () => rotateSpeed, set: (v) => { rotateSpeed = v; } },
   ],
 
   init(ctx: PatternContext) {
