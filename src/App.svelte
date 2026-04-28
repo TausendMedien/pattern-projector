@@ -229,12 +229,13 @@
 {#if appState !== "overview" && patterns[index].controls?.length}
   <div
     class="pointer-events-auto fixed bottom-4 right-4 z-10 select-none transition-opacity duration-500 min-w-48"
+    style="max-height: calc(100dvh - 2rem)"
     class:opacity-0={!hudVisible}
     class:opacity-100={hudVisible}
   >
-    <div class="rounded-md border border-white/10 bg-black/60 px-4 py-3 text-white backdrop-blur-sm">
-      <div class="mb-2 text-xs uppercase tracking-widest text-white/50">Controls</div>
-      <div class="flex flex-col gap-2.5">
+    <div class="flex max-h-full flex-col rounded-md border border-white/10 bg-black/60 px-4 py-3 text-white backdrop-blur-sm">
+      <div class="mb-2 shrink-0 text-xs uppercase tracking-widest text-white/50">Controls</div>
+      <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">
         {#each patterns[index].controls! as ctrl}
           <div class="flex flex-col gap-1">
             <div class="flex justify-between text-xs text-white/70">
