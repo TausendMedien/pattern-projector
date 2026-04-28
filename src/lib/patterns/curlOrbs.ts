@@ -1,0 +1,174 @@
+import * as THREE from "three";
+import type { Pattern, PatternContext } from "./types";
+
+let mesh: THREE.Mesh | null = null;
+let geometry: THREE.PlaneGeometry | null = null;
+let material: THREE.ShaderMaterial | null = null;
+
+let lineCount   = 35;
+let lineWidth   = 0.3;
+let flowScale   = 2.5;
+let flowSpeed   = 0.06;
+let orbCount    = 12;
+let orbSize     = 0.035;
+let colorRange  = 0.25;
+let saturation  = 0.7;
+let colorSpeed  = 0.1;
+let brightness  = 1.0;
+let rotateSpeed = 0.0;
+
+let colorPhase = 0;
+let rotAngle   = 0;
+
+const vertexShader = /* glsl */ `
+  varying vec2 vUv;
+  void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
+`;
+
+const fragmentShader = /* glsl */ `
+  precision highp float;
+  varying vec2 vUv;
+  uniform float uTime;
+  uniform vec2  uResolution;
+  uniform float uLineCount;
+  uniform float uLineWidth;
+  uniform float uFlowScale;
+  uniform float uFlowSpeed;
+  uniform float uOrbCount;
+  uniform float uOrbSize;
+  uniform float uColorRange;
+  uniform float uSaturation;
+  uniform float uColorPhase;
+  uniform float uBrightness;
+  uniform float uRotAngle;
+
+  float hash1(float n) { return fract(sin(n * 127.1) * 43758.5453); }
+  float hash(vec2 p)   { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float noise(vec2 p) {
+    vec2 i = floor(p), f = fract(p), u = f*f*(3.0-2.0*f);
+    return mix(mix(hash(i), hash(i+vec2(1,0)), u.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u.x), u.y);
+  }
+  float fbm(vec2 p) {
+    float v = 0.0, a = 0.5;
+    for (int i = 0; i < 6; i++) { v += a*noise(p); p = p*2.1+vec2(3.1,1.7); a *= 0.5; }
+    return v;
+  }
+  vec3 hsl2rgb(float h, float s, float l) {
+    vec3 rgb = clamp(abs(mod(h*6.0+vec3(0,4,2),6.0)-3.0)-1.0, 0.0, 1.0);
+    return l + s*(rgb-0.5)*(1.0-abs(2.0*l-1.0));
+  }
+
+  void main() {
+    float aspect = uResolution.x / max(uResolution.y, 1.0);
+    vec2 c = (vUv - 0.5) * vec2(aspect, 1.0);
+    float cosR = cos(uRotAngle), sinR = sin(uRotAngle);
+    vec2 p = vec2(c.x*cosR - c.y*sinR, c.x*sinR + c.y*cosR);
+    float t = uTime * uFlowSpeed;
+
+    // Domain-warped fbm — contour lines naturally spiral into vortices
+    vec2 q   = vec2(fbm(p * uFlowScale + t), fbm(p * uFlowScale + vec2(5.2, 1.3) - t*0.8));
+    float phi = fbm(p * uFlowScale * 0.65 + 2.8 * q);
+
+    float band = fract(phi * uLineCount);
+    float aa   = max(fwidth(band), 0.004);
+    float lw   = clamp(uLineWidth * 0.5, aa*2.0, 0.48);
+    float line = smoothstep(0.0, aa, band) * smoothstep(lw, lw - aa, band);
+
+    // Line color: white with faint teal hue shift
+    float hue = 0.5 + sin(uColorPhase + phi * uColorRange * 6.28) * 0.08;
+    vec3 lineCol = mix(hsl2rgb(hue, uSaturation, 0.65), vec3(1.0), 0.45);
+
+    // Very dark teal background
+    vec3 bgCol = mix(vec3(0.0, 0.025, 0.04), vec3(0.0, 0.07, 0.1), phi * 0.6 + 0.2);
+    vec3 col = bgCol + lineCol * line * uBrightness;
+
+    // Glowing white orbs
+    int nOrbs = int(clamp(uOrbCount, 0.0, 40.0));
+    for (int i = 0; i < 40; i++) {
+      if (i >= nOrbs) break;
+      float fi  = float(i);
+      float bx  = (hash1(fi * 3.7) - 0.5) * aspect;
+      float by  = hash1(fi * 11.3) - 0.5;
+      float bxA = bx + sin(uTime * 0.07 + fi * 2.1) * 0.015 * aspect;
+      float byA = by + sin(uTime * 0.05 + fi * 3.3) * 0.012;
+      float bSz = uOrbSize * (0.35 + hash1(fi * 5.1) * 1.0);
+      float bd  = length(p - vec2(bxA, byA));
+      float aao = max(fwidth(bd), 0.001);
+      float hard = smoothstep(bSz + aao, bSz - aao, bd);
+      float glow = exp(-bd * bd / (bSz * bSz * 6.0)) * 0.35;
+      col += vec3(1.0) * (hard + glow) * uBrightness;
+    }
+
+    gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+  }
+`;
+
+export const curlOrbs: Pattern = {
+  id: "curlOrbs",
+  name: "Curl Orbs",
+  controls: [
+    { label: "Line Count",   type: "range", min: 10,   max: 100,  step: 1,    get: () => lineCount,   set: (v) => { lineCount = v; } },
+    { label: "Line Width",   type: "range", min: 0.05, max: 0.9,  step: 0.01, get: () => lineWidth,   set: (v) => { lineWidth = v; } },
+    { label: "Flow Scale",   type: "range", min: 0.5,  max: 5.0,  step: 0.1,  get: () => flowScale,   set: (v) => { flowScale = v; } },
+    { label: "Flow Speed",   type: "range", min: 0.0,  max: 0.3,  step: 0.005,get: () => flowSpeed,   set: (v) => { flowSpeed = v; } },
+    { label: "Orb Count",    type: "range", min: 0,    max: 40,   step: 1,    get: () => orbCount,    set: (v) => { orbCount = v; } },
+    { label: "Orb Size",     type: "range", min: 0.01, max: 0.12, step: 0.005,get: () => orbSize,     set: (v) => { orbSize = v; } },
+    { label: "Colors",       type: "range", min: 0.0,  max: 1.0,  step: 0.05, get: () => colorRange,  set: (v) => { colorRange = v; } },
+    { label: "Color Speed",  type: "range", min: 0.0,  max: 1.0,  step: 0.05, get: () => colorSpeed,  set: (v) => { colorSpeed = v; } },
+    { label: "Saturation",   type: "range", min: 0.0,  max: 1.0,  step: 0.05, get: () => saturation,  set: (v) => { saturation = v; } },
+    { label: "Brightness",   type: "range", min: 0.2,  max: 2.0,  step: 0.05, get: () => brightness,  set: (v) => { brightness = v; } },
+    { label: "Rotate",       type: "range", min: 0.0,  max: 0.5,  step: 0.01, get: () => rotateSpeed, set: (v) => { rotateSpeed = v; } },
+  ],
+
+  init(ctx: PatternContext) {
+    geometry = new THREE.PlaneGeometry(2, 2);
+    material = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime:       { value: 0 },
+        uResolution: { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
+        uLineCount:  { value: lineCount },
+        uLineWidth:  { value: lineWidth },
+        uFlowScale:  { value: flowScale },
+        uFlowSpeed:  { value: flowSpeed },
+        uOrbCount:   { value: orbCount },
+        uOrbSize:    { value: orbSize },
+        uColorRange: { value: colorRange },
+        uSaturation: { value: saturation },
+        uColorPhase: { value: colorPhase },
+        uBrightness: { value: brightness },
+        uRotAngle:   { value: rotAngle },
+      },
+      vertexShader, fragmentShader, depthTest: false, depthWrite: false,
+    });
+    mesh = new THREE.Mesh(geometry, material);
+    mesh.frustumCulled = false;
+    ctx.scene.add(mesh);
+  },
+
+  update(dt: number, elapsed: number) {
+    if (!material) return;
+    colorPhase += dt * colorSpeed * 0.5;
+    rotAngle   += dt * rotateSpeed * 1.5;
+    material.uniforms.uTime.value       = elapsed;
+    material.uniforms.uLineCount.value  = lineCount;
+    material.uniforms.uLineWidth.value  = lineWidth;
+    material.uniforms.uFlowScale.value  = flowScale;
+    material.uniforms.uFlowSpeed.value  = flowSpeed;
+    material.uniforms.uOrbCount.value   = orbCount;
+    material.uniforms.uOrbSize.value    = orbSize;
+    material.uniforms.uColorRange.value = colorRange;
+    material.uniforms.uSaturation.value = saturation;
+    material.uniforms.uColorPhase.value = colorPhase;
+    material.uniforms.uBrightness.value = brightness;
+    material.uniforms.uRotAngle.value   = rotAngle;
+  },
+
+  resize(width: number, height: number) {
+    if (material) material.uniforms.uResolution.value.set(width, height);
+  },
+
+  dispose() {
+    geometry?.dispose(); material?.dispose();
+    mesh = null; geometry = null; material = null;
+  },
+};
