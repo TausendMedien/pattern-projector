@@ -11,6 +11,11 @@ let lineWidth = 0.10;
 let waveAmp = 0.04;
 let colorRange = 0.5;
 let saturation = 0.85;
+let colorSpeed = 0.4;
+let rotateSpeed = 0.0;
+
+let colorPhase = 0;
+let rotAngle = 0;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -31,6 +36,8 @@ const fragmentShader = /* glsl */ `
   uniform float uWaveAmp;
   uniform float uColorRange;
   uniform float uSaturation;
+  uniform float uColorPhase;
+  uniform float uRotAngle;
 
   vec3 hsl2rgb(float h, float s, float l) {
     vec3 rgb = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
@@ -39,7 +46,13 @@ const fragmentShader = /* glsl */ `
 
   void main() {
     float aspect = uResolution.x / max(uResolution.y, 1.0);
-    vec2 uv = (vUv - 0.5) * vec2(aspect, 1.0);
+
+    // Rotate UV around center
+    vec2 centered = (vUv - 0.5) * vec2(aspect, 1.0);
+    float cosR = cos(uRotAngle);
+    float sinR = sin(uRotAngle);
+    vec2 uv = vec2(centered.x * cosR - centered.y * sinR,
+                   centered.x * sinR + centered.y * cosR);
 
     float waveFreq = 3.0;
     float scroll = uTime * uScrollSpeed;
@@ -54,13 +67,11 @@ const fragmentShader = /* glsl */ `
 
     if (line < 0.01) discard;
 
-    // Cyberpunk hue: cyan (0.50) → blue (0.67) → magenta (0.83)
-    float rawHue = fract(uv.x * 0.25 * uColorRange + uTime * 0.06);
-    float hue = 0.5 + rawHue * 0.33;
+    // Smooth cyberpunk hue: sin oscillation between cyan (0.50) and magenta (0.83)
+    float hue = 0.665 + sin(uColorPhase + uv.x * uColorRange * 3.14159) * 0.165;
     float lit = 0.55 + 0.15 * sin(uTime * 0.4 + uv.y * 2.0);
     vec3 col = hsl2rgb(hue, 1.0, lit);
 
-    // Saturation (0 = B&W, 1 = full color)
     float gray = dot(col, vec3(0.299, 0.587, 0.114));
     col = mix(vec3(gray), col, uSaturation);
 
@@ -80,7 +91,9 @@ export const parallelLinesWave: Pattern = {
     { label: "Line Width",      type: "range", min: 0.02,max: 0.4,  step: 0.01,  get: () => lineWidth,   set: (v) => { lineWidth = v; } },
     { label: "Wave Amplitude",  type: "range", min: 0.0, max: 0.15, step: 0.005, get: () => waveAmp,     set: (v) => { waveAmp = v; } },
     { label: "Colors",          type: "range", min: 0.0, max: 1.0,  step: 0.05,  get: () => colorRange,  set: (v) => { colorRange = v; } },
+    { label: "Color Speed",     type: "range", min: 0.0, max: 1.0,  step: 0.05,  get: () => colorSpeed,  set: (v) => { colorSpeed = v; } },
     { label: "Saturation",      type: "range", min: 0.0, max: 1.0,  step: 0.05,  get: () => saturation,  set: (v) => { saturation = v; } },
+    { label: "Rotate",          type: "range", min: 0.0, max: 1.0,  step: 0.05,  get: () => rotateSpeed, set: (v) => { rotateSpeed = v; } },
   ],
 
   init(ctx: PatternContext) {
@@ -95,6 +108,8 @@ export const parallelLinesWave: Pattern = {
         uWaveAmp:     { value: waveAmp },
         uColorRange:  { value: colorRange },
         uSaturation:  { value: saturation },
+        uColorPhase:  { value: colorPhase },
+        uRotAngle:    { value: rotAngle },
       },
       vertexShader,
       fragmentShader,
@@ -108,15 +123,19 @@ export const parallelLinesWave: Pattern = {
     ctx.scene.add(mesh);
   },
 
-  update(_dt: number, elapsed: number) {
+  update(dt: number, elapsed: number) {
     if (!material) return;
-    material.uniforms.uTime.value = elapsed;
-    material.uniforms.uLineCount.value = lineCount;
+    colorPhase += dt * colorSpeed * 0.6;
+    rotAngle   += dt * rotateSpeed * 1.5;
+    material.uniforms.uTime.value        = elapsed;
+    material.uniforms.uLineCount.value   = lineCount;
     material.uniforms.uScrollSpeed.value = scrollSpeed;
-    material.uniforms.uLineWidth.value = lineWidth;
-    material.uniforms.uWaveAmp.value = waveAmp;
-    material.uniforms.uColorRange.value = colorRange;
-    material.uniforms.uSaturation.value = saturation;
+    material.uniforms.uLineWidth.value   = lineWidth;
+    material.uniforms.uWaveAmp.value     = waveAmp;
+    material.uniforms.uColorRange.value  = colorRange;
+    material.uniforms.uSaturation.value  = saturation;
+    material.uniforms.uColorPhase.value  = colorPhase;
+    material.uniforms.uRotAngle.value    = rotAngle;
   },
 
   resize(width: number, height: number) {

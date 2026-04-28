@@ -20,6 +20,19 @@
   let isIosStandalone = $state(false);
   let isIosBrowser = $state(false);
 
+  // Reactive mirror of current pattern's control values so the number display
+  // updates live as the user drags a slider.
+  let ctrlVals = $state<Record<string, number>>({});
+
+  function syncCtrlVals() {
+    const next: Record<string, number> = {};
+    for (const c of patterns[index]?.controls ?? []) next[c.label] = c.get();
+    ctrlVals = next;
+  }
+
+  // Re-sync whenever the active pattern changes.
+  $effect(() => { const _ = index; syncCtrlVals(); });
+
   function poke() {
     hudVisible = true;
     if (hudTimer) clearTimeout(hudTimer);
@@ -136,6 +149,7 @@
     isIosStandalone = isIos && (navigator as any).standalone === true;
     isIosBrowser = isIos && !isIosStandalone;
     loadSettings(patterns);
+    syncCtrlVals(); // pick up any saved values
     handle = createRenderer(canvas, patterns[0]);
 
     const detach = attachKeyboard(handleAction);
@@ -226,7 +240,9 @@
             <div class="flex justify-between text-xs text-white/70">
               <span>{ctrl.label}</span>
               {#if ctrl.type === "range"}
-                <span class="font-mono text-white/40">{ctrl.get().toFixed(ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}</span>
+                <span class="font-mono text-white/40">
+                  {(ctrlVals[ctrl.label] ?? ctrl.get()).toFixed(ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}
+                </span>
               {/if}
             </div>
             {#if ctrl.type === "range"}
@@ -235,8 +251,13 @@
                 min={ctrl.min}
                 max={ctrl.max}
                 step={ctrl.step}
-                value={ctrl.get()}
-                oninput={(e) => { ctrl.set(parseFloat((e.target as HTMLInputElement).value)); saveSettings(patterns); }}
+                value={ctrlVals[ctrl.label] ?? ctrl.get()}
+                oninput={(e) => {
+                  const v = parseFloat((e.target as HTMLInputElement).value);
+                  ctrl.set(v);
+                  ctrlVals[ctrl.label] = v;
+                  saveSettings(patterns);
+                }}
                 class="w-full accent-white cursor-pointer"
               />
             {:else if ctrl.type === "select"}

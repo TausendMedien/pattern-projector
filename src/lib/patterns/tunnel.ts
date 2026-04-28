@@ -8,6 +8,9 @@ let twist = 0.07;
 let ringCount = 60;
 let lineThickness = 0.1;
 let saturation = 0.85;
+let colorSpeed = 0.5;
+
+let colorPhase = 0;
 
 let group: THREE.Group | null = null;
 let camera: THREE.PerspectiveCamera | null = null;
@@ -43,11 +46,12 @@ export const tunnel: Pattern = {
   id: "tunnel",
   name: "Tunnel",
   controls: [
-    { label: "Speed",      type: "range", min: 0.5, max: 15,  step: 0.5,  get: () => speed,         set: (v) => { speed = v; } },
-    { label: "Twist",      type: "range", min: 0,   max: 0.3, step: 0.005,get: () => twist,         set: (v) => { twist = v; } },
-    { label: "Ring Count", type: "range", min: 10,  max: 120, step: 2,    get: () => ringCount,     set: (v) => { ringCount = v; buildRings(); } },
-    { label: "Thickness",  type: "range", min: 0.02,max: 0.5, step: 0.02, get: () => lineThickness, set: (v) => { lineThickness = v; buildRings(); } },
-    { label: "Saturation", type: "range", min: 0.0, max: 1.0, step: 0.05, get: () => saturation,    set: (v) => { saturation = v; } },
+    { label: "Speed",        type: "range", min: 0.5, max: 15,  step: 0.5,  get: () => speed,         set: (v) => { speed = v; } },
+    { label: "Twist",        type: "range", min: 0,   max: 0.3, step: 0.005,get: () => twist,         set: (v) => { twist = v; } },
+    { label: "Ring Count",   type: "range", min: 10,  max: 120, step: 2,    get: () => ringCount,     set: (v) => { ringCount = v; buildRings(); } },
+    { label: "Thickness",    type: "range", min: 0.02,max: 0.5, step: 0.02, get: () => lineThickness, set: (v) => { lineThickness = v; buildRings(); } },
+    { label: "Saturation",   type: "range", min: 0.0, max: 1.0, step: 0.05, get: () => saturation,    set: (v) => { saturation = v; } },
+    { label: "Color Speed",  type: "range", min: 0.0, max: 1.0, step: 0.05, get: () => colorSpeed,    set: (v) => { colorSpeed = v; } },
   ],
 
   init(ctx: PatternContext) {
@@ -62,7 +66,7 @@ export const tunnel: Pattern = {
     buildRings();
   },
 
-  update(dt: number, elapsed: number) {
+  update(dt: number, _elapsed: number) {
     if (!group || !camera) return;
     const limitFront = 1;
     const limitBack = -ringCount * RING_SPACING;
@@ -74,11 +78,10 @@ export const tunnel: Pattern = {
       ring.rotation.z += dt * 0.3;
     }
     if (material) {
-      // Cycle through cyan (0.50) → blue (0.67) → magenta (0.83)
-      const t = (elapsed * 0.04) % 1.0;
-      const hue = 0.5 + t * 0.33;
-      const sat = saturation * 0.85;
-      material.color.setHSL(hue, sat, 0.6);
+      // colorSpeed=0 → phase stays fixed (no change); colorSpeed=1 → same rate as before
+      colorPhase += dt * colorSpeed * 0.3;
+      const hue = 0.5 + (colorPhase % 1.0) * 0.33;
+      material.color.setHSL(hue, saturation * 0.85, 0.6);
     }
   },
 

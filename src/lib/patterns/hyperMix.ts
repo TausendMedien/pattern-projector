@@ -1,11 +1,14 @@
 import * as THREE from "three";
 import type { Pattern, PatternContext } from "./types";
 
+const BASE_COUNT = 40000;
+
 const params = {
   speed: 0.04,
   curlScale: 0.35,
   spread: 1.6,
   pointSize: 2.0,
+  blur: 0.25,        // 0 = hard circle, 1 = full soft glow
   pointCount: 40000,
   saturation: 0.9,
 };
@@ -26,7 +29,6 @@ attribute float aSide;
 varying float vColorRatio;
 varying float vAlpha;
 
-// ── 3-D Simplex noise (Stefan Gustavson, public domain) ───────────────────────
 vec3 _mod289(vec3 x){ return x - floor(x*(1./289.))*289.; }
 vec4 _mod289(vec4 x){ return x - floor(x*(1./289.))*289.; }
 vec4 _perm(vec4 x){ return _mod289(((x*34.)+1.)*x); }
@@ -74,7 +76,6 @@ float snoise(vec3 v){
   return 42. * dot(m*m, vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
 }
 
-// ── Curl noise via numerical differentiation of a vector potential field ──────
 vec3 curlNoise(vec3 p) {
   const float e = 0.07;
   const vec3 OFF1 = vec3(31.416, 127.1,  311.7);
@@ -119,9 +120,12 @@ void main() {
   pos.x -= aSide * smoothstep(0., 0.4, tLife) * uSpread * 0.5;
 
   vColorRatio = aSide * 0.5 + 0.5;
+
+  // Linear size scale capped at 1: points smaller than ref keep full alpha;
+  // larger points get proportionally dimmer so they don't bloom into white glows.
   float sizeRef = 2.0;
-  float areaNorm = (sizeRef * sizeRef) / (uPtSize * uPtSize);
-  vAlpha = smoothstep(0.0, 0.08, tLife) * smoothstep(1.0, 0.75, tLife) * areaNorm;
+  float sizeScale = min(1.0, sizeRef / uPtSize);
+  vAlpha = smoothstep(0.0, 0.08, tLife) * smoothstep(1.0, 0.75, tLife) * sizeScale;
 
   vec4 mv = modelViewMatrix * vec4(pos, 1.0);
   gl_Position = projectionMatrix * mv;
@@ -134,6 +138,8 @@ const fragmentShader = /* glsl */ `
 uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform float uSaturation;
+uniform float uBlur;
+uniform float uCountScale;
 
 varying float vColorRatio;
 varying float vAlpha;
@@ -142,11 +148,21 @@ void main() {
   vec2 uv = gl_PointCoord - 0.5;
   float d = length(uv);
   if (d > 0.5) discard;
-  float alpha = smoothstep(0.5, 0.0, d) * vAlpha * 0.7;
+
+  // Blur=0 → hard-edged circle; Blur=1 → full soft gradient.
+  // The transition to soft only kicks in visibly past the lower portion of the range.
+  float innerEdge = mix(0.49, 0.0, uBlur);
+  float softness  = smoothstep(0.5, innerEdge, d);
+
+  float alpha = softness * vAlpha * uCountScale * 0.7;
+
   vec3 col = mix(uColor1, uColor2, vColorRatio);
-  col = mix(col, vec3(1.0), smoothstep(0.3, 0.0, d) * 0.4);
+  // Subtle highlight at the centre — only present when there is some blur
+  col = mix(col, vec3(1.0), smoothstep(0.3, 0.0, d) * 0.4 * uBlur);
+
   float gray = dot(col, vec3(0.299, 0.587, 0.114));
   col = mix(vec3(gray), col, uSaturation);
+
   gl_FragColor = vec4(col, alpha);
 }
 `;
@@ -187,58 +203,37 @@ export const hyperMix: Pattern = {
   controls: [
     {
       label: "Speed",
-      type: "range",
-      min: 0.002,
-      max: 0.6,
-      step: 0.002,
+      type: "range", min: 0.002, max: 0.6, step: 0.002,
       get: () => params.speed,
-      set: (v) => {
-        params.speed = v;
-        if (material) material.uniforms.uSpeed.value = v;
-      },
+      set: (v) => { params.speed = v; if (material) material.uniforms.uSpeed.value = v; },
     },
     {
       label: "Turbulence",
-      type: "range",
-      min: 0.01,
-      max: 2.5,
-      step: 0.01,
+      type: "range", min: 0.01, max: 1.25, step: 0.01,
       get: () => params.curlScale,
-      set: (v) => {
-        params.curlScale = v;
-        if (material) material.uniforms.uCurlScale.value = v;
-      },
+      set: (v) => { params.curlScale = v; if (material) material.uniforms.uCurlScale.value = v; },
     },
     {
       label: "Spread",
-      type: "range",
-      min: 0.1,
-      max: 6.0,
-      step: 0.1,
+      type: "range", min: 0.1, max: 6.0, step: 0.1,
       get: () => params.spread,
-      set: (v) => {
-        params.spread = v;
-        if (material) material.uniforms.uSpread.value = v;
-      },
+      set: (v) => { params.spread = v; if (material) material.uniforms.uSpread.value = v; },
     },
     {
       label: "Point Size",
-      type: "range",
-      min: 0.2,
-      max: 12.0,
-      step: 0.2,
+      type: "range", min: 0.2, max: 12.0, step: 0.2,
       get: () => params.pointSize,
-      set: (v) => {
-        params.pointSize = v;
-        if (material) material.uniforms.uPtSize.value = v;
-      },
+      set: (v) => { params.pointSize = v; if (material) material.uniforms.uPtSize.value = v; },
+    },
+    {
+      label: "Blur",
+      type: "range", min: 0.0, max: 1.0, step: 0.05,
+      get: () => params.blur,
+      set: (v) => { params.blur = v; if (material) material.uniforms.uBlur.value = v; },
     },
     {
       label: "Point Count",
-      type: "range",
-      min: 5000,
-      max: 100000,
-      step: 5000,
+      type: "range", min: 5000, max: 100000, step: 5000,
       get: () => params.pointCount,
       set: (v) => {
         params.pointCount = v;
@@ -253,15 +248,9 @@ export const hyperMix: Pattern = {
     },
     {
       label: "Saturation",
-      type: "range",
-      min: 0.0,
-      max: 1.0,
-      step: 0.05,
+      type: "range", min: 0.0, max: 1.0, step: 0.05,
       get: () => params.saturation,
-      set: (v) => {
-        params.saturation = v;
-        if (material) material.uniforms.uSaturation.value = v;
-      },
+      set: (v) => { params.saturation = v; if (material) material.uniforms.uSaturation.value = v; },
     },
   ],
 
@@ -275,13 +264,15 @@ export const hyperMix: Pattern = {
 
     material = new THREE.ShaderMaterial({
       uniforms: {
-        uTime:      { value: 0 },
-        uSpeed:     { value: params.speed },
-        uCurlScale: { value: params.curlScale },
-        uSpread:    { value: params.spread },
-        uPtSize:    { value: params.pointSize },
-        uColor1:    { value: new THREE.Color(0x00ccff) },  // cyan
-        uColor2:    { value: new THREE.Color(0xff00cc) },  // magenta
+        uTime:       { value: 0 },
+        uSpeed:      { value: params.speed },
+        uCurlScale:  { value: params.curlScale },
+        uSpread:     { value: params.spread },
+        uPtSize:     { value: params.pointSize },
+        uBlur:       { value: params.blur },
+        uCountScale: { value: 1.0 },
+        uColor1:     { value: new THREE.Color(0x00ccff) },
+        uColor2:     { value: new THREE.Color(0xff00cc) },
         uSaturation: { value: params.saturation },
       },
       vertexShader,
@@ -296,7 +287,10 @@ export const hyperMix: Pattern = {
   },
 
   update(_dt: number, elapsed: number) {
-    if (material) material.uniforms.uTime.value = elapsed;
+    if (!material) return;
+    material.uniforms.uTime.value = elapsed;
+    // Prevent overexposure when point count exceeds the base count.
+    material.uniforms.uCountScale.value = Math.min(1.0, BASE_COUNT / params.pointCount);
   },
 
   resize() {},
