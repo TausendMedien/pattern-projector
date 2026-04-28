@@ -3,7 +3,9 @@ import type { Pattern, PatternContext } from "./types";
 
 const RING_COUNT = 60;
 const RING_SPACING = 1.5;
-const SPEED = 12;
+
+let speed = 12;
+let twist = 0.07;
 
 let group: THREE.Group | null = null;
 let camera: THREE.PerspectiveCamera | null = null;
@@ -14,6 +16,10 @@ const rings: THREE.LineSegments[] = [];
 export const tunnel: Pattern = {
   id: "tunnel",
   name: "Tunnel",
+  controls: [
+    { label: "Speed", type: "range", min: 1, max: 40, step: 0.5, get: () => speed, set: (v) => { speed = v; } },
+    { label: "Twist", type: "range", min: 0, max: 0.3, step: 0.005, get: () => twist, set: (v) => { twist = v; } },
+  ],
 
   init(ctx: PatternContext) {
     camera = ctx.camera;
@@ -30,7 +36,7 @@ export const tunnel: Pattern = {
     for (let i = 0; i < RING_COUNT; i++) {
       const ring = new THREE.LineSegments(edges, material);
       ring.position.z = -i * RING_SPACING;
-      ring.rotation.z = i * 0.07;
+      ring.rotation.z = i * twist;
       group.add(ring);
       rings.push(ring);
     }
@@ -41,7 +47,7 @@ export const tunnel: Pattern = {
     const limitFront = 1;
     const limitBack = -RING_COUNT * RING_SPACING;
     for (const ring of rings) {
-      ring.position.z += SPEED * dt;
+      ring.position.z += speed * dt;
       if (ring.position.z > limitFront) {
         ring.position.z += limitBack;
       }

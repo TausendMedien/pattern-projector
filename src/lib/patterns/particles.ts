@@ -3,6 +3,9 @@ import type { Pattern, PatternContext } from "./types";
 
 const COUNT = 50000;
 
+let pointSize = 1.6;
+let flowSpeed = 1.0;
+
 let points: THREE.Points | null = null;
 let geometry: THREE.BufferGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
@@ -15,6 +18,8 @@ const vertexShader = /* glsl */ `
   varying float vSeed;
 
   // Simple curl-ish flow using cheap trig — fast and visually rich enough.
+  uniform float uFlowSpeed;
+
   vec3 flow(vec3 p, float t) {
     float a = sin(p.y * 0.7 + t * 0.4) + cos(p.z * 0.6 - t * 0.3);
     float b = sin(p.z * 0.5 - t * 0.35) + cos(p.x * 0.7 + t * 0.25);
@@ -25,10 +30,10 @@ const vertexShader = /* glsl */ `
   void main() {
     vSeed = aSeed;
     vec3 p = position;
-    vec3 disp = flow(p * 0.5 + aSeed, uTime) * 0.6;
+    vec3 disp = flow(p * 0.5 + aSeed, uTime * uFlowSpeed) * 0.6;
     p += disp;
     // gentle orbit
-    float ang = uTime * 0.05 + aSeed * 0.0002;
+    float ang = uTime * 0.05 * uFlowSpeed + aSeed * 0.0002;
     float cs = cos(ang), sn = sin(ang);
     p.xz = mat2(cs, -sn, sn, cs) * p.xz;
 
@@ -53,6 +58,10 @@ const fragmentShader = /* glsl */ `
 export const particles: Pattern = {
   id: "particles",
   name: "Particle Field",
+  controls: [
+    { label: "Point Size", type: "range", min: 0.3, max: 5.0, step: 0.1, get: () => pointSize, set: (v) => { pointSize = v; } },
+    { label: "Flow Speed", type: "range", min: 0.1, max: 3.0, step: 0.1, get: () => flowSpeed, set: (v) => { flowSpeed = v; } },
+  ],
 
   init(ctx: PatternContext) {
     camera = ctx.camera;
@@ -78,7 +87,8 @@ export const particles: Pattern = {
     material = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
-        uSize: { value: 1.6 },
+        uSize: { value: pointSize },
+        uFlowSpeed: { value: flowSpeed },
       },
       vertexShader,
       fragmentShader,
@@ -92,7 +102,10 @@ export const particles: Pattern = {
   },
 
   update(_dt: number, elapsed: number) {
-    if (material) material.uniforms.uTime.value = elapsed;
+    if (!material) return;
+    material.uniforms.uTime.value = elapsed;
+    material.uniforms.uSize.value = pointSize;
+    material.uniforms.uFlowSpeed.value = flowSpeed;
   },
 
   resize() {},
