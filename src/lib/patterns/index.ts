@@ -5,6 +5,7 @@ import { tunnel } from "./tunnel";
 import { shaderGradient } from "./shaderGradient";
 import { parallelLinesStraight } from "./parallelLinesStraight";
 import { parallelLinesWave } from "./parallelLinesWave";
+import { hyperMix } from "./hyperMix";
 
 export const patterns: Pattern[] = [
   lines3d,
@@ -13,4 +14,5 @@ export const patterns: Pattern[] = [
   shaderGradient,
   parallelLinesStraight,
   parallelLinesWave,
+  hyperMix,
 ];
