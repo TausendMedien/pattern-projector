@@ -93,9 +93,12 @@ const fragmentShader = /* glsl */ `
       vec3 bColor = mix(hsl2rgb(bHue, 1.0, 0.5), vec3(1.0), isWhite);
       float bGray = dot(bColor, vec3(0.299, 0.587, 0.114));
       bColor = mix(vec3(bGray), bColor, uSaturation);
-      float aa = max(fwidth(bDist), 0.001);
-      float bubbleMask = smoothstep(bSize + aa, bSize - aa, bDist);
-      col = mix(col, bColor, bubbleMask);
+      // Gaussian glow: no hard edge, smooth at any size
+      float nd   = bDist / bSize;
+      float core = exp(-nd * nd * 3.0);
+      float halo = exp(-nd * nd * 0.5);
+      float glow = clamp(core * 0.9 + halo * 0.35, 0.0, 1.0);
+      col = mix(col, bColor, glow);
     }
 
     gl_FragColor = vec4(col, 1.0);

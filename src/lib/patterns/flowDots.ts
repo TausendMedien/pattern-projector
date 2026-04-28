@@ -7,10 +7,10 @@ let material: THREE.ShaderMaterial | null = null;
 
 let dotDensity  = 18;
 let dotSize     = 0.55;
-let flowScale   = 1.8;
+let warpAmount  = 1.2;
 let flowSpeed   = 0.08;
 let perspective = 0.8;
-let saturation  = 0.6;
+let saturation  = 0.7;
 let colorSpeed  = 0.1;
 let brightness  = 1.0;
 let rotateSpeed = 0.0;
@@ -30,7 +30,7 @@ const fragmentShader = /* glsl */ `
   uniform vec2  uResolution;
   uniform float uDotDensity;
   uniform float uDotSize;
-  uniform float uFlowScale;
+  uniform float uWarpAmount;
   uniform float uFlowSpeed;
   uniform float uPerspective;
   uniform float uSaturation;
@@ -56,39 +56,42 @@ const fragmentShader = /* glsl */ `
     vec2 p = vec2(c.x*cosR - c.y*sinR, c.x*sinR + c.y*cosR);
     float t = uTime * uFlowSpeed;
 
-    // Flow-space coordinates
-    float fu = fbm(p * uFlowScale + t);
-    float fv = fbm(p * uFlowScale + vec2(5.2, 1.3) - t * 0.6);
+    // Baroque-style domain warp — teal version
+    vec2 q = vec2(fbm(p * 1.4 + t),
+                  fbm(p * 1.4 + vec2(5.2, 1.3) - t * 0.75));
+    vec2 r = vec2(fbm(p * 0.9 + uWarpAmount * q + vec2(1.7, 9.2) + t * 0.45),
+                  fbm(p * 0.9 + uWarpAmount * q + vec2(8.3, 2.8) - t * 0.3));
+    float phi = fbm(p * 0.7 + uWarpAmount * r);
 
-    // Dot grid in flow space
-    vec2 fc  = vec2(fu, fv) * uDotDensity;
-    vec2 cf  = fract(fc) - 0.5;
+    // Rich organic teal background — no flat areas
+    vec3 bgCol = mix(vec3(0.0, 0.06, 0.10), vec3(0.0, 0.32, 0.40), phi * phi * 1.8);
+    bgCol = mix(bgCol, vec3(0.0, 0.48, 0.52), q.y * 0.30);
+    bgCol = mix(bgCol, vec3(0.0, 0.18, 0.28), r.x * 0.25);
+
+    // Dot grid warped by flow — dots follow organic curves
+    vec2 warpedP = p + (q - 0.5) * uWarpAmount * 0.32;
+    vec2 cf = fract(warpedP * uDotDensity) - 0.5;
     float dd = length(cf);
 
-    // Perspective: dots grow toward lower-right corner
-    float persp = clamp(0.08 + uPerspective * ((p.x / aspect + 0.5) * 0.55 + (-p.y + 0.5) * 0.45), 0.08, 1.0);
-    float r  = uDotSize * persp * 0.45;
-    float aa = max(fwidth(dd), 0.002);
-    float dotMask = smoothstep(r + aa, r - aa, dd);
+    // Dot size: flow field crest + perspective gradient
+    float perspGrad = clamp((p.x / aspect + 0.55) * 0.45 + (-p.y + 0.5) * 0.4, 0.04, 1.0);
+    float rDot = uDotSize * (0.12 + 0.55 * phi + 0.33 * perspGrad * uPerspective) * 0.44;
+    float aa   = max(fwidth(dd), 0.003);
+    float dotMask = smoothstep(rDot + aa, rDot - aa, dd);
 
-    // Sphere shading (subtle for teal palette)
-    vec2  ln   = cf / max(r, 0.001);
-    float nz   = sqrt(max(0.0, 1.0 - dot(ln, ln)));
-    vec3  sphN = normalize(vec3(ln, nz));
-    vec3  ldir = normalize(vec3(-0.3, 0.6, 0.9));
-    float diff = max(0.0, dot(sphN, ldir));
-    float spec = pow(max(0.0, dot(reflect(-ldir, sphN), vec3(0,0,1))), 20.0);
+    // Sphere shading — teal to white
+    vec2  ln  = cf / max(rDot, 0.001);
+    float nz  = sqrt(max(0.0, 1.0 - dot(ln, ln)));
+    vec3  sN  = normalize(vec3(ln, nz));
+    vec3  ld  = normalize(vec3(-0.3, 0.65, 0.9));
+    float df  = max(0.0, dot(sN, ld));
+    float sp  = pow(max(0.0, dot(reflect(-ld, sN), vec3(0,0,1))), 22.0);
+    vec3  dBase = mix(vec3(0.45, 0.88, 1.0), vec3(1.0), phi * 0.35 + perspGrad * 0.25);
+    float gray  = dot(dBase, vec3(0.299, 0.587, 0.114));
+    dBase = mix(vec3(gray), dBase, uSaturation);
+    vec3  dCol = dBase * (0.3 + 0.7 * df) + vec3(1.0) * sp * 0.55;
 
-    // Dot color: light teal → white as perspective grows
-    vec3 dotBase = mix(vec3(0.65, 0.95, 1.0), vec3(1.0), persp * 0.5);
-    vec3 dotCol  = dotBase * (0.3 + 0.7*diff) + vec3(1.0)*spec*0.6;
-    float gray   = dot(dotCol, vec3(0.299, 0.587, 0.114));
-    dotCol = mix(vec3(gray), dotCol, uSaturation);
-
-    // Background: teal gradient
-    vec3 bgCol = mix(vec3(0.0, 0.12, 0.16), vec3(0.0, 0.28, 0.34), fu * 0.5 + fv * 0.3 + 0.2);
-
-    vec3 col = mix(bgCol, dotCol * uBrightness, dotMask);
+    vec3 col = mix(bgCol, dCol * uBrightness, dotMask);
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
   }
 `;
@@ -99,7 +102,7 @@ export const flowDots: Pattern = {
   controls: [
     { label: "Dot Density",  type: "range", min: 5,   max: 50,  step: 1,    get: () => dotDensity,  set: (v) => { dotDensity = v; } },
     { label: "Dot Size",     type: "range", min: 0.1, max: 1.0, step: 0.01, get: () => dotSize,     set: (v) => { dotSize = v; } },
-    { label: "Flow Scale",   type: "range", min: 0.5, max: 5.0, step: 0.1,  get: () => flowScale,   set: (v) => { flowScale = v; } },
+    { label: "Warp Amount",  type: "range", min: 0.0, max: 3.0, step: 0.05, get: () => warpAmount,  set: (v) => { warpAmount = v; } },
     { label: "Flow Speed",   type: "range", min: 0.0, max: 0.5, step: 0.01, get: () => flowSpeed,   set: (v) => { flowSpeed = v; } },
     { label: "Perspective",  type: "range", min: 0.0, max: 2.0, step: 0.05, get: () => perspective, set: (v) => { perspective = v; } },
     { label: "Color Speed",  type: "range", min: 0.0, max: 1.0, step: 0.05, get: () => colorSpeed,  set: (v) => { colorSpeed = v; } },
@@ -116,7 +119,7 @@ export const flowDots: Pattern = {
         uResolution:  { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
         uDotDensity:  { value: dotDensity },
         uDotSize:     { value: dotSize },
-        uFlowScale:   { value: flowScale },
+        uWarpAmount:  { value: warpAmount },
         uFlowSpeed:   { value: flowSpeed },
         uPerspective: { value: perspective },
         uSaturation:  { value: saturation },
@@ -138,7 +141,7 @@ export const flowDots: Pattern = {
     material.uniforms.uTime.value        = elapsed;
     material.uniforms.uDotDensity.value  = dotDensity;
     material.uniforms.uDotSize.value     = dotSize;
-    material.uniforms.uFlowScale.value   = flowScale;
+    material.uniforms.uWarpAmount.value  = warpAmount;
     material.uniforms.uFlowSpeed.value   = flowSpeed;
     material.uniforms.uPerspective.value = perspective;
     material.uniforms.uSaturation.value  = saturation;
