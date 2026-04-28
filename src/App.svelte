@@ -86,7 +86,7 @@
           break;
         case "fullscreen":
           fs.toggle(document.documentElement);
-          poke();
+          hudVisible = false;
           break;
         case "escape":
           if (fs.isFullscreen()) fs.exit();
@@ -117,7 +117,7 @@
         case "fullscreen":
           fs.enter(document.documentElement);
           appState = "active";
-          poke();
+          hudVisible = false;
           break;
         case "escape":
           focusedIndex = index;
@@ -208,13 +208,22 @@
     class:opacity-100={hudVisible}
   >
     <div class="rounded-md border border-white/10 bg-black/60 px-4 py-3 text-white backdrop-blur-sm">
-      <div class="text-xs uppercase tracking-widest text-white/50">Pattern</div>
-      <div class="text-lg font-semibold">{patterns[index].name}</div>
-      <div class="mt-1 text-xs text-white/40">{index + 1} / {patterns.length}</div>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <div class="text-xs uppercase tracking-widest text-white/50">Pattern</div>
+          <div class="text-lg font-semibold">{patterns[index].name}</div>
+          <div class="mt-1 text-xs text-white/40">{index + 1} / {patterns.length}</div>
+        </div>
+        <button
+          class="pointer-events-auto mt-0.5 rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
+          onclick={() => { handleAction({ type: "fullscreen" }); }}
+        >
+          {fs.isFullscreen() ? "Exit ⛶" : "⛶ Fullscreen"}
+        </button>
+      </div>
       <div class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-white/70">
         {#if isTouch}
           <span>↔</span><span>swipe to change pattern</span>
-          <span>⊙⊙</span><span>double-tap fullscreen</span>
         {:else}
           <kbd class="rounded bg-white/10 px-1.5 font-mono">F</kbd>
           <span>fullscreen</span>
