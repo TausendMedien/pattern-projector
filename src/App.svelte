@@ -200,6 +200,52 @@
   </div>
 {/if}
 
+<!-- ─── Controls panel (active + preview) ─────────────────────────────── -->
+{#if appState !== "overview" && patterns[index].controls?.length}
+  <div
+    class="pointer-events-auto fixed top-4 right-4 z-10 select-none transition-opacity duration-500 min-w-48"
+    class:opacity-0={!hudVisible}
+    class:opacity-100={hudVisible}
+  >
+    <div class="rounded-md border border-white/10 bg-black/60 px-4 py-3 text-white backdrop-blur-sm">
+      <div class="mb-2 text-xs uppercase tracking-widest text-white/50">Controls</div>
+      <div class="flex flex-col gap-2.5">
+        {#each patterns[index].controls! as ctrl}
+          <div class="flex flex-col gap-1">
+            <div class="flex justify-between text-xs text-white/70">
+              <span>{ctrl.label}</span>
+              {#if ctrl.type === "range"}
+                <span class="font-mono text-white/40">{ctrl.get().toFixed(ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}</span>
+              {/if}
+            </div>
+            {#if ctrl.type === "range"}
+              <input
+                type="range"
+                min={ctrl.min}
+                max={ctrl.max}
+                step={ctrl.step}
+                value={ctrl.get()}
+                oninput={(e) => ctrl.set(parseFloat((e.target as HTMLInputElement).value))}
+                class="w-full accent-white cursor-pointer"
+              />
+            {:else if ctrl.type === "select"}
+              <select
+                value={ctrl.get()}
+                onchange={(e) => ctrl.set(parseInt((e.target as HTMLSelectElement).value))}
+                class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
+              >
+                {#each ctrl.options as opt, i}
+                  <option value={i}>{opt}</option>
+                {/each}
+              </select>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    </div>
+  </div>
+{/if}
+
 <!-- ─── HUD (active + preview) ────────────────────────────────────────── -->
 {#if appState !== "overview"}
   <div

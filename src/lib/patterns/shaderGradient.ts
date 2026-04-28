@@ -7,6 +7,7 @@ let material: THREE.ShaderMaterial | null = null;
 let camera: THREE.PerspectiveCamera | null = null;
 let savedPos = new THREE.Vector3();
 let scene: THREE.Scene | null = null;
+let speed = 0.15;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -20,6 +21,7 @@ const fragmentShader = /* glsl */ `
   precision highp float;
   varying vec2 vUv;
   uniform float uTime;
+  uniform float uSpeed;
   uniform vec2 uResolution;
 
   // hash + value noise
@@ -52,7 +54,7 @@ const fragmentShader = /* glsl */ `
     float aspect = uResolution.x / max(uResolution.y, 1.0);
     vec2 p = (uv - 0.5) * vec2(aspect, 1.0) * 2.0;
 
-    float t = uTime * 0.15;
+    float t = uTime * uSpeed;
     vec2 q = vec2(fbm(p + t), fbm(p + vec2(5.2, 1.3) - t));
     vec2 r = vec2(fbm(p + 4.0 * q + vec2(1.7, 9.2) + t), fbm(p + 4.0 * q + vec2(8.3, 2.8) - t));
     float f = fbm(p + 4.0 * r);
@@ -72,6 +74,9 @@ const fragmentShader = /* glsl */ `
 export const shaderGradient: Pattern = {
   id: "shaderGradient",
   name: "Shader Gradient",
+  controls: [
+    { label: "Speed", type: "range", min: 0.02, max: 0.5, step: 0.01, get: () => speed, set: (v) => { speed = v; } },
+  ],
 
   init(ctx: PatternContext) {
     camera = ctx.camera;
@@ -82,6 +87,7 @@ export const shaderGradient: Pattern = {
     material = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
+        uSpeed: { value: speed },
         uResolution: { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
       },
       vertexShader,
@@ -95,7 +101,9 @@ export const shaderGradient: Pattern = {
   },
 
   update(_dt: number, elapsed: number) {
-    if (material) material.uniforms.uTime.value = elapsed;
+    if (!material) return;
+    material.uniforms.uTime.value = elapsed;
+    material.uniforms.uSpeed.value = speed;
   },
 
   resize(width: number, height: number) {

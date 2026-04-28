@@ -4,6 +4,9 @@ import type { Pattern, PatternContext } from "./types";
 const NUM_LINES = 14;
 const POINTS_PER_LINE = 64;
 
+let rotationSpeed = 0.15;
+let wobble = 0.25;
+
 interface LineState {
   mesh: THREE.Mesh;
   geometry: THREE.TubeGeometry;
@@ -36,6 +39,10 @@ function buildBasePoints(seed: number): THREE.Vector3[] {
 export const lines3d: Pattern = {
   id: "lines3d",
   name: "3D Lines",
+  controls: [
+    { label: "Rotation Speed", type: "range", min: 0, max: 0.5, step: 0.01, get: () => rotationSpeed, set: (v) => { rotationSpeed = v; } },
+    { label: "Wobble", type: "range", min: 0, max: 0.8, step: 0.01, get: () => wobble, set: (v) => { wobble = v; } },
+  ],
 
   init(ctx: PatternContext) {
     camera = ctx.camera;
@@ -62,15 +69,15 @@ export const lines3d: Pattern = {
 
   update(_dt: number, elapsed: number) {
     if (!group) return;
-    group.rotation.y = elapsed * 0.15;
+    group.rotation.y = elapsed * rotationSpeed;
     group.rotation.x = Math.sin(elapsed * 0.1) * 0.3;
 
     for (const line of lines) {
       const animated = line.basePoints.map((p, i) => {
         const t = i / (POINTS_PER_LINE - 1);
         const wob =
-          Math.sin(elapsed * 0.8 + line.phase + t * 6) * 0.25 +
-          Math.cos(elapsed * 0.5 + line.phase * 1.7 + t * 4) * 0.15;
+          Math.sin(elapsed * 0.8 + line.phase + t * 6) * wobble +
+          Math.cos(elapsed * 0.5 + line.phase * 1.7 + t * 4) * wobble * 0.6;
         return new THREE.Vector3(p.x + wob, p.y, p.z + wob * 0.7);
       });
       const curve = new THREE.CatmullRomCurve3(animated, true, "centripetal");

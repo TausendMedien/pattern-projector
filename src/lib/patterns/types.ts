@@ -7,9 +7,14 @@ export interface PatternContext {
   size: { width: number; height: number };
 }
 
+export type PatternControl =
+  | { label: string; type: "range"; min: number; max: number; step: number; get(): number; set(v: number): void }
+  | { label: string; type: "select"; options: string[]; get(): number; set(v: number): void };
+
 export interface Pattern {
   id: string;
   name: string;
+  controls?: PatternControl[];
   init(ctx: PatternContext): void;
   update(dt: number, elapsed: number): void;
   resize(width: number, height: number): void;
