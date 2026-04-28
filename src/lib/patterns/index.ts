@@ -3,6 +3,14 @@ import { lines3d } from "./lines3d";
 import { particles } from "./particles";
 import { tunnel } from "./tunnel";
 import { shaderGradient } from "./shaderGradient";
-import { parallelLines } from "./parallelLines";
+import { parallelLinesStraight } from "./parallelLinesStraight";
+import { parallelLinesWave } from "./parallelLinesWave";
 
-export const patterns: Pattern[] = [lines3d, particles, tunnel, shaderGradient, parallelLines];
+export const patterns: Pattern[] = [
+  lines3d,
+  particles,
+  tunnel,
+  shaderGradient,
+  parallelLinesStraight,
+  parallelLinesWave,
+];
