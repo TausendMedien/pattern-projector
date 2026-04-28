@@ -12,6 +12,7 @@ import { pearlFlow } from "./pearlFlow";
 import { curlOrbs } from "./curlOrbs";
 import { flowDots } from "./flowDots";
 import { baroqueSwirls } from "./baroqueSwirls";
+import { lightTrail } from "./light-trail";
 
 export const patterns: Pattern[] = [
   particles,
@@ -27,4 +28,5 @@ export const patterns: Pattern[] = [
   hyperMix,
   tunnel,
   lines3d,
+  lightTrail,
 ];
