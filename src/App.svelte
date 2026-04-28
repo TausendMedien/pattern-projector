@@ -5,6 +5,7 @@
   import { attachTouch } from "./lib/touch";
   import { patterns } from "./lib/patterns";
   import * as fs from "./lib/fullscreen";
+  import { loadSettings, saveSettings } from "./lib/settings";
 
   type AppState = "overview" | "active" | "preview";
 
@@ -134,6 +135,7 @@
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     isIosStandalone = isIos && (navigator as any).standalone === true;
     isIosBrowser = isIos && !isIosStandalone;
+    loadSettings(patterns);
     handle = createRenderer(canvas, patterns[0]);
 
     const detach = attachKeyboard(handleAction);
@@ -232,13 +234,13 @@
                 max={ctrl.max}
                 step={ctrl.step}
                 value={ctrl.get()}
-                oninput={(e) => ctrl.set(parseFloat((e.target as HTMLInputElement).value))}
+                oninput={(e) => { ctrl.set(parseFloat((e.target as HTMLInputElement).value)); saveSettings(patterns); }}
                 class="w-full accent-white cursor-pointer"
               />
             {:else if ctrl.type === "select"}
               <select
                 value={ctrl.get()}
-                onchange={(e) => ctrl.set(parseInt((e.target as HTMLSelectElement).value))}
+                onchange={(e) => { ctrl.set(parseInt((e.target as HTMLSelectElement).value)); saveSettings(patterns); }}
                 class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
               >
                 {#each ctrl.options as opt, i}
