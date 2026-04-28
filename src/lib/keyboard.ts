@@ -2,7 +2,9 @@ export type KeyAction =
   | { type: "next" }
   | { type: "prev" }
   | { type: "jump"; index: number }
-  | { type: "fullscreen" };
+  | { type: "fullscreen" }
+  | { type: "enter" }
+  | { type: "escape" };
 
 export function attachKeyboard(handler: (action: KeyAction) => void): () => void {
   function onKeyDown(e: KeyboardEvent) {
@@ -23,6 +25,15 @@ export function attachKeyboard(handler: (action: KeyAction) => void): () => void
       case "ArrowUp":
         handler({ type: "prev" });
         e.preventDefault();
+        return;
+      case "Enter":
+      case " ":
+        handler({ type: "enter" });
+        e.preventDefault();
+        return;
+      case "Escape":
+        handler({ type: "escape" });
+        // no preventDefault — let browser exit fullscreen natively
         return;
     }
 
