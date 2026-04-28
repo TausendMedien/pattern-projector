@@ -193,6 +193,8 @@
       {/each}
     </div>
 
+    <div class="absolute bottom-4 right-4 font-mono text-[10px] text-white/20">{__COMMIT__}</div>
+
     <div class="flex gap-5 text-[11px] text-white/30">
       {#if isIosBrowser}
         <span>tap to select · swipe to browse · <span class="text-white/50">Share ↑ → Add to Home Screen</span> for fullscreen</span>
