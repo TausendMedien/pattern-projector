@@ -41,3 +41,6 @@ No other wiring needed — the keyboard `1`–`9` jump and arrow cycle pick it u
 
 ## Deployment
 GitHub Pages via `.github/workflows/pages.yml`. Builds `dist/` on push to `main`. Enable Pages in repo settings (source: **GitHub Actions**).
+
+## Git workflow
+Push directly to `main`. Do not open pull requests.
