@@ -6,11 +6,13 @@ import { shaderGradient } from "./shaderGradient";
 import { parallelLinesStraight } from "./parallelLinesStraight";
 import { parallelLinesWave } from "./parallelLinesWave";
 import { hyperMix } from "./hyperMix";
+import { dotRain } from "./dotRain";
 
 export const patterns: Pattern[] = [
   particles,
   parallelLinesStraight,
   parallelLinesWave,
+  dotRain,
   shaderGradient,
   hyperMix,
   tunnel,
