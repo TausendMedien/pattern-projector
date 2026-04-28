@@ -212,7 +212,7 @@
 <!-- ─── Controls panel (active + preview) ─────────────────────────────── -->
 {#if appState !== "overview" && patterns[index].controls?.length}
   <div
-    class="pointer-events-auto fixed top-4 right-4 z-10 select-none transition-opacity duration-500 min-w-48"
+    class="pointer-events-auto fixed bottom-4 right-4 z-10 select-none transition-opacity duration-500 min-w-48"
     class:opacity-0={!hudVisible}
     class:opacity-100={hudVisible}
   >
