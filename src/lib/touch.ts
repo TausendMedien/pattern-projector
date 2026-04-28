@@ -3,40 +3,25 @@ import type { KeyAction } from "./keyboard";
 export function attachTouch(handler: (action: KeyAction) => void): () => void {
   let startX = 0;
   let startY = 0;
-  let startTime = 0;
   let lastTapTime = 0;
   let lastTapX = 0;
   let lastTapY = 0;
+  let pendingDoubleTap = false;
 
   function onTouchStart(e: TouchEvent) {
     const t = e.touches[0];
     startX = t.clientX;
     startY = t.clientY;
-    startTime = Date.now();
-  }
 
-  function onTouchEnd(e: TouchEvent) {
-    const t = e.changedTouches[0];
-    const deltaX = t.clientX - startX;
-    const deltaY = t.clientY - startY;
-    const elapsed = Date.now() - startTime;
-
-    // Swipe: fast, horizontal, significant distance
-    if (elapsed < 400 && Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
-      e.preventDefault();
-      handler({ type: deltaX < 0 ? "next" : "prev" });
-      lastTapTime = 0; // reset double-tap tracking after a swipe
-      return;
-    }
-
-    // Double-tap: two taps close in time and space
     const now = Date.now();
     const tapDist = Math.hypot(t.clientX - lastTapX, t.clientY - lastTapY);
-    if (now - lastTapTime < 300 && tapDist < 40) {
+
+    if (now - lastTapTime < 350 && tapDist < 60) {
+      // Second tap of a double-tap — prevent browser zoom immediately
       e.preventDefault();
-      handler({ type: "fullscreen" });
-      lastTapTime = 0;
-      return;
+      pendingDoubleTap = true;
+    } else {
+      pendingDoubleTap = false;
     }
 
     lastTapTime = now;
@@ -44,7 +29,30 @@ export function attachTouch(handler: (action: KeyAction) => void): () => void {
     lastTapY = t.clientY;
   }
 
-  window.addEventListener("touchstart", onTouchStart, { passive: true });
+  function onTouchEnd(e: TouchEvent) {
+    const t = e.changedTouches[0];
+    const deltaX = t.clientX - startX;
+    const deltaY = t.clientY - startY;
+    const elapsed = Date.now() - lastTapTime;
+
+    if (pendingDoubleTap) {
+      e.preventDefault();
+      pendingDoubleTap = false;
+      lastTapTime = 0;
+      handler({ type: "fullscreen" });
+      return;
+    }
+
+    // Swipe: fast, horizontal, significant distance
+    if (elapsed < 400 && Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      e.preventDefault();
+      lastTapTime = 0; // reset double-tap tracking after a swipe
+      handler({ type: deltaX < 0 ? "next" : "prev" });
+    }
+  }
+
+  // passive: false on touchstart so we can preventDefault on double-tap second touch
+  window.addEventListener("touchstart", onTouchStart, { passive: false });
   window.addEventListener("touchend", onTouchEnd, { passive: false });
 
   return () => {
