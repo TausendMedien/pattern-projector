@@ -62,8 +62,18 @@ const accumFragmentShader = /* glsl */ `
     vec4 live  = texture2D(uLiveFrame, vUv);
 
     float luma = dot(live.rgb, vec3(0.2126, 0.7152, 0.0722));
-    float bright = smoothstep(uThreshold - 0.05, uThreshold + 0.05, luma);
-    vec3 contribution = live.rgb * bright * uGain;
+
+    // Proportional: weight scales linearly from 0 at threshold to 1 at full brightness.
+    // This preserves color and means dim lights contribute proportionally less than
+    // bright ones — a dim light above threshold won't stack to full white.
+    float weight = clamp((luma - uThreshold) / max(1.0 - uThreshold, 0.01), 0.0, 1.0);
+    weight = weight * weight; // square for more natural falloff near threshold
+
+    // Scale live color by weight * gain, but normalize so no channel exceeds 1
+    // before adding — this prevents bright white lights washing out their own color.
+    vec3 contribution = live.rgb * weight * uGain;
+    float maxCh = max(max(contribution.r, contribution.g), contribution.b);
+    if (maxCh > 1.0) contribution /= maxCh;
 
     // uDecay == 0 means keep forever; otherwise fade
     vec3 decayed = trail.rgb * (1.0 - uDecay);
@@ -153,7 +163,7 @@ export const lightTrail: Pattern = {
     },
     {
       label: "Fade Speed",
-      type: "range", min: 0.0, max: 0.2, step: 0.002,
+      type: "range", min: 0.0, max: 0.05, step: 0.001,
       get: () => decayRate,
       set: (v) => { decayRate = v; },
     },
@@ -177,9 +187,8 @@ export const lightTrail: Pattern = {
     },
     {
       label: "Clear Trails",
-      type: "select", options: ["—", "Clear"],
-      get: () => 0,
-      set: (v) => { if (v === 1) clearRequested = true; },
+      type: "button",
+      action: () => { clearRequested = true; },
     },
   ],
 
