@@ -2,11 +2,11 @@ import * as THREE from "three";
 import type { Pattern, PatternContext } from "./types";
 
 // Controls state
-let threshold = 0.3;
-let decayRate = 0.03;   // 0 = forever, >0 = fade per frame
-let gain = 2.5;
-let dimLevel = 0.25;
-let bgMode = 0;         // 0=black, 1=live, 2=dimmed
+let threshold = 0.29;
+let decayRate = 0.015;  // 0 = forever, >0 = fade per frame
+let gain = 4.5;
+let dimLevel = 0.30;
+let bgMode = 2;         // 0=black, 1=live, 2=dimmed
 let clearRequested = false;
 
 // THREE objects
