@@ -5,16 +5,16 @@ let mesh: THREE.Mesh | null = null;
 let geometry: THREE.PlaneGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
 
-let lineCount   = 35;
-let lineWidth   = 0.3;
-let flowScale   = 2.5;
-let flowSpeed   = 0.06;
-let orbCount    = 12;
-let orbSize     = 0.045;
-let colorRange  = 0.25;
-let saturation  = 0.7;
-let colorSpeed  = 0.1;
-let brightness  = 1.0;
+let lineCount   = 45;
+let lineWidth   = 0.37;
+let flowScale   = 3.1;
+let flowSpeed   = 0.02;
+let orbCount    = 16;
+let orbSize     = 0.060;
+let colorRange  = 0.40;
+let saturation  = 1.0;
+let colorSpeed  = 0.05;
+let brightness  = 0.80;
 let rotateSpeed = 0.0;
 
 let colorPhase = 0;

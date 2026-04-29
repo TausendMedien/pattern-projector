@@ -5,15 +5,15 @@ let mesh: THREE.Mesh | null = null;
 let geometry: THREE.PlaneGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
 
-let dotDensity  = 18;
-let dotSize     = 0.55;
-let warpAmount  = 1.2;
-let flowSpeed   = 0.08;
-let perspective = 0.8;
-let saturation  = 0.7;
-let colorSpeed  = 0.1;
-let brightness  = 1.0;
-let rotateSpeed = 0.0;
+let dotDensity  = 26;
+let dotSize     = 0.42;
+let warpAmount  = 1.75;
+let flowSpeed   = 0.02;
+let perspective = 1.9;
+let saturation  = 0.50;
+let colorSpeed  = 0.55;
+let brightness  = 1.20;
+let rotateSpeed = 0.03;
 
 let colorPhase = 0;
 let rotAngle   = 0;
