@@ -69,7 +69,7 @@
     snapshotFading = false;
     index = switchTo(n);
     focusedIndex = index;
-    requestAnimationFrame(() => { snapshotFading = true; });
+    requestAnimationFrame(() => requestAnimationFrame(() => { snapshotFading = true; }));
   }
 
   function scheduleNext() {
