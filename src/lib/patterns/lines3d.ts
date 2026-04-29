@@ -70,11 +70,11 @@ export const lines3d: Pattern = {
       const seed       = i * 0.91;
       const basePoints = buildBasePoints(seed);
       const curve      = new THREE.CatmullRomCurve3(basePoints, true, "centripetal");
-      const hue        = 0.5 + (i / NUM_LINES * colorRange) * 0.33;
+      const hue        = 0.5 + (i / NUM_LINES * colorRange) * 0.5;
 
       const geometry = new THREE.TubeGeometry(curve, TUBE_SEGMENTS, 0.025, 8, true);
       const material = new THREE.MeshBasicMaterial({
-        color:      new THREE.Color().setHSL(hue, saturation, 0.65),
+        color:      new THREE.Color().setHSL(hue, saturation, 0.45),
         transparent: true,
         opacity,
         blending:   THREE.AdditiveBlending,
@@ -86,9 +86,9 @@ export const lines3d: Pattern = {
       // Wider glow tube — additive blending creates bloom where lines intersect
       const glowGeometry = new THREE.TubeGeometry(curve, GLOW_SEGMENTS, 0.07, 6, true);
       const glowMaterial = new THREE.MeshBasicMaterial({
-        color:      new THREE.Color().setHSL(hue, saturation * 0.4, 0.9),
+        color:      new THREE.Color().setHSL(hue, saturation * 0.85, 0.55),
         transparent: true,
-        opacity:    glow * 0.28,
+        opacity:    glow * 0.18,
         blending:   THREE.AdditiveBlending,
         depthWrite: false,
       });
@@ -109,13 +109,13 @@ export const lines3d: Pattern = {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const hue  = 0.5 + (i / NUM_LINES * colorRange) * 0.33;
+      const hue  = 0.5 + (i / NUM_LINES * colorRange) * 0.5;
 
-      line.material.color.setHSL(hue, saturation, 0.65);
+      line.material.color.setHSL(hue, saturation, 0.45);
       line.material.opacity = opacity;
 
       line.glowMaterial.color.setHSL(hue, saturation * 0.85, 0.55);
-      line.glowMaterial.opacity = glow * 0.28;
+      line.glowMaterial.opacity = glow * 0.18;
 
       const animated = line.basePoints.map((p, idx) => {
         const t   = idx / (POINTS_PER_LINE - 1);
