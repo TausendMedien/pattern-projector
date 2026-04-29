@@ -5,7 +5,7 @@
   import { attachTouch } from "./lib/touch";
   import { patterns } from "./lib/patterns";
   import * as fs from "./lib/fullscreen";
-  import { loadSettings, saveSettings } from "./lib/settings";
+  import { loadSettings, saveSettings, loadDemoSettings, saveDemoSettings } from "./lib/settings";
 
   type AppState = "overview" | "active" | "preview";
 
@@ -19,6 +19,13 @@
   let isTouch = $state(false);
   let isIosStandalone = $state(false);
   let isIosBrowser = $state(false);
+
+  // Demo mode
+  let demoActive = $state(false);
+  let demoDwell = $state(30);
+  let demoTimer: ReturnType<typeof setTimeout> | null = null;
+  let snapshotUrl = $state<string | null>(null);
+  let snapshotFading = $state(false);
 
   // Reactive mirror of current pattern's control values so the number display
   // updates live as the user drags a slider.
@@ -57,6 +64,45 @@
     fs.enter(document.documentElement);
   }
 
+  function crossFadeTo(n: number) {
+    snapshotUrl = canvas.toDataURL();
+    snapshotFading = false;
+    index = switchTo(n);
+    focusedIndex = index;
+    requestAnimationFrame(() => { snapshotFading = true; });
+  }
+
+  function scheduleNext() {
+    demoTimer = setTimeout(() => {
+      crossFadeTo((index + 1) % patterns.length);
+      scheduleNext();
+    }, demoDwell * 1000);
+  }
+
+  function startDemo() {
+    demoActive = true;
+    if (appState === "overview") {
+      handle?.setPattern(patterns[index]);
+      appState = "active";
+      poke();
+    }
+    saveDemoSettings(true, demoDwell);
+    if (demoTimer) clearTimeout(demoTimer);
+    scheduleNext();
+  }
+
+  function stopDemo() {
+    demoActive = false;
+    saveDemoSettings(false, demoDwell);
+    if (demoTimer) { clearTimeout(demoTimer); demoTimer = null; }
+  }
+
+  function resetDemoTimer() {
+    if (!demoActive) return;
+    if (demoTimer) clearTimeout(demoTimer);
+    scheduleNext();
+  }
+
   function handleAction(action: KeyAction) {
     if (appState === "overview") {
       switch (action.type) {
@@ -86,23 +132,29 @@
         case "next":
           index = switchTo(index + 1);
           focusedIndex = index;
+          resetDemoTimer();
           poke();
           break;
         case "prev":
           index = switchTo(index - 1);
           focusedIndex = index;
+          resetDemoTimer();
           poke();
           break;
         case "jump":
           if (action.index < patterns.length) {
             index = switchTo(action.index);
             focusedIndex = index;
+            resetDemoTimer();
             poke();
           }
           break;
         case "fullscreen":
           fs.toggle(document.documentElement);
           hudVisible = false;
+          break;
+        case "demo":
+          demoActive ? stopDemo() : startDemo();
           break;
         case "escape":
           if (fs.isFullscreen()) fs.exit();
@@ -116,17 +168,20 @@
         case "next":
           index = switchTo(index + 1);
           focusedIndex = index;
+          resetDemoTimer();
           poke();
           break;
         case "prev":
           index = switchTo(index - 1);
           focusedIndex = index;
+          resetDemoTimer();
           poke();
           break;
         case "jump":
           if (action.index < patterns.length) {
             index = switchTo(action.index);
             focusedIndex = index;
+            resetDemoTimer();
             poke();
           }
           break;
@@ -134,6 +189,9 @@
           fs.enter(document.documentElement);
           appState = "active";
           hudVisible = false;
+          break;
+        case "demo":
+          demoActive ? stopDemo() : startDemo();
           break;
         case "escape":
           focusedIndex = index;
@@ -150,7 +208,10 @@
     isIosBrowser = isIos && !isIosStandalone;
     loadSettings(patterns);
     syncCtrlVals(); // pick up any saved values
+    const demo = loadDemoSettings();
+    demoDwell = demo.demoDwell;
     handle = createRenderer(canvas, patterns[0]);
+    if (demo.demoActive) startDemo();
 
     const detach = attachKeyboard(handleAction);
     const detachTouch = attachTouch(handleAction);
@@ -172,6 +233,7 @@
       document.removeEventListener("webkitfullscreenchange", onFsChange);
       window.removeEventListener("mousemove", poke);
       if (hudTimer) clearTimeout(hudTimer);
+      if (demoTimer) clearTimeout(demoTimer);
       handle?.dispose();
       handle = null;
     };
@@ -179,6 +241,18 @@
 </script>
 
 <canvas bind:this={canvas} class="block w-full h-full"></canvas>
+
+<!-- ─── Cross-fade snapshot overlay ──────────────────────────────────── -->
+{#if snapshotUrl}
+  <img
+    src={snapshotUrl}
+    class="pointer-events-none fixed inset-0 z-[5] h-full w-full object-cover transition-opacity duration-[1500ms]"
+    class:opacity-0={snapshotFading}
+    class:opacity-100={!snapshotFading}
+    ontransitionend={() => { snapshotUrl = null; snapshotFading = false; }}
+    alt=""
+  />
+{/if}
 
 <!-- ─── Overview overlay ──────────────────────────────────────────────── -->
 {#if appState === "overview"}
@@ -226,7 +300,7 @@
 {/if}
 
 <!-- ─── Controls panel (active + preview) ─────────────────────────────── -->
-{#if appState !== "overview" && patterns[index].controls?.length}
+{#if appState !== "overview"}
   <div
     class="pointer-events-auto fixed bottom-4 right-4 z-10 select-none transition-opacity duration-500 min-w-48"
     style="max-height: calc(100dvh - 2rem)"
@@ -234,54 +308,80 @@
     class:opacity-100={hudVisible}
   >
     <div class="flex max-h-full flex-col rounded-md border border-white/10 bg-black/60 px-4 py-3 text-white backdrop-blur-sm">
-      <div class="mb-2 shrink-0 text-xs uppercase tracking-widest text-white/50">Controls</div>
-      <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">
-        {#each patterns[index].controls! as ctrl}
-          <div class="flex flex-col gap-1">
-            {#if ctrl.type !== "button"}
-            <div class="flex justify-between text-xs text-white/70">
-              <span>{ctrl.label}</span>
+      <!-- Demo section -->
+      <div class="mb-2 shrink-0 text-xs uppercase tracking-widest text-white/50">Demo</div>
+      <div class="mb-3 flex flex-col gap-2.5">
+        <div class="flex flex-col gap-1">
+          <div class="flex justify-between text-xs text-white/70">
+            <span>Dwell time</span>
+            <span class="font-mono text-white/40">{demoDwell < 60 ? demoDwell + ' s' : Math.floor(demoDwell / 60) + 'm' + (demoDwell % 60 ? ' ' + (demoDwell % 60) + 's' : '')}</span>
+          </div>
+          <input
+            type="range"
+            min={5}
+            max={240}
+            step={5}
+            value={demoDwell}
+            oninput={(e) => {
+              demoDwell = parseInt((e.target as HTMLInputElement).value);
+              saveDemoSettings(demoActive, demoDwell);
+              if (demoActive) resetDemoTimer();
+            }}
+            class="w-full accent-white cursor-pointer"
+          />
+        </div>
+      </div>
+      {#if patterns[index].controls?.length}
+        <!-- Pattern controls -->
+        <div class="mb-2 shrink-0 border-t border-white/10 pt-3 text-xs uppercase tracking-widest text-white/50">Controls</div>
+        <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">
+          {#each patterns[index].controls! as ctrl}
+            <div class="flex flex-col gap-1">
+              {#if ctrl.type !== "button"}
+              <div class="flex justify-between text-xs text-white/70">
+                <span>{ctrl.label}</span>
+                {#if ctrl.type === "range"}
+                  <span class="font-mono text-white/40">
+                    {(ctrlVals[ctrl.label] ?? ctrl.get()).toFixed(ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}
+                  </span>
+                {/if}
+              </div>
+              {/if}
               {#if ctrl.type === "range"}
-                <span class="font-mono text-white/40">
-                  {(ctrlVals[ctrl.label] ?? ctrl.get()).toFixed(ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}
-                </span>
+                <input
+                  type="range"
+                  min={ctrl.min}
+                  max={ctrl.max}
+                  step={ctrl.step}
+                  value={ctrlVals[ctrl.label] ?? ctrl.get()}
+                  oninput={(e) => {
+                    const v = parseFloat((e.target as HTMLInputElement).value);
+                    ctrl.set(v);
+                    ctrlVals[ctrl.label] = v;
+                    saveSettings(patterns);
+                  }}
+                  class="w-full accent-white cursor-pointer"
+                />
+              {:else if ctrl.type === "select"}
+                <select
+                  value={ctrl.get()}
+                  onchange={(e) => { ctrl.set(parseInt((e.target as HTMLSelectElement).value)); saveSettings(patterns); }}
+                  class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
+                >
+                  {#each ctrl.options as opt, i}
+                    <option value={i}>{opt}</option>
+                  {/each}
+                </select>
+              {:else if ctrl.type === "button"}
+                <button
+                  onclick={() => ctrl.action()}
+                  class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white cursor-pointer hover:bg-white/20 active:bg-white/30 transition-colors"
+                >{ctrl.label}</button>
               {/if}
             </div>
-            {/if}
-            {#if ctrl.type === "range"}
-              <input
-                type="range"
-                min={ctrl.min}
-                max={ctrl.max}
-                step={ctrl.step}
-                value={ctrlVals[ctrl.label] ?? ctrl.get()}
-                oninput={(e) => {
-                  const v = parseFloat((e.target as HTMLInputElement).value);
-                  ctrl.set(v);
-                  ctrlVals[ctrl.label] = v;
-                  saveSettings(patterns);
-                }}
-                class="w-full accent-white cursor-pointer"
-              />
-            {:else if ctrl.type === "select"}
-              <select
-                value={ctrl.get()}
-                onchange={(e) => { ctrl.set(parseInt((e.target as HTMLSelectElement).value)); saveSettings(patterns); }}
-                class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
-              >
-                {#each ctrl.options as opt, i}
-                  <option value={i}>{opt}</option>
-                {/each}
-              </select>
-            {:else if ctrl.type === "button"}
-              <button
-                onclick={() => ctrl.action()}
-                class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white cursor-pointer hover:bg-white/20 active:bg-white/30 transition-colors"
-              >{ctrl.label}</button>
-            {/if}
-          </div>
-        {/each}
-      </div>
+          {/each}
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
@@ -300,23 +400,33 @@
           <div class="text-lg font-semibold">{patterns[index].name}</div>
           <div class="mt-1 text-xs text-white/40">{index + 1} / {patterns.length}</div>
         </div>
-        {#if isIosBrowser}
-          <div class="mt-0.5 max-w-[140px] text-right text-[10px] leading-snug text-white/40">
-            Tap <span class="text-white/60">Share ↑</span> → Add to Home Screen for fullscreen
-          </div>
-        {:else if !isIosStandalone}
+        <div class="flex flex-col items-end gap-1.5">
           <button
-            class="pointer-events-auto mt-0.5 rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
-            onclick={() => { handleAction({ type: "fullscreen" }); }}
+            class="pointer-events-auto rounded-md border px-3 py-1.5 text-xs transition-colors {demoActive ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 bg-white/[0.07] text-white/70 hover:border-white/40 hover:bg-white/15'} active:bg-white/20"
+            onclick={() => { demoActive ? stopDemo() : startDemo(); }}
           >
-            {fs.isFullscreen() ? "Exit ⛶" : "⛶ Fullscreen"}
+            {demoActive ? "● Demo" : "Demo"}
           </button>
-        {/if}
+          {#if isIosBrowser}
+            <div class="mt-0.5 max-w-[140px] text-right text-[10px] leading-snug text-white/40">
+              Tap <span class="text-white/60">Share ↑</span> → Add to Home Screen for fullscreen
+            </div>
+          {:else if !isIosStandalone}
+            <button
+              class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
+              onclick={() => { handleAction({ type: "fullscreen" }); }}
+            >
+              {fs.isFullscreen() ? "Exit ⛶" : "⛶ Fullscreen"}
+            </button>
+          {/if}
+        </div>
       </div>
       <div class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-white/70">
         {#if isTouch}
           <span>↔</span><span>swipe to change pattern</span>
         {:else}
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">D</kbd>
+          <span>demo mode</span>
           <kbd class="rounded bg-white/10 px-1.5 font-mono">F</kbd>
           <span>fullscreen</span>
           <kbd class="rounded bg-white/10 px-1.5 font-mono">→ ↓</kbd>

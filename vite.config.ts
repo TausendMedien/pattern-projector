@@ -17,4 +17,8 @@ export default defineConfig({
   define: {
     __COMMIT__: JSON.stringify(commitHash),
   },
+  server: {
+    port: process.env.PORT ? parseInt(process.env.PORT) : 5173,
+    strictPort: true,
+  },
 });

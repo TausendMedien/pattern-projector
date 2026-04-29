@@ -40,6 +40,29 @@ export function loadSettings(patterns: Pattern[]): void {
   }
 }
 
+const DEMO_KEY = "pattern-projector-demo";
+
+const DemoSchema = z.object({
+  demoActive: z.boolean(),
+  demoDwell: z.number().min(5).max(240),
+});
+
+export function loadDemoSettings(): { demoActive: boolean; demoDwell: number } {
+  try {
+    const raw = localStorage.getItem(DEMO_KEY);
+    if (!raw) return { demoActive: false, demoDwell: 30 };
+    return DemoSchema.parse(JSON.parse(raw));
+  } catch {
+    return { demoActive: false, demoDwell: 30 };
+  }
+}
+
+export function saveDemoSettings(demoActive: boolean, demoDwell: number): void {
+  try {
+    localStorage.setItem(DEMO_KEY, JSON.stringify({ demoActive, demoDwell }));
+  } catch {}
+}
+
 export function saveSettings(patterns: Pattern[]): void {
   const patternValues: Settings["patterns"] = {};
   for (const pattern of patterns) {
