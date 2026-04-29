@@ -238,6 +238,7 @@
       <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">
         {#each patterns[index].controls! as ctrl}
           <div class="flex flex-col gap-1">
+            {#if ctrl.type !== "button"}
             <div class="flex justify-between text-xs text-white/70">
               <span>{ctrl.label}</span>
               {#if ctrl.type === "range"}
@@ -246,6 +247,7 @@
                 </span>
               {/if}
             </div>
+            {/if}
             {#if ctrl.type === "range"}
               <input
                 type="range"
@@ -271,6 +273,11 @@
                   <option value={i}>{opt}</option>
                 {/each}
               </select>
+            {:else if ctrl.type === "button"}
+              <button
+                onclick={() => ctrl.action()}
+                class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white cursor-pointer hover:bg-white/20 active:bg-white/30 transition-colors"
+              >{ctrl.label}</button>
             {/if}
           </div>
         {/each}

@@ -9,7 +9,8 @@ export interface PatternContext {
 
 export type PatternControl =
   | { label: string; type: "range"; min: number; max: number; step: number; get(): number; set(v: number): void }
-  | { label: string; type: "select"; options: string[]; get(): number; set(v: number): void };
+  | { label: string; type: "select"; options: string[]; get(): number; set(v: number): void }
+  | { label: string; type: "button"; action(): void };
 
 export interface Pattern {
   id: string;
