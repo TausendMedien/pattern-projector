@@ -3,12 +3,12 @@ import type { Pattern, PatternContext } from "./types";
 
 const RING_SPACING = 1.5;
 
-let speed = 5;
-let twist = 0.07;
-let ringCount = 60;
-let lineThickness = 0.1;
-let saturation = 0.85;
-let colorSpeed = 0.5;
+let speed = 0.5;
+let twist = 0.175;
+let ringCount = 120;
+let lineThickness = 0.5;
+let saturation = 0.90;
+let colorSpeed = 0.60;
 
 let colorPhase = 0;
 

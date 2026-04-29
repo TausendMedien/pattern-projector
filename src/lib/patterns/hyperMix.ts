@@ -4,13 +4,13 @@ import type { Pattern, PatternContext } from "./types";
 const BASE_COUNT = 40000;
 
 const params = {
-  speed: 0.04,
-  curlScale: 0.35,
-  spread: 1.6,
-  pointSize: 2.0,
-  blur: 0.25,        // 0 = hard circle, 1 = full soft glow
-  pointCount: 40000,
-  saturation: 0.9,
+  speed: 0.03,
+  curlScale: 0.11,
+  spread: 2.1,
+  pointSize: 0.8,
+  blur: 0.50,        // 0 = hard circle, 1 = full soft glow
+  pointCount: 55000,
+  saturation: 1.0,
 };
 
 // ─── Shaders ──────────────────────────────────────────────────────────────────

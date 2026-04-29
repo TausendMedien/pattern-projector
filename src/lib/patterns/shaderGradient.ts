@@ -6,10 +6,10 @@ let geometry: THREE.PlaneGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
 let camera: THREE.PerspectiveCamera | null = null;
 let scene: THREE.Scene | null = null;
-let speed = 0.04;
-let colors = 0.9;
-let saturation = 0.85;
-let blackPoint = 0.0;
+let speed = 0.02;
+let colors = 0.85;
+let saturation = 0.95;
+let blackPoint = 0.14;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;

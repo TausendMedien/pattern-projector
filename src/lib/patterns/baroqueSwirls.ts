@@ -5,14 +5,14 @@ let mesh: THREE.Mesh | null = null;
 let geometry: THREE.PlaneGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
 
-let bandCount   = 8;
-let flowSpeed   = 0.04;
-let warpAmount  = 1.5;
-let tealAmt     = 1.0;
-let purpleAmt   = 1.0;
-let saturation  = 1.0;
+let bandCount   = 13;
+let flowSpeed   = 0.0;
+let warpAmount  = 1.4;
+let tealAmt     = 0.75;
+let purpleAmt   = 0.80;
+let saturation  = 0.50;
 let colorSpeed  = 0.08;
-let brightness  = 1.0;
+let brightness  = 1.30;
 let rotateSpeed = 0.0;
 
 let colorPhase = 0;
