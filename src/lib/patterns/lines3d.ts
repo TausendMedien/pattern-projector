@@ -114,7 +114,7 @@ export const lines3d: Pattern = {
       line.material.color.setHSL(hue, saturation, 0.65);
       line.material.opacity = opacity;
 
-      line.glowMaterial.color.setHSL(hue, saturation * 0.4, 0.9);
+      line.glowMaterial.color.setHSL(hue, saturation * 0.85, 0.55);
       line.glowMaterial.opacity = glow * 0.28;
 
       const animated = line.basePoints.map((p, idx) => {
