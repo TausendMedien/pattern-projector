@@ -3,6 +3,7 @@ export type KeyAction =
   | { type: "prev" }
   | { type: "jump"; index: number }
   | { type: "fullscreen" }
+  | { type: "demo" }
   | { type: "enter" }
   | { type: "escape" };
 
@@ -14,6 +15,11 @@ export function attachKeyboard(handler: (action: KeyAction) => void): () => void
       case "f":
       case "F":
         handler({ type: "fullscreen" });
+        e.preventDefault();
+        return;
+      case "d":
+      case "D":
+        handler({ type: "demo" });
         e.preventDefault();
         return;
       case "ArrowRight":

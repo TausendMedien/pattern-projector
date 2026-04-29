@@ -7,7 +7,7 @@ export interface RendererHandle {
 }
 
 export function createRenderer(canvas: HTMLCanvasElement, initial: Pattern): RendererHandle {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
   const scene = new THREE.Scene();
