@@ -5,6 +5,7 @@ import type { Pattern, PatternContext } from "./types";
 let threshold = 0.29;
 let decayRate = 0.015;  // 0 = forever, >0 = fade per frame
 let gain = 4.5;
+let colorBoost = 2.0;   // 0 = grayscale trails, >1 = vivid color
 let dimLevel = 0.30;
 let bgMode = 2;         // 0=black, 1=live, 2=dimmed
 let clearRequested = false;
@@ -55,27 +56,29 @@ const accumFragmentShader = /* glsl */ `
   uniform float uThreshold;
   uniform float uDecay;
   uniform float uGain;
+  uniform float uColorBoost;
   uniform float uClear;
 
   void main() {
     vec4 trail = texture2D(uTrail, vUv);
     vec4 live  = texture2D(uLiveFrame, vUv);
 
-    float luma = dot(live.rgb, vec3(0.2126, 0.7152, 0.0722));
+    // Use max channel for detection so colored lights (blue, red, etc.)
+    // are detected even when their luma is low.
+    float brightness = max(max(live.r, live.g), live.b);
 
-    // Proportional: weight scales linearly from 0 at threshold to 1 at full brightness.
-    // This preserves color and means dim lights contribute proportionally less than
-    // bright ones — a dim light above threshold won't stack to full white.
-    float weight = clamp((luma - uThreshold) / max(1.0 - uThreshold, 0.01), 0.0, 1.0);
-    weight = weight * weight; // square for more natural falloff near threshold
+    float weight = clamp((brightness - uThreshold) / max(1.0 - uThreshold, 0.01), 0.0, 1.0);
+    weight = weight * weight;
 
-    // Scale live color by weight * gain, but normalize so no channel exceeds 1
-    // before adding — this prevents bright white lights washing out their own color.
-    vec3 contribution = live.rgb * weight * uGain;
+    // Boost saturation so colored lights leave vivid trails.
+    // uColorBoost=1 is natural; >1 amplifies chroma; 0 = grayscale.
+    float gray = dot(live.rgb, vec3(0.299, 0.587, 0.114));
+    vec3 vivid = mix(vec3(gray), live.rgb, uColorBoost);
+
+    vec3 contribution = vivid * weight * uGain;
     float maxCh = max(max(contribution.r, contribution.g), contribution.b);
     if (maxCh > 1.0) contribution /= maxCh;
 
-    // uDecay == 0 means keep forever; otherwise fade
     vec3 decayed = trail.rgb * (1.0 - uDecay);
 
     vec3 newTrail = mix(clamp(decayed + contribution, 0.0, 1.0), vec3(0.0), uClear);
@@ -174,6 +177,12 @@ export const lightTrail: Pattern = {
       set: (v) => { gain = v; },
     },
     {
+      label: "Trail Color",
+      type: "range", min: 0.0, max: 4.0, step: 0.1,
+      get: () => colorBoost,
+      set: (v) => { colorBoost = v; },
+    },
+    {
       label: "Dim Level",
       type: "range", min: 0.0, max: 1.0, step: 0.05,
       get: () => dimLevel,
@@ -226,10 +235,11 @@ export const lightTrail: Pattern = {
       uniforms: {
         uTrail:     { value: blackTexture },
         uLiveFrame: { value: blackTexture },
-        uThreshold: { value: threshold },
-        uDecay:     { value: decayRate },
-        uGain:      { value: gain },
-        uClear:     { value: 0.0 },
+        uThreshold:  { value: threshold },
+        uDecay:      { value: decayRate },
+        uGain:       { value: gain },
+        uColorBoost: { value: colorBoost },
+        uClear:      { value: 0.0 },
       },
       vertexShader,
       fragmentShader: accumFragmentShader,
@@ -273,10 +283,11 @@ export const lightTrail: Pattern = {
 
     accumMaterial.uniforms.uTrail.value     = trailA!.texture;
     accumMaterial.uniforms.uLiveFrame.value = liveTex;
-    accumMaterial.uniforms.uThreshold.value = threshold;
-    accumMaterial.uniforms.uDecay.value     = decayRate;
-    accumMaterial.uniforms.uGain.value      = gain;
-    accumMaterial.uniforms.uClear.value     = doClear;
+    accumMaterial.uniforms.uThreshold.value  = threshold;
+    accumMaterial.uniforms.uDecay.value      = decayRate;
+    accumMaterial.uniforms.uGain.value       = gain;
+    accumMaterial.uniforms.uColorBoost.value = colorBoost;
+    accumMaterial.uniforms.uClear.value      = doClear;
 
     _renderer.setRenderTarget(trailB);
     _renderer.render(accumScene!, accumCamera!);
