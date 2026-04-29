@@ -152,7 +152,7 @@ void main() {
   // Blur=0 → hard-edged circle; Blur=1 → full soft gradient.
   // The transition to soft only kicks in visibly past the lower portion of the range.
   float innerEdge = mix(0.49, 0.0, uBlur);
-  float softness  = smoothstep(0.5, innerEdge, d);
+  float softness  = 1.0 - smoothstep(innerEdge, 0.5, d);
 
   float alpha = softness * vAlpha * uCountScale * 0.7;
 
@@ -209,7 +209,7 @@ export const hyperMix: Pattern = {
     },
     {
       label: "Turbulence",
-      type: "range", min: 0.01, max: 1.25, step: 0.01,
+      type: "range", min: 0.01, max: 0.50, step: 0.01,
       get: () => params.curlScale,
       set: (v) => { params.curlScale = v; if (material) material.uniforms.uCurlScale.value = v; },
     },
