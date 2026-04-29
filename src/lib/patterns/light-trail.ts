@@ -202,11 +202,17 @@ export const lightTrail: Pattern = {
     );
     blackTexture.needsUpdate = true;
 
+    // HalfFloatType avoids 8-bit quantization lock where dim values never decay
+    // to zero (e.g. round(4/255 * 0.97) = 4/255 forever). WebGL2 — all modern
+    // browsers — supports half-float render targets natively.
+    const rtType = _renderer.capabilities.isWebGL2
+      ? THREE.HalfFloatType
+      : THREE.UnsignedByteType;
     const rtOpts: THREE.RenderTargetOptions = {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
       format: THREE.RGBAFormat,
-      type: THREE.UnsignedByteType,
+      type: rtType,
       depthBuffer: false,
       stencilBuffer: false,
     };

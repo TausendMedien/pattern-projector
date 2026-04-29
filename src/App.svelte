@@ -242,7 +242,7 @@
               <span>{ctrl.label}</span>
               {#if ctrl.type === "range"}
                 <span class="font-mono text-white/40">
-                  {(ctrlVals[ctrl.label] ?? ctrl.get()).toFixed(ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}
+                  {(ctrlVals[ctrl.label] ?? ctrl.get()).toFixed(ctrl.step < 0.01 ? 3 : ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}
                 </span>
               {/if}
             </div>
