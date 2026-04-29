@@ -5,15 +5,15 @@ let mesh: THREE.Mesh | null = null;
 let geometry: THREE.PlaneGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
 
-let lineCount = 54;
-let scrollSpeed = 0.22;
-let lineWidth = 0.10;
-let waveAmp = 0.04;
-let colorRange = 0.5;
-let saturation = 0.85;
-let colorSpeed = 0.4;
+let lineCount = 59;
+let scrollSpeed = 0.02;
+let lineWidth = 0.14;
+let waveAmp = 0.015;
+let colorRange = 0.65;
+let saturation = 0.15;
+let colorSpeed = 1.0;
 let waveSpeed = 1.0;
-let rotateSpeed = 0.0;
+let rotateSpeed = 0.02;
 
 let colorPhase = 0;
 let rotAngle = 0;

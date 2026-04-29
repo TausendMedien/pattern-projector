@@ -3,10 +3,10 @@ import type { Pattern, PatternContext } from "./types";
 
 const COUNT = 50000;
 
-let pointSize = 1.6;
-let flowSpeed = 1.0;
-let colorRange = 0.6;
-let saturation = 0.85;
+let pointSize = 5.0;
+let flowSpeed = 0.2;
+let colorRange = 1.0;
+let saturation = 0.60;
 
 let points: THREE.Points | null = null;
 let geometry: THREE.BufferGeometry | null = null;

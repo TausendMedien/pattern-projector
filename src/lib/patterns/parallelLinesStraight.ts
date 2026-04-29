@@ -5,13 +5,13 @@ let mesh: THREE.Mesh | null = null;
 let geometry: THREE.PlaneGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
 
-let lineCount = 54;
-let scrollSpeed = 0.22;
-let lineWidth = 0.10;
-let colorRange = 0.5;
-let saturation = 0.85;
-let colorSpeed = 0.4;
-let rotateSpeed = 0.0;
+let lineCount = 47;
+let scrollSpeed = 0.06;
+let lineWidth = 0.19;
+let colorRange = 0.75;
+let saturation = 1.0;
+let colorSpeed = 0.0;
+let rotateSpeed = 0.02;
 
 // Accumulated phases — updated each frame, never reset on hot-reload
 let colorPhase = 0;

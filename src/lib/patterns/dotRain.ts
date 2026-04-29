@@ -5,15 +5,15 @@ let mesh: THREE.Mesh | null = null;
 let geometry: THREE.PlaneGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
 
-let columnCount = 40;
+let columnCount = 70;
 let scrollSpeed = 0.0;
-let dotSize = 0.35;
-let waveAmp = 0.2;
-let bubbleCount = 20;
-let bubbleSize = 0.06;
-let colorRange = 0.5;
+let dotSize = 0.60;
+let waveAmp = 0.14;
+let bubbleCount = 57;
+let bubbleSize = 0.050;
+let colorRange = 1.0;
 let saturation = 1.0;
-let colorSpeed = 0.3;
+let colorSpeed = 0.45;
 let rotateSpeed = 0.0;
 
 let colorPhase = 0;
