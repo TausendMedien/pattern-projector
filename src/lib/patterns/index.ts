@@ -13,6 +13,7 @@ import { curlOrbs } from "./curlOrbs";
 import { flowDots } from "./flowDots";
 import { baroqueSwirls } from "./baroqueSwirls";
 import { lightTrail } from "./light-trail";
+import { lightPaint } from "./light-paint";
 import { wrapWithPersist } from "../persist";
 
 export const patterns: Pattern[] = [
@@ -30,4 +31,5 @@ export const patterns: Pattern[] = [
   tunnel,
   lines3d,
   lightTrail,
+  lightPaint,
 ].map(wrapWithPersist);
