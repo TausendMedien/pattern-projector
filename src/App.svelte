@@ -44,7 +44,7 @@
   function poke() {
     hudVisible = true;
     if (hudTimer) clearTimeout(hudTimer);
-    hudTimer = setTimeout(() => (hudVisible = false), 2000);
+    hudTimer = setTimeout(() => (hudVisible = false), 5000);
   }
 
   function switchTo(n: number): number {
@@ -251,7 +251,9 @@
   });
 </script>
 
-<canvas bind:this={canvas} class="block w-full h-full"></canvas>
+<canvas bind:this={canvas} class="block w-full h-full"
+  onclick={() => { if (appState !== "overview") hudVisible = false; }}
+></canvas>
 
 <!-- ─── Cross-fade snapshot overlay ──────────────────────────────────── -->
 {#if snapshotUrl}
@@ -267,7 +269,11 @@
 
 <!-- ─── Overview overlay ──────────────────────────────────────────────── -->
 {#if appState === "overview"}
-  <div class="fixed inset-0 z-20 flex flex-col items-center justify-center gap-10 bg-black/70 backdrop-blur-sm">
+  <div
+    role="presentation"
+    class="fixed inset-0 z-20 flex flex-col items-center justify-center gap-10 bg-black/70 backdrop-blur-sm"
+    onclick={(e) => { if (e.target === e.currentTarget) activatePattern(focusedIndex); }}
+  >
 
     <div class="text-center">
       <p class="text-xs uppercase tracking-[0.35em] text-white/35">Pattern Projector</p>

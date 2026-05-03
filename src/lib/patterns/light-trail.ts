@@ -4,7 +4,7 @@ import type { Pattern, PatternContext } from "./types";
 // Controls state
 let threshold = 0.29;
 let decayRate = 0.015;  // 0 = forever, >0 = fade per frame
-let gain = 4.5;
+let gain = 1.5;
 let colorBoost = 2.0;   // 0 = grayscale trails, >1 = vivid color
 let dimLevel = 0.30;
 let bgMode = 2;         // 0=black, 1=live, 2=dimmed
@@ -76,12 +76,15 @@ const accumFragmentShader = /* glsl */ `
     vec3 vivid = mix(vec3(gray), live.rgb, uColorBoost);
 
     vec3 contribution = vivid * weight * uGain;
-    float maxCh = max(max(contribution.r, contribution.g), contribution.b);
-    if (maxCh > 1.0) contribution /= maxCh;
+    // Reinhard soft-saturation: scales vector down by 1/(peak+1), preserving hue.
+    // Prevents any single frame from slamming the trail to full white.
+    float peak = max(max(contribution.r, contribution.g), contribution.b) + 0.001;
+    contribution *= peak / (peak + 1.0) / peak;  // = contribution / (peak + 1.0)
 
     vec3 decayed = trail.rgb * (1.0 - uDecay);
 
-    vec3 newTrail = mix(clamp(decayed + contribution, 0.0, 1.0), vec3(0.0), uClear);
+    // No clamp here — HalfFloat buffers hold values > 1.0; tone-map at display time.
+    vec3 newTrail = mix(decayed + contribution, vec3(0.0), uClear);
     gl_FragColor = vec4(newTrail, 1.0);
   }
 `;
@@ -100,7 +103,6 @@ const compositeFragmentShader = /* glsl */ `
     vec4 live  = texture2D(uLiveFrame, vUv);
 
     float luma = dot(live.rgb, vec3(0.2126, 0.7152, 0.0722));
-    // Dim background pixels based on how far below threshold they are
     float darkness = 1.0 - smoothstep(0.0, uThreshold, luma);
 
     float t01 = clamp(uBgMode, 0.0, 1.0);
@@ -108,7 +110,10 @@ const compositeFragmentShader = /* glsl */ `
     vec3 bg = mix(vec3(0.0), live.rgb, t01);
     bg = mix(bg, live.rgb * uDimLevel * darkness, t12);
 
-    gl_FragColor = vec4(clamp(bg + trail.rgb, 0.0, 1.0), 1.0);
+    // Reinhard tone-map the accumulated trail so values above 1.0 (from HalfFloat
+    // accumulation) compress gracefully rather than hard-clipping to white.
+    vec3 toned = trail.rgb / (trail.rgb + 1.0);
+    gl_FragColor = vec4(clamp(bg + toned, 0.0, 1.0), 1.0);
   }
 `;
 
@@ -166,7 +171,7 @@ export const lightTrail: Pattern = {
     },
     {
       label: "Fade Speed",
-      type: "range", min: 0.0, max: 0.05, step: 0.001,
+      type: "range", min: 0.0, max: 0.3, step: 0.005,
       get: () => decayRate,
       set: (v) => { decayRate = v; },
     },

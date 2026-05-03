@@ -5,7 +5,7 @@ import type { Pattern, PatternContext } from "./types";
 let threshold = 0.29;
 let decayRate = 0.015;
 let brushRadius = 0.015;  // glow spread in UV space
-let gain = 3.0;
+let gain = 1.0;
 let colorBoost = 2.0;
 let ghostOpacity = 0.15;  // live camera overlay
 let clearRequested = false;
@@ -75,7 +75,10 @@ const accumFragmentShader = /* glsl */ `
     weight = weight * weight;
     float gray = dot(live.rgb, vec3(0.299, 0.587, 0.114));
     vec3 vivid = mix(vec3(gray), live.rgb, uColorBoost);
-    return vivid * weight * uGain;
+    vec3 c = vivid * weight * uGain;
+    // Reinhard soft-saturation: preserves hue, prevents single-frame white slam.
+    float peak = max(max(c.r, c.g), c.b) + 0.001;
+    return c / (peak + 1.0);
   }
 
   void main() {
@@ -177,7 +180,7 @@ export const lightPaint: Pattern = {
     },
     {
       label: "Fade Speed",
-      type: "range", min: 0.0, max: 0.05, step: 0.001,
+      type: "range", min: 0.0, max: 0.3, step: 0.005,
       get: () => decayRate,
       set: (v) => { decayRate = v; },
     },
