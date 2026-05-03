@@ -56,8 +56,8 @@ const fragmentShader = /* glsl */ `
     float scroll = uTime * uScrollSpeed;
     float stripe = fract(uv.x * uLineCount * 0.5 + scroll);
 
-    float edge = 0.025;
-    float line = smoothstep(0.0, edge, stripe) - smoothstep(uLineWidth - edge, uLineWidth, stripe);
+    float fw = fwidth(stripe);
+    float line = smoothstep(0.0, fw, stripe) - smoothstep(max(uLineWidth - fw, 0.0), uLineWidth, stripe);
 
     if (line < 0.01) discard;
 
