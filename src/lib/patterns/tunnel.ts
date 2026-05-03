@@ -5,9 +5,9 @@ let mesh: THREE.Mesh | null = null;
 let geometry: THREE.PlaneGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
 
-let speed = 0.5;       // negative = fly away, positive = fly toward
-let twist = 0.175;     // 0 = concentric rings, >0 = spiral arms
-let ringCount = 9;     // directly: how many rings are visible on screen
+let speed = 0.5;
+let wobble = 0.0;      // 0 = clean concentric rings; >0 = rings breathe against each other
+let ringCount = 9;
 let lineThickness = 0.5;
 let saturation = 0.90;
 let colorSpeed = 0.60;
@@ -28,7 +28,7 @@ const fragmentShader = /* glsl */ `
   uniform float uTime;
   uniform vec2  uResolution;
   uniform float uSpeed;
-  uniform float uTwist;
+  uniform float uWobble;
   uniform float uRingCount;
   uniform float uLineWidth;
   uniform float uSaturation;
@@ -46,27 +46,33 @@ const fragmentShader = /* glsl */ `
     float r = length(uv);
     if (r < 0.001) discard;
 
-    // Perspective-like depth: 1/r so near rings are large, far rings are small.
+    // Perspective depth: 1/r gives large rings close, small rings far.
     float depth = 1.0 / r;
 
-    // Angle used for twist: adds a spiral offset to the stripe coordinate.
-    // At twist=0 → pure concentric rings. At twist>0 → rings spiral outward.
-    float angle = atan(uv.y, uv.x) + uTime * 0.3;
-    float spiralOffset = uTwist * angle * 0.5;
+    // Wobble: radial standing wave — each ring's apparent radius oscillates
+    // at a phase offset based on its depth, so rings breathe against each other.
+    // No atan/angle involved → no center discontinuity or blinking.
+    float wobbleOffset = uWobble * sin(depth * 6.0 - uTime * 2.5) * 0.12;
 
     // uRingCount directly = number of visible rings on screen.
-    // Scale factor 0.042 maps 1 count ≈ 1 visible ring across typical depth range.
-    float stripe = fract(depth * uRingCount * 0.042 + spiralOffset - uTime * uSpeed * 0.05);
+    float stripe = fract((depth + wobbleOffset) * uRingCount * 0.042 - uTime * uSpeed * 0.05);
 
-    // Screen-adaptive AA: fwidth gives the derivative in screen pixels.
-    float fw = fwidth(stripe);
-    float lw = uLineWidth;
-    float line = smoothstep(0.0, fw, stripe)
-               - smoothstep(max(lw - fw, 0.0), lw, stripe);
+    // Screen-adaptive AA. Raw fwidth grows huge near center (many rings per
+    // pixel). Clamp it so rings stay visible, but also compute a fade that
+    // gracefully dissolves rings to black before they alias into a snowflake.
+    float rawFw = fwidth(stripe);
+    float fw    = clamp(rawFw, 0.0001, uLineWidth * 0.45);
+    float lw    = uLineWidth;
+    float line  = smoothstep(0.0, fw, stripe)
+                - smoothstep(max(lw - fw, fw), lw, stripe);
+
+    // Fade to black when ring density exceeds one ring per ~2 pixels.
+    float fade = 1.0 - smoothstep(0.4, 1.2, rawFw / lw);
+    line *= fade;
 
     if (line < 0.01) discard;
 
-    // Hue oscillates smoothly via sin() — no fract() wrap jumps.
+    // Hue oscillates smoothly via sin() — no fract() wrap → no abrupt jumps.
     float hue = 0.665 + sin(uColorPhase) * 0.165;
     float lit = 0.55 + 0.15 * sin(uTime * 0.4 + depth * 0.2);
     vec3 col = hsl2rgb(hue, 1.0, lit);
@@ -85,12 +91,12 @@ export const tunnel: Pattern = {
   id: "tunnel",
   name: "Tunnel",
   controls: [
-    { label: "Speed",       type: "range", min: -15,  max: 15,  step: 0.5,   get: () => speed,         set: (v) => { speed = v; } },
-    { label: "Twist",       type: "range", min: 0,    max: 1.0, step: 0.05,  get: () => twist,         set: (v) => { twist = v; } },
-    { label: "Ring Count",  type: "range", min: 1,    max: 50,  step: 1,     get: () => ringCount,     set: (v) => { ringCount = v; } },
-    { label: "Thickness",   type: "range", min: 0.02, max: 0.5, step: 0.02,  get: () => lineThickness, set: (v) => { lineThickness = v; } },
-    { label: "Saturation",  type: "range", min: 0.0,  max: 1.0, step: 0.05,  get: () => saturation,    set: (v) => { saturation = v; } },
-    { label: "Color Speed", type: "range", min: 0.0,  max: 1.0, step: 0.05,  get: () => colorSpeed,    set: (v) => { colorSpeed = v; } },
+    { label: "Speed",       type: "range", min: -50,  max: 50,  step: 1,    get: () => speed,         set: (v) => { speed = v; } },
+    { label: "Wobble",      type: "range", min: 0,    max: 1.0, step: 0.05, get: () => wobble,        set: (v) => { wobble = v; } },
+    { label: "Ring Count",  type: "range", min: 1,    max: 50,  step: 1,    get: () => ringCount,     set: (v) => { ringCount = v; } },
+    { label: "Thickness",   type: "range", min: 0.02, max: 0.5, step: 0.02, get: () => lineThickness, set: (v) => { lineThickness = v; } },
+    { label: "Saturation",  type: "range", min: 0.0,  max: 1.0, step: 0.05, get: () => saturation,    set: (v) => { saturation = v; } },
+    { label: "Color Speed", type: "range", min: 0.0,  max: 1.0, step: 0.05, get: () => colorSpeed,    set: (v) => { colorSpeed = v; } },
   ],
 
   init(ctx: PatternContext) {
@@ -100,7 +106,7 @@ export const tunnel: Pattern = {
         uTime:       { value: 0 },
         uResolution: { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
         uSpeed:      { value: speed },
-        uTwist:      { value: twist },
+        uWobble:     { value: wobble },
         uRingCount:  { value: ringCount },
         uLineWidth:  { value: lineThickness },
         uSaturation: { value: saturation },
@@ -123,7 +129,7 @@ export const tunnel: Pattern = {
     colorPhase += dt * colorSpeed * 0.3;
     material.uniforms.uTime.value       = elapsed;
     material.uniforms.uSpeed.value      = speed;
-    material.uniforms.uTwist.value      = twist;
+    material.uniforms.uWobble.value     = wobble;
     material.uniforms.uRingCount.value  = ringCount;
     material.uniforms.uLineWidth.value  = lineThickness;
     material.uniforms.uSaturation.value = saturation;
