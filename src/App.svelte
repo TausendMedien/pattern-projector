@@ -310,8 +310,8 @@
   </div>
 {/if}
 
-<!-- ─── Controls panel (active + preview) ─────────────────────────────── -->
-{#if appState !== "overview"}
+<!-- ─── Controls panel (active + preview, demo only) ──────────────────── -->
+{#if appState !== "overview" && demoActive}
   <div
     class="pointer-events-auto fixed bottom-4 right-4 z-10 select-none transition-opacity duration-500 min-w-48"
     style="max-height: calc(100dvh - 2rem)"
