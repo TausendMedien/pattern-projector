@@ -66,8 +66,9 @@ const fragmentShader = /* glsl */ `
     float line  = smoothstep(0.0, fw, stripe)
                 - smoothstep(max(lw - fw, fw), lw, stripe);
 
-    // Fade to black when ring density exceeds one ring per ~2 pixels.
-    float fade = 1.0 - smoothstep(0.4, 1.2, rawFw / lw);
+    // Fade to black when rings become too dense. Threshold at 1.5× keeps rings
+    // visible much closer to centre (≈half the previous hole radius).
+    float fade = 1.0 - smoothstep(1.5, 2.5, rawFw / lw);
     line *= fade;
 
     if (line < 0.01) discard;
@@ -80,7 +81,8 @@ const fragmentShader = /* glsl */ `
     // saturation=0 → pure white lines; saturation=1 → full color.
     col = mix(vec3(1.0), col, uSaturation);
 
-    float pulse = 0.85 + 0.15 * sin(uTime * 2.0 + stripe * 12.0);
+    // At saturation=0 pulse→1.0 so white lines are not dimmed.
+    float pulse = mix(1.0, 0.85 + 0.15 * sin(uTime * 2.0 + stripe * 12.0), uSaturation);
     col *= pulse * line;
 
     gl_FragColor = vec4(col, line);
@@ -91,7 +93,7 @@ export const tunnel: Pattern = {
   id: "tunnel",
   name: "Tunnel",
   controls: [
-    { label: "Speed",       type: "range", min: -50,  max: 50,  step: 1,    get: () => speed,         set: (v) => { speed = v; } },
+    { label: "Speed",       type: "range", min: -100, max: 100, step: 1,    get: () => speed,         set: (v) => { speed = v; } },
     { label: "Wobble",      type: "range", min: 0,    max: 1.0, step: 0.05, get: () => wobble,        set: (v) => { wobble = v; } },
     { label: "Ring Count",  type: "range", min: 1,    max: 50,  step: 1,    get: () => ringCount,     set: (v) => { ringCount = v; } },
     { label: "Thickness",   type: "range", min: 0.02, max: 0.5, step: 0.02, get: () => lineThickness, set: (v) => { lineThickness = v; } },
