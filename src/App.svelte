@@ -310,8 +310,8 @@
   </div>
 {/if}
 
-<!-- ─── Controls panel (active + preview, demo only) ──────────────────── -->
-{#if appState !== "overview" && demoActive}
+<!-- ─── Controls panel (active + preview) ─────────────────────────────── -->
+{#if appState !== "overview"}
   <div
     class="pointer-events-auto fixed bottom-4 right-4 z-10 select-none transition-opacity duration-500 min-w-48"
     style="max-height: calc(100dvh - 2rem)"
@@ -319,54 +319,56 @@
     class:opacity-100={hudVisible}
   >
     <div class="flex max-h-full flex-col rounded-md border border-white/10 bg-black/60 px-4 py-3 text-white backdrop-blur-sm">
-      <!-- Demo section -->
-      <div class="mb-2 shrink-0 text-xs uppercase tracking-widest text-white/50">Demo</div>
-      <div class="mb-3 flex flex-col gap-2.5">
-        <div class="flex flex-col gap-1">
-          <div class="flex justify-between text-xs text-white/70">
-            <span>Dwell time</span>
-            <span class="font-mono text-white/40">{demoDwell < 60 ? demoDwell + ' s' : Math.floor(demoDwell / 60) + 'm' + (demoDwell % 60 ? ' ' + (demoDwell % 60) + 's' : '')}</span>
+      <!-- Demo section — only visible when demo is active -->
+      {#if demoActive}
+        <div class="mb-2 shrink-0 text-xs uppercase tracking-widest text-white/50">Demo</div>
+        <div class="mb-3 flex flex-col gap-2.5">
+          <div class="flex flex-col gap-1">
+            <div class="flex justify-between text-xs text-white/70">
+              <span>Dwell time</span>
+              <span class="font-mono text-white/40">{demoDwell < 60 ? demoDwell + ' s' : Math.floor(demoDwell / 60) + 'm' + (demoDwell % 60 ? ' ' + (demoDwell % 60) + 's' : '')}</span>
+            </div>
+            <input
+              type="range"
+              min={5}
+              max={240}
+              step={5}
+              value={demoDwell}
+              oninput={(e) => {
+                demoDwell = parseInt((e.target as HTMLInputElement).value);
+                saveDemoSettings(demoActive, demoDwell, [...demoPatternIds]);
+                if (demoActive) resetDemoTimer();
+              }}
+              class="w-full accent-white cursor-pointer"
+            />
           </div>
-          <input
-            type="range"
-            min={5}
-            max={240}
-            step={5}
-            value={demoDwell}
-            oninput={(e) => {
-              demoDwell = parseInt((e.target as HTMLInputElement).value);
-              saveDemoSettings(demoActive, demoDwell, [...demoPatternIds]);
-              if (demoActive) resetDemoTimer();
-            }}
-            class="w-full accent-white cursor-pointer"
-          />
-        </div>
-        <!-- Pattern selection -->
-        <div class="flex flex-col gap-1">
-          <div class="text-xs text-white/70">Patterns in cycle</div>
-          <div class="flex flex-col gap-0.5">
-            {#each patterns as p, i}
-              {@const enabled = demoPatternIds.has(p.id)}
-              <button
-                class="flex items-center gap-2 rounded px-1.5 py-1 text-left text-xs transition-colors cursor-pointer
-                  {enabled ? 'text-white/80 hover:bg-white/10' : 'text-white/25 hover:bg-white/5'}"
-                onclick={() => {
-                  const next = new Set(demoPatternIds);
-                  if (enabled) { next.delete(p.id); } else { next.add(p.id); }
-                  demoPatternIds = next;
-                  saveDemoSettings(demoActive, demoDwell, [...demoPatternIds]);
-                }}
-              >
-                <span class="shrink-0 font-mono text-[10px] {enabled ? 'text-white/30' : 'text-white/15'}">{i + 1}</span>
-                <span class="leading-snug">{p.name}</span>
-                {#if enabled}
-                  <span class="ml-auto shrink-0 h-1.5 w-1.5 rounded-full bg-white/50"></span>
-                {/if}
-              </button>
-            {/each}
+          <!-- Pattern selection -->
+          <div class="flex flex-col gap-1">
+            <div class="text-xs text-white/70">Patterns in cycle</div>
+            <div class="flex flex-col gap-0.5">
+              {#each patterns as p, i}
+                {@const enabled = demoPatternIds.has(p.id)}
+                <button
+                  class="flex items-center gap-2 rounded px-1.5 py-1 text-left text-xs transition-colors cursor-pointer
+                    {enabled ? 'text-white/80 hover:bg-white/10' : 'text-white/25 hover:bg-white/5'}"
+                  onclick={() => {
+                    const next = new Set(demoPatternIds);
+                    if (enabled) { next.delete(p.id); } else { next.add(p.id); }
+                    demoPatternIds = next;
+                    saveDemoSettings(demoActive, demoDwell, [...demoPatternIds]);
+                  }}
+                >
+                  <span class="shrink-0 font-mono text-[10px] {enabled ? 'text-white/30' : 'text-white/15'}">{i + 1}</span>
+                  <span class="leading-snug">{p.name}</span>
+                  {#if enabled}
+                    <span class="ml-auto shrink-0 h-1.5 w-1.5 rounded-full bg-white/50"></span>
+                  {/if}
+                </button>
+              {/each}
+            </div>
           </div>
         </div>
-      </div>
+      {/if}
       {#if patterns[index].controls?.length}
         <!-- Pattern controls -->
         <div class="mb-2 shrink-0 border-t border-white/10 pt-3 text-xs uppercase tracking-widest text-white/50">Controls</div>
