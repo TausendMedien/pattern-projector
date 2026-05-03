@@ -45,21 +45,29 @@ const DEMO_KEY = "pattern-projector-demo";
 const DemoSchema = z.object({
   demoActive: z.boolean(),
   demoDwell: z.number().min(5).max(240),
+  demoPatternIds: z.array(z.string()).optional(),
 });
 
-export function loadDemoSettings(): { demoActive: boolean; demoDwell: number } {
+export function loadDemoSettings(allPatternIds: string[]): { demoActive: boolean; demoDwell: number; demoPatternIds: string[] } {
   try {
     const raw = localStorage.getItem(DEMO_KEY);
-    if (!raw) return { demoActive: false, demoDwell: 30 };
-    return DemoSchema.parse(JSON.parse(raw));
+    if (!raw) return { demoActive: false, demoDwell: 30, demoPatternIds: allPatternIds };
+    const parsed = DemoSchema.parse(JSON.parse(raw));
+    // Filter saved IDs to only those that still exist; fall back to all if none saved
+    const saved = parsed.demoPatternIds?.filter(id => allPatternIds.includes(id));
+    return {
+      demoActive: parsed.demoActive,
+      demoDwell: parsed.demoDwell,
+      demoPatternIds: saved?.length ? saved : allPatternIds,
+    };
   } catch {
-    return { demoActive: false, demoDwell: 30 };
+    return { demoActive: false, demoDwell: 30, demoPatternIds: allPatternIds };
   }
 }
 
-export function saveDemoSettings(demoActive: boolean, demoDwell: number): void {
+export function saveDemoSettings(demoActive: boolean, demoDwell: number, demoPatternIds: string[]): void {
   try {
-    localStorage.setItem(DEMO_KEY, JSON.stringify({ demoActive, demoDwell }));
+    localStorage.setItem(DEMO_KEY, JSON.stringify({ demoActive, demoDwell, demoPatternIds }));
   } catch {}
 }
 

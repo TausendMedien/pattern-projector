@@ -23,6 +23,7 @@
   // Demo mode
   let demoActive = $state(false);
   let demoDwell = $state(30);
+  let demoPatternIds = $state<Set<string>>(new Set(patterns.map(p => p.id)));
   let demoTimer: ReturnType<typeof setTimeout> | null = null;
   let snapshotUrl = $state<string | null>(null);
   let snapshotFading = $state(false);
@@ -64,6 +65,15 @@
     fs.enter(document.documentElement);
   }
 
+  function nextDemoIndex(from: number): number {
+    const count = patterns.length;
+    for (let i = 1; i <= count; i++) {
+      const next = (from + i) % count;
+      if (demoPatternIds.has(patterns[next].id)) return next;
+    }
+    return from; // all disabled or only current enabled — stay put
+  }
+
   function crossFadeTo(n: number) {
     snapshotUrl = canvas.toDataURL();
     snapshotFading = false;
@@ -74,7 +84,7 @@
 
   function scheduleNext() {
     demoTimer = setTimeout(() => {
-      crossFadeTo((index + 1) % patterns.length);
+      crossFadeTo(nextDemoIndex(index));
       scheduleNext();
     }, demoDwell * 1000);
   }
@@ -86,14 +96,14 @@
       appState = "active";
       poke();
     }
-    saveDemoSettings(true, demoDwell);
+    saveDemoSettings(true, demoDwell, [...demoPatternIds]);
     if (demoTimer) clearTimeout(demoTimer);
     scheduleNext();
   }
 
   function stopDemo() {
     demoActive = false;
-    saveDemoSettings(false, demoDwell);
+    saveDemoSettings(false, demoDwell, [...demoPatternIds]);
     if (demoTimer) { clearTimeout(demoTimer); demoTimer = null; }
   }
 
@@ -208,8 +218,9 @@
     isIosBrowser = isIos && !isIosStandalone;
     loadSettings(patterns);
     syncCtrlVals(); // pick up any saved values
-    const demo = loadDemoSettings();
+    const demo = loadDemoSettings(patterns.map(p => p.id));
     demoDwell = demo.demoDwell;
+    demoPatternIds = new Set(demo.demoPatternIds);
     handle = createRenderer(canvas, patterns[0]);
     if (demo.demoActive) startDemo();
 
@@ -324,11 +335,36 @@
             value={demoDwell}
             oninput={(e) => {
               demoDwell = parseInt((e.target as HTMLInputElement).value);
-              saveDemoSettings(demoActive, demoDwell);
+              saveDemoSettings(demoActive, demoDwell, [...demoPatternIds]);
               if (demoActive) resetDemoTimer();
             }}
             class="w-full accent-white cursor-pointer"
           />
+        </div>
+        <!-- Pattern selection -->
+        <div class="flex flex-col gap-1">
+          <div class="text-xs text-white/70">Patterns in cycle</div>
+          <div class="flex flex-col gap-0.5">
+            {#each patterns as p, i}
+              {@const enabled = demoPatternIds.has(p.id)}
+              <button
+                class="flex items-center gap-2 rounded px-1.5 py-1 text-left text-xs transition-colors cursor-pointer
+                  {enabled ? 'text-white/80 hover:bg-white/10' : 'text-white/25 hover:bg-white/5'}"
+                onclick={() => {
+                  const next = new Set(demoPatternIds);
+                  if (enabled) { next.delete(p.id); } else { next.add(p.id); }
+                  demoPatternIds = next;
+                  saveDemoSettings(demoActive, demoDwell, [...demoPatternIds]);
+                }}
+              >
+                <span class="shrink-0 font-mono text-[10px] {enabled ? 'text-white/30' : 'text-white/15'}">{i + 1}</span>
+                <span class="leading-snug">{p.name}</span>
+                {#if enabled}
+                  <span class="ml-auto shrink-0 h-1.5 w-1.5 rounded-full bg-white/50"></span>
+                {/if}
+              </button>
+            {/each}
+          </div>
         </div>
       </div>
       {#if patterns[index].controls?.length}
