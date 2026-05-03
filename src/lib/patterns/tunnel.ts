@@ -5,9 +5,9 @@ let mesh: THREE.Mesh | null = null;
 let geometry: THREE.PlaneGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
 
-let speed = 0.5;
-let twist = 0.175;
-let ringCount = 120;
+let speed = 0.5;       // negative = fly away, positive = fly toward
+let twist = 0.175;     // 0 = concentric rings, >0 = spiral arms
+let ringCount = 9;     // directly: how many rings are visible on screen
 let lineThickness = 0.5;
 let saturation = 0.90;
 let colorSpeed = 0.60;
@@ -49,17 +49,16 @@ const fragmentShader = /* glsl */ `
     // Perspective-like depth: 1/r so near rings are large, far rings are small.
     float depth = 1.0 / r;
 
-    // Twist increases with depth, matching the original per-ring i*twist rotation.
-    // Dynamic spin matches the original ring.rotation.z += dt * 0.3.
-    float angle = atan(uv.y, uv.x) + uTwist * depth * 10.0 + uTime * 0.3;
-    // angle is used only for future per-ring color variation; suppress unused warning.
-    angle = angle;
+    // Angle used for twist: adds a spiral offset to the stripe coordinate.
+    // At twist=0 → pure concentric rings. At twist>0 → rings spiral outward.
+    float angle = atan(uv.y, uv.x) + uTime * 0.3;
+    float spiralOffset = uTwist * angle * 0.5;
 
-    // Animated rings scrolling towards the viewer.
-    float stripe = fract(depth * uRingCount * 0.004 - uTime * uSpeed * 0.05);
+    // uRingCount directly = number of visible rings on screen.
+    // Scale factor 0.042 maps 1 count ≈ 1 visible ring across typical depth range.
+    float stripe = fract(depth * uRingCount * 0.042 + spiralOffset - uTime * uSpeed * 0.05);
 
-    // Screen-adaptive AA: fwidth gives the derivative in screen pixels,
-    // so the soft edge always spans ~1 pixel regardless of resolution.
+    // Screen-adaptive AA: fwidth gives the derivative in screen pixels.
     float fw = fwidth(stripe);
     float lw = uLineWidth;
     float line = smoothstep(0.0, fw, stripe)
@@ -67,13 +66,13 @@ const fragmentShader = /* glsl */ `
 
     if (line < 0.01) discard;
 
-    // Hue cycles 0.50 → 0.83 over time, same formula as the original.
-    float hue = 0.5 + fract(uColorPhase) * 0.33;
+    // Hue oscillates smoothly via sin() — no fract() wrap jumps.
+    float hue = 0.665 + sin(uColorPhase) * 0.165;
     float lit = 0.55 + 0.15 * sin(uTime * 0.4 + depth * 0.2);
-    vec3 col = hsl2rgb(hue, uSaturation * 0.85, 0.6);
+    vec3 col = hsl2rgb(hue, 1.0, lit);
 
-    float gray = dot(col, vec3(0.299, 0.587, 0.114));
-    col = mix(vec3(gray), col, uSaturation);
+    // saturation=0 → pure white lines; saturation=1 → full color.
+    col = mix(vec3(1.0), col, uSaturation);
 
     float pulse = 0.85 + 0.15 * sin(uTime * 2.0 + stripe * 12.0);
     col *= pulse * line;
@@ -86,9 +85,9 @@ export const tunnel: Pattern = {
   id: "tunnel",
   name: "Tunnel",
   controls: [
-    { label: "Speed",       type: "range", min: 0.5,  max: 15,  step: 0.5,   get: () => speed,         set: (v) => { speed = v; } },
-    { label: "Twist",       type: "range", min: 0,    max: 0.3, step: 0.005, get: () => twist,         set: (v) => { twist = v; } },
-    { label: "Ring Count",  type: "range", min: 10,   max: 120, step: 2,     get: () => ringCount,     set: (v) => { ringCount = v; } },
+    { label: "Speed",       type: "range", min: -15,  max: 15,  step: 0.5,   get: () => speed,         set: (v) => { speed = v; } },
+    { label: "Twist",       type: "range", min: 0,    max: 1.0, step: 0.05,  get: () => twist,         set: (v) => { twist = v; } },
+    { label: "Ring Count",  type: "range", min: 1,    max: 50,  step: 1,     get: () => ringCount,     set: (v) => { ringCount = v; } },
     { label: "Thickness",   type: "range", min: 0.02, max: 0.5, step: 0.02,  get: () => lineThickness, set: (v) => { lineThickness = v; } },
     { label: "Saturation",  type: "range", min: 0.0,  max: 1.0, step: 0.05,  get: () => saturation,    set: (v) => { saturation = v; } },
     { label: "Color Speed", type: "range", min: 0.0,  max: 1.0, step: 0.05,  get: () => colorSpeed,    set: (v) => { colorSpeed = v; } },
