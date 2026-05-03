@@ -55,12 +55,13 @@ const fragmentShader = /* glsl */ `
     float wobbleOffset = uWobble * sin(depth * 6.0 - uTime * 2.5) * 0.12;
 
     // uRingCount directly = number of visible rings on screen.
-    float stripe = fract((depth + wobbleOffset) * uRingCount * 0.042 - uTime * uSpeed * 0.05);
+    float stripeRaw = (depth + wobbleOffset) * uRingCount * 0.042 - uTime * uSpeed * 0.05;
+    float stripe    = fract(stripeRaw);
 
-    // Screen-adaptive AA. Raw fwidth grows huge near center (many rings per
-    // pixel). Clamp it so rings stay visible, but also compute a fade that
-    // gracefully dissolves rings to black before they alias into a snowflake.
-    float rawFw = fwidth(stripe);
+    // Derivative on the pre-fract value avoids corruption at fract discontinuities.
+    // Euclidean norm instead of Manhattan (fwidth = |dx|+|dy|) is rotationally
+    // symmetric — eliminates the axis-aligned cross artifact near the centre.
+    float rawFw = length(vec2(dFdx(stripeRaw), dFdy(stripeRaw)));
     float fw    = clamp(rawFw, 0.0001, uLineWidth * 0.45);
     float lw    = uLineWidth;
     float line  = smoothstep(0.0, fw, stripe)
