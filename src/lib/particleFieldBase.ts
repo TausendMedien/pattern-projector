@@ -72,14 +72,14 @@ export function makeParticleFieldPattern(
 ): Pattern {
   // Base (user-controlled) parameters
   let baseSize = 2.0;
-  let baseFlowSpeed = 0.2;
+  let flowSpeed = 0.2;
   let motionStrength = 0.5;
   let colorRange = 1.0;
   let saturation = 0.6;
 
-  // Live effective values — updated each frame, read by get() for live sliders
+  // Only point size is driven by motion — flow speed is intentionally kept
+  // constant so the wave phase never jumps (which would look like time-scrubbing).
   let effectiveSize = baseSize;
-  let effectiveSpeed = baseFlowSpeed;
 
   let points: THREE.Points | null = null;
   let geometry: THREE.BufferGeometry | null = null;
@@ -103,9 +103,9 @@ export function makeParticleFieldPattern(
       },
       {
         label: "Flow Speed",
-        type: "range", min: 0.1, max: 5.0, step: 0.05,
-        get: () => effectiveSpeed,
-        set: (v) => { baseFlowSpeed = v; },
+        type: "range", min: 0.1, max: 3.0, step: 0.05,
+        get: () => flowSpeed,
+        set: (v) => { flowSpeed = v; },
       },
       {
         label: "Motion Strength",
@@ -151,7 +151,7 @@ export function makeParticleFieldPattern(
         uniforms: {
           uTime:       { value: 0 },
           uSize:       { value: baseSize },
-          uFlowSpeed:  { value: baseFlowSpeed },
+          uFlowSpeed:  { value: flowSpeed },
           uColorRange: { value: colorRange },
           uSaturation: { value: saturation },
         },
@@ -168,7 +168,6 @@ export function makeParticleFieldPattern(
       detector = createDetector();
       smoothedMotion = 0;
       effectiveSize = baseSize;
-      effectiveSpeed = baseFlowSpeed;
 
       const canvas = ctx.renderer.domElement;
       overlay = showMotionOverlay(canvas, "Requesting camera…");
@@ -193,15 +192,13 @@ export function makeParticleFieldPattern(
         }
       }
 
-      // Scale boost: at strength=0 → no effect; at strength=2, full motion →
-      // size ×3.5 and speed ×2.75 above base (subtle at low strength, dramatic at high)
-      const boost = smoothedMotion * motionStrength;
-      effectiveSize  = baseSize  + boost * 4.0;
-      effectiveSpeed = baseFlowSpeed + boost * 1.5;
+      // Only point size is boosted — flow speed stays constant so the wave
+      // phase never shifts (which would look like time-scrubbing).
+      effectiveSize = baseSize + smoothedMotion * motionStrength * 4.0;
 
-      material.uniforms.uTime.value      = elapsed;
-      material.uniforms.uSize.value      = effectiveSize;
-      material.uniforms.uFlowSpeed.value = effectiveSpeed;
+      material.uniforms.uTime.value       = elapsed;
+      material.uniforms.uSize.value       = effectiveSize;
+      material.uniforms.uFlowSpeed.value  = flowSpeed;
       material.uniforms.uColorRange.value = colorRange;
       material.uniforms.uSaturation.value = saturation;
     },
