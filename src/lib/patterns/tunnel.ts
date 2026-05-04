@@ -5,11 +5,11 @@ let mesh: THREE.Mesh | null = null;
 let geometry: THREE.PlaneGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
 
-let speed = 0.5;
+let speed = 10;
 let wobble = 0.0;      // 0 = clean concentric rings; >0 = rings breathe against each other
-let ringCount = 9;
-let lineThickness = 0.5;
-let saturation = 0.90;
+let ringCount = 42;
+let lineThickness = 0.10;
+let saturation = 1.0;
 let colorSpeed = 0.60;
 
 let colorPhase = 0;
@@ -67,10 +67,14 @@ const fragmentShader = /* glsl */ `
     float line  = smoothstep(0.0, fw, stripe)
                 - smoothstep(max(lw - fw, fw), lw, stripe);
 
-    // Fade to black when rings become too dense. Threshold at 1.5× keeps rings
-    // visible much closer to centre (≈half the previous hole radius).
+    // Fade to black when rings become too dense.
     float fade = 1.0 - smoothstep(1.5, 2.5, rawFw / lw);
     line *= fade;
+
+    // Progressive centre blur: grows stronger toward the middle,
+    // dissolving the dense moiré into clean black regardless of ring count.
+    float centerFade = smoothstep(0.0, 0.10, r);
+    line *= centerFade;
 
     if (line < 0.01) discard;
 

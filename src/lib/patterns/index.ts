@@ -2,6 +2,7 @@ import type { Pattern } from "./types";
 import { lines3d } from "./lines3d";
 import { particles } from "./particles";
 import { tunnel } from "./tunnel";
+import { tunnelRect } from "./tunnelRect";
 import { shaderGradient } from "./shaderGradient";
 import { parallelLinesStraight } from "./parallelLinesStraight";
 import { parallelLinesWave } from "./parallelLinesWave";
@@ -29,6 +30,7 @@ export const patterns: Pattern[] = [
   shaderGradient,
   hyperMix,
   tunnel,
+  tunnelRect,
   lines3d,
   lightTrail,
   lightPaint,
