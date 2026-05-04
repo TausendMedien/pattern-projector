@@ -6,6 +6,7 @@
   import { patterns } from "./lib/patterns";
   import * as fs from "./lib/fullscreen";
   import { loadSettings, saveSettings, loadDemoSettings, saveDemoSettings } from "./lib/settings";
+  import { restoreFromKeys } from "./lib/persist";
 
   type AppState = "overview" | "active" | "preview";
 
@@ -217,7 +218,8 @@
     isIosStandalone = isIos && (navigator as any).standalone === true;
     isIosBrowser = isIos && !isIosStandalone;
     loadSettings(patterns);
-    syncCtrlVals(); // pick up any saved values
+    restoreFromKeys(patterns); // pp: keys are more current than the blob; let them win
+    syncCtrlVals();
     const demo = loadDemoSettings(patterns.map(p => p.id));
     demoDwell = demo.demoDwell;
     demoPatternIds = new Set(demo.demoPatternIds);
@@ -235,10 +237,15 @@
     }
     document.addEventListener("fullscreenchange", onFsChange);
     document.addEventListener("webkitfullscreenchange", onFsChange);
+    // Keep the blob fresh so it never lags behind pp: keys
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") saveSettings(patterns);
+    });
     // Re-hydrate controls when Arc (or any browser) restores the page from bfcache
     window.addEventListener("pageshow", (e) => {
       if (e.persisted) {
         loadSettings(patterns);
+        restoreFromKeys(patterns);
         syncCtrlVals();
       }
     });

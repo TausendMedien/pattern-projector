@@ -3,7 +3,7 @@ import type { Pattern, PatternContext } from "./types";
 
 const COUNT = 50000;
 
-let pointSize = 5.0;
+let pointSize = 7.0;
 let flowSpeed = 0.2;
 let colorRange = 1.0;
 let saturation = 0.60;
@@ -75,7 +75,7 @@ export const particles: Pattern = {
   id: "particles",
   name: "Particle Field",
   controls: [
-    { label: "Point Size",  type: "range", min: 0.3, max: 15.0, step: 0.1,  get: () => pointSize,   set: (v) => { pointSize = v; } },
+    { label: "Point Size",  type: "range", min: 0.3, max: 25.0, step: 0.1,  get: () => pointSize,   set: (v) => { pointSize = v; } },
     { label: "Flow Speed",  type: "range", min: 0.1, max: 3.0,  step: 0.1,  get: () => flowSpeed,   set: (v) => { flowSpeed = v; } },
     { label: "Colors",      type: "range", min: 0.0, max: 1.0,  step: 0.05, get: () => colorRange,  set: (v) => { colorRange = v; } },
     { label: "Saturation",  type: "range", min: 0.0, max: 1.0,  step: 0.05, get: () => saturation,  set: (v) => { saturation = v; } },
