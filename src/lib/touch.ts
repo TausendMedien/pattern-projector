@@ -9,6 +9,13 @@ export function attachTouch(handler: (action: KeyAction) => void): () => void {
   let pendingDoubleTap = false;
 
   function onTouchStart(e: TouchEvent) {
+    // If the touch starts on a HUD panel, ignore all gestures for this touch
+    if ((e.target as Element | null)?.closest('[data-no-swipe]')) {
+      pendingDoubleTap = false;
+      startX = -1; // sentinel: skip onTouchEnd processing
+      return;
+    }
+
     const t = e.touches[0];
     startX = t.clientX;
     startY = t.clientY;
@@ -30,6 +37,7 @@ export function attachTouch(handler: (action: KeyAction) => void): () => void {
   }
 
   function onTouchEnd(e: TouchEvent) {
+    if (startX === -1) return; // touch started on a panel — ignore
     const t = e.changedTouches[0];
     const deltaX = t.clientX - startX;
     const deltaY = t.clientY - startY;

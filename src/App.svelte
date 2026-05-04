@@ -301,15 +301,15 @@
 {#if appState === "overview"}
   <div
     role="presentation"
-    class="fixed inset-0 z-20 flex flex-col items-center justify-center gap-10 bg-black/70 backdrop-blur-sm"
+    class="fixed inset-0 z-20 flex flex-col items-center overflow-y-auto bg-black/70 backdrop-blur-sm"
     onclick={(e) => { if (e.target === e.currentTarget) activatePattern(focusedIndex); }}
   >
 
-    <div class="text-center">
+    <div class="shrink-0 pt-10 pb-4 text-center">
       <p class="text-xs uppercase tracking-[0.35em] text-white/35">Pattern Projector</p>
     </div>
 
-    <div class="grid grid-cols-3 gap-2 px-3 w-full max-w-lg">
+    <div class="grid grid-cols-3 gap-2 px-3 w-full max-w-lg pb-4">
       {#each patterns as p, i}
         <button
           class="relative flex flex-col gap-1 rounded-xl border px-3 py-3 text-left transition-all duration-150 cursor-pointer
@@ -328,9 +328,7 @@
       {/each}
     </div>
 
-    <div class="absolute bottom-4 right-4 font-mono text-[10px] text-white/20">{__COMMIT__}</div>
-
-    <div class="flex gap-5 text-[11px] text-white/30">
+    <div class="shrink-0 pb-8 flex gap-5 text-[11px] text-white/30 px-4 text-center flex-wrap justify-center">
       {#if isIosBrowser}
         <span>tap to select · swipe to browse · <span class="text-white/50">Share ↑ → Add to Home Screen</span> for fullscreen</span>
       {:else if isTouch}
@@ -343,12 +341,15 @@
       {/if}
     </div>
 
+    <div class="absolute bottom-4 right-4 font-mono text-[10px] text-white/20">{__COMMIT__}</div>
+
   </div>
 {/if}
 
 <!-- ─── Controls panel (active + preview) ─────────────────────────────── -->
 {#if appState !== "overview"}
   <div
+    data-no-swipe
     class="pointer-events-auto fixed bottom-4 right-4 z-10 select-none transition-opacity duration-500 min-w-48"
     style="max-height: calc(100dvh - 2rem)"
     class:opacity-0={!hudVisible}
@@ -463,6 +464,7 @@
 <!-- ─── HUD (active + preview) ────────────────────────────────────────── -->
 {#if appState !== "overview"}
   <div
+    data-no-swipe
     class="pointer-events-none fixed top-4 left-4 z-10 select-none transition-opacity duration-500"
     class:opacity-0={!hudVisible}
     class:opacity-100={hudVisible}
@@ -495,6 +497,14 @@
           {/if}
         </div>
       </div>
+      {#if isTouch}
+        <button
+          class="pointer-events-auto mt-3 w-full rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
+          onclick={() => { if (fs.isFullscreen()) fs.exit(); focusedIndex = index; appState = "overview"; }}
+        >
+          ← Patterns
+        </button>
+      {/if}
       <div class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-white/70">
         {#if isTouch}
           <span>↔</span><span>swipe to change pattern</span>
