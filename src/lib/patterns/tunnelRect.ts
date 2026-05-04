@@ -8,9 +8,10 @@ let material: THREE.ShaderMaterial | null = null;
 let speed = 5.0;
 let rotSpeed = 0.08;
 let ringCount = 6;
-let shape = 1.0;       // 1.0 = square; <1 = wider rect; >1 = taller rect
-let offset = 0.0;      // horizontal center offset; inner rings amplify it → staircase
+let shape = 1.0;
+let ringOffset = 0.0;   // extra rotation per ring (radians); 0 = all aligned
 let saturation = 1.0;
+let wobble = 0.0;
 let hueShift = 0.0;
 let colorSpeed = 0.30;
 
@@ -33,8 +34,9 @@ const fragmentShader = /* glsl */ `
   uniform float uRotSpeed;
   uniform float uRingCount;
   uniform float uShape;
-  uniform float uOffset;
+  uniform float uRingOffset;
   uniform float uSaturation;
+  uniform float uWobble;
   uniform float uHueShift;
   uniform float uColorPhase;
 
@@ -47,58 +49,63 @@ const fragmentShader = /* glsl */ `
     float aspect = uResolution.x / max(uResolution.y, 1.0);
     vec2 uv = (vUv - 0.5) * vec2(aspect, 1.0);
 
-    // Start at 45° (diamond look), spin over time.
-    float angle = 0.7854 + uTime * uRotSpeed;
-    float cosA  = cos(angle);
-    float sinA  = sin(angle);
+    // ── Pass 1: ring index from unrotated Chebyshev distance ─────────────────
+    // Using the unrotated Chebyshev metric (same shape as final, just not rotated)
+    // gives a ring index that closely matches the rotated result → no circular
+    // distortion at the outer rings.
+    float d0 = max(abs(uv.x) * uShape / aspect, abs(uv.y));
+    float approxStripe = (1.0 / max(d0, 0.001)) * uRingCount * 0.04 - uTime * uSpeed * 0.05;
+    float ringIndex = floor(approxStripe);
+
+    // ── Per-ring rotation ──────────────────────────────────────────────────────
+    // Ring N rotates by base angle + N × uRingOffset.
+    // This makes consecutive rings appear at different physical angles → staircase.
+    float totalAngle = 0.7854 + uTime * uRotSpeed + ringIndex * uRingOffset;
+    float cosA = cos(totalAngle);
+    float sinA = sin(totalAngle);
     vec2 ruv = vec2(cosA * uv.x - sinA * uv.y,
                     sinA * uv.x + cosA * uv.y);
 
-    // ── Offset ──────────────────────────────────────────────────────────────
-    // Shift the Chebyshev centre by uOffset. Because inner rings are small in
-    // screen space, a fixed UV offset displaces them much more visually than
-    // outer rings → natural staircase / off-axis perspective look.
-    vec2 cUV = ruv - vec2(uOffset, 0.0);
-
-    // ── Distance & depth ────────────────────────────────────────────────────
-    // Chebyshev (L∞) → rectangular shape. Divide x by aspect → visual square.
-    float d     = max(abs(cUV.x) * uShape / aspect, abs(cUV.y));
+    // ── Pass 2: Chebyshev distance with per-ring-rotated UV ───────────────────
+    float d     = max(abs(ruv.x) * uShape / aspect, abs(ruv.y));
     float depth = 1.0 / max(d, 0.001);
 
-    float stripeRaw = depth * uRingCount * 0.04 - uTime * uSpeed * 0.05;
+    // Wobble: radial breathing between rings, same technique as circular tunnel.
+    float wobbleOff = uWobble * sin(depth * 6.0 - uTime * 2.5) * 0.12;
+
+    float stripeRaw = (depth + wobbleOff) * uRingCount * 0.04 - uTime * uSpeed * 0.05;
     float stripe    = fract(stripeRaw);
 
-    // Cosine blend 0→1→0 per band.
-    float t   = 0.5 - 0.5 * cos(stripe * 6.28318);
-    float hA  = mod(0.04 + uHueShift + sin(uColorPhase * 0.7) * 0.02, 1.0);
-    float hB  = mod(0.88 + uHueShift + cos(uColorPhase * 0.5) * 0.03, 1.0);
-    vec3 colA = hsl2rgb(hA, 0.85, 0.65);
-    vec3 colB = hsl2rgb(hB, 1.00, 0.50);
-    vec3 col  = mix(colA, colB, t);
+    // ── Per-ring colour ───────────────────────────────────────────────────────
+    // Each ring gets its own hue, shifting gently around the wheel over time.
+    float hue = mod(0.04 + uHueShift + ringIndex * 0.11 + sin(uColorPhase * 0.7) * 0.04, 1.0);
+    float lit = 0.58 + 0.08 * sin(ringIndex * 1.9 + uColorPhase * 0.5);
+    vec3 col  = hsl2rgb(hue, 0.88, lit);
 
-    // ── 3-D face shading ─────────────────────────────────────────────────────
-    // Determine which of the four rectangle faces this pixel lies on and apply
-    // a lighting model: right = bright (lit), left = dark (shadow),
-    // top = medium-bright, bottom = medium-dark.
-    float faceX  = cUV.x * uShape / aspect; // positive → right face
-    float faceY  = cUV.y;                   // positive → top face
-    float absX   = abs(faceX);
-    float absY   = abs(faceY);
-    // inX: 1 = on a left/right face, 0 = on a top/bottom face (smooth blend at corners)
-    float inX    = smoothstep(-0.04, 0.04, absX - absY);
-    float xLight = faceX > 0.0 ? 1.40 : 0.50; // right = lit, left = shadow
-    float yLight = faceY > 0.0 ? 0.95 : 0.75; // top = slight highlight, bottom = shade
-    float shade  = mix(yLight, xLight, inX);
-    col = clamp(col * shade, 0.0, 1.0);
+    // ── Shadow strip at inner ring edge ──────────────────────────────────────
+    // The front "wall" of each staircase step faces the viewer and is in shadow.
+    float stepShadow = smoothstep(0.0, 0.18, stripe);
+    col *= mix(0.20, 1.0, stepShadow);
 
-    // ── Saturation ───────────────────────────────────────────────────────────
-    // 0 = pure white (with face-shading still visible as gray tones), 1 = full colour.
-    col = mix(vec3(1.0), col, uSaturation);
+    // ── 3-D face shading ──────────────────────────────────────────────────────
+    // Detect which face of the rectangle the pixel is on (in rotated UV space).
+    float faceX = ruv.x * uShape / aspect;
+    float faceY = ruv.y;
+    float inX   = smoothstep(-0.04, 0.04, abs(faceX) - abs(faceY));
+    float xLight = faceX > 0.0 ? 1.35 : 0.52; // right = lit, left = shadow
+    float yLight = faceY > 0.0 ? 0.95 : 0.75;  // top = slight highlight, bottom = shade
+    col = clamp(col * mix(yLight, xLight, inX), 0.0, 1.0);
 
-    // ── Density fade near centre ─────────────────────────────────────────────
-    // Isotropic pre-fract derivative → no cross artifact.
+    // ── Saturation ────────────────────────────────────────────────────────────
+    // 0 = greyscale (dark gaps stay dark, bright rings stay bright → true B&W).
+    // 1 = full colour.
+    float lum = dot(col, vec3(0.299, 0.587, 0.114));
+    col = mix(vec3(lum), col, uSaturation);
+
+    // ── Density fade near centre ──────────────────────────────────────────────
     float rawFw    = length(vec2(dFdx(stripeRaw), dFdy(stripeRaw)));
     float fade     = 1.0 - smoothstep(0.8, 1.8, rawFw);
+    // Dark centre colour adapts: coloured at sat=1, pure black at sat=0.
     vec3 darkColor = mix(vec3(0.0), hsl2rgb(0.87, 0.60, 0.04), uSaturation);
     col = mix(darkColor, col, fade);
 
@@ -110,14 +117,15 @@ export const tunnelRect: Pattern = {
   id: "tunnelRect",
   name: "Tunnel — Rect",
   controls: [
-    { label: "Speed",       type: "range", min: -50,  max: 50,  step: 1,    get: () => speed,      set: (v) => { speed = v; } },
-    { label: "Rotation",    type: "range", min: -0.3, max: 0.3, step: 0.01, get: () => rotSpeed,   set: (v) => { rotSpeed = v; } },
-    { label: "Ring Count",  type: "range", min: 1,    max: 20,  step: 1,    get: () => ringCount,  set: (v) => { ringCount = v; } },
-    { label: "Shape",       type: "range", min: 0.3,  max: 3.0, step: 0.1,  get: () => shape,      set: (v) => { shape = v; } },
-    { label: "Offset",      type: "range", min: -0.5, max: 0.5, step: 0.01, get: () => offset,     set: (v) => { offset = v; } },
-    { label: "Saturation",  type: "range", min: 0.0,  max: 1.0, step: 0.05, get: () => saturation, set: (v) => { saturation = v; } },
-    { label: "Hue Shift",   type: "range", min: 0.0,  max: 1.0, step: 0.05, get: () => hueShift,   set: (v) => { hueShift = v; } },
-    { label: "Color Speed", type: "range", min: 0.0,  max: 1.0, step: 0.05, get: () => colorSpeed, set: (v) => { colorSpeed = v; } },
+    { label: "Speed",       type: "range", min: -100, max: 100, step: 1,    get: () => speed,       set: (v) => { speed = v; } },
+    { label: "Rotation",    type: "range", min: -1.0, max: 1.0, step: 0.01, get: () => rotSpeed,    set: (v) => { rotSpeed = v; } },
+    { label: "Ring Count",  type: "range", min: 1,    max: 20,  step: 1,    get: () => ringCount,   set: (v) => { ringCount = v; } },
+    { label: "Shape",       type: "range", min: 0.3,  max: 3.0, step: 0.1,  get: () => shape,       set: (v) => { shape = v; } },
+    { label: "Ring Offset", type: "range", min: -0.5, max: 0.5, step: 0.01, get: () => ringOffset,  set: (v) => { ringOffset = v; } },
+    { label: "Wobble",      type: "range", min: 0.0,  max: 1.0, step: 0.05, get: () => wobble,      set: (v) => { wobble = v; } },
+    { label: "Saturation",  type: "range", min: 0.0,  max: 1.0, step: 0.05, get: () => saturation,  set: (v) => { saturation = v; } },
+    { label: "Hue Shift",   type: "range", min: 0.0,  max: 1.0, step: 0.05, get: () => hueShift,    set: (v) => { hueShift = v; } },
+    { label: "Color Speed", type: "range", min: 0.0,  max: 1.0, step: 0.05, get: () => colorSpeed,  set: (v) => { colorSpeed = v; } },
   ],
 
   init(ctx: PatternContext) {
@@ -130,8 +138,9 @@ export const tunnelRect: Pattern = {
         uRotSpeed:   { value: rotSpeed },
         uRingCount:  { value: ringCount },
         uShape:      { value: shape },
-        uOffset:     { value: offset },
+        uRingOffset: { value: ringOffset },
         uSaturation: { value: saturation },
+        uWobble:     { value: wobble },
         uHueShift:   { value: hueShift },
         uColorPhase: { value: colorPhase },
       },
@@ -148,15 +157,16 @@ export const tunnelRect: Pattern = {
   update(dt: number, elapsed: number) {
     if (!material) return;
     colorPhase += dt * colorSpeed * 0.3;
-    material.uniforms.uTime.value       = elapsed;
-    material.uniforms.uSpeed.value      = speed;
-    material.uniforms.uRotSpeed.value   = rotSpeed;
-    material.uniforms.uRingCount.value  = ringCount;
-    material.uniforms.uShape.value      = shape;
-    material.uniforms.uOffset.value     = offset;
-    material.uniforms.uSaturation.value = saturation;
-    material.uniforms.uHueShift.value   = hueShift;
-    material.uniforms.uColorPhase.value = colorPhase;
+    material.uniforms.uTime.value        = elapsed;
+    material.uniforms.uSpeed.value       = speed;
+    material.uniforms.uRotSpeed.value    = rotSpeed;
+    material.uniforms.uRingCount.value   = ringCount;
+    material.uniforms.uShape.value       = shape;
+    material.uniforms.uRingOffset.value  = ringOffset;
+    material.uniforms.uSaturation.value  = saturation;
+    material.uniforms.uWobble.value      = wobble;
+    material.uniforms.uHueShift.value    = hueShift;
+    material.uniforms.uColorPhase.value  = colorPhase;
   },
 
   resize(width: number, height: number) {
