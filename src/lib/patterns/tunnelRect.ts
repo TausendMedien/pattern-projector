@@ -77,9 +77,12 @@ const fragmentShader = /* glsl */ `
     float stripe    = fract(stripeRaw);
 
     // ── Per-ring colour ───────────────────────────────────────────────────────
-    // Each ring gets its own hue, shifting gently around the wheel over time.
-    float hue = mod(0.04 + uHueShift + ringIndex * 0.11 + sin(uColorPhase * 0.7) * 0.04, 1.0);
-    float lit = 0.58 + 0.08 * sin(ringIndex * 1.9 + uColorPhase * 0.5);
+    // Use the animated stripe index (floor of stripeRaw, which includes speed)
+    // so colours scroll with the rings. ringIndex (static depth) is kept only
+    // for the rotation calculation above.
+    float animIndex = floor(stripeRaw);
+    float hue = mod(0.04 + uHueShift + animIndex * 0.11 + sin(uColorPhase * 0.7) * 0.04, 1.0);
+    float lit = 0.58 + 0.08 * sin(animIndex * 1.9 + uColorPhase * 0.5);
     vec3 col  = hsl2rgb(hue, 0.88, lit);
 
     // ── Shadow strip at inner ring edge ──────────────────────────────────────
