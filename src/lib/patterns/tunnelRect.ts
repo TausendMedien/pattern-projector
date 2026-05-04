@@ -55,12 +55,11 @@ const fragmentShader = /* glsl */ `
     // distortion at the outer rings.
     float d0 = max(abs(uv.x) * uShape / aspect, abs(uv.y));
     float approxStripe = (1.0 / max(d0, 0.001)) * uRingCount * 0.04 - uTime * uSpeed * 0.05;
-    float ringIndex = floor(approxStripe);
 
     // ── Per-ring rotation ──────────────────────────────────────────────────────
-    // Ring N rotates by base angle + N × uRingOffset.
-    // This makes consecutive rings appear at different physical angles → staircase.
-    float totalAngle = 0.7854 + uTime * uRotSpeed + ringIndex * uRingOffset;
+    // Use approxStripe continuously (not floored) so rotation varies smoothly
+    // across ring boundaries — no hard seam / jagged tears at the corners.
+    float totalAngle = 0.7854 + uTime * uRotSpeed + approxStripe * uRingOffset;
     float cosA = cos(totalAngle);
     float sinA = sin(totalAngle);
     vec2 ruv = vec2(cosA * uv.x - sinA * uv.y,
@@ -77,9 +76,7 @@ const fragmentShader = /* glsl */ `
     float stripe    = fract(stripeRaw);
 
     // ── Per-ring colour ───────────────────────────────────────────────────────
-    // Use the animated stripe index (floor of stripeRaw, which includes speed)
-    // so colours scroll with the rings. ringIndex (static depth) is kept only
-    // for the rotation calculation above.
+    // Animated stripe index travels with the rings as speed scrolls them.
     float animIndex = floor(stripeRaw);
     float hue = mod(0.04 + uHueShift + animIndex * 0.11 + sin(uColorPhase * 0.7) * 0.04, 1.0);
     float lit = 0.58 + 0.08 * sin(animIndex * 1.9 + uColorPhase * 0.5);
@@ -91,13 +88,16 @@ const fragmentShader = /* glsl */ `
     col *= mix(0.20, 1.0, stepShadow);
 
     // ── 3-D face shading ──────────────────────────────────────────────────────
-    // Detect which face of the rectangle the pixel is on (in rotated UV space).
-    float faceX = ruv.x * uShape / aspect;
-    float faceY = ruv.y;
-    float inX   = smoothstep(-0.04, 0.04, abs(faceX) - abs(faceY));
-    float xLight = faceX > 0.0 ? 1.35 : 0.52; // right = lit, left = shadow
-    float yLight = faceY > 0.0 ? 0.95 : 0.75;  // top = slight highlight, bottom = shade
-    col = clamp(col * mix(yLight, xLight, inX), 0.0, 1.0);
+    // L∞-normalised face direction: divide (faceX, faceY) by their Chebyshev
+    // length. This gives the true face normal of each rectangle side and varies
+    // *continuously* around corners — no 4-quadrant brightness jump.
+    float faceX   = ruv.x * uShape / aspect;
+    float faceY   = ruv.y;
+    vec2 faceNorm = vec2(faceX, faceY) / max(max(abs(faceX), abs(faceY)), 0.001);
+    // Light from the right and slightly downward (matches the reference look).
+    vec2 lightDir = normalize(vec2(0.85, -0.45));
+    float shade   = 0.68 + 0.48 * dot(faceNorm, lightDir);
+    col = clamp(col * shade, 0.0, 1.0);
 
     // ── Saturation ────────────────────────────────────────────────────────────
     // 0 = greyscale (dark gaps stay dark, bright rings stay bright → true B&W).
