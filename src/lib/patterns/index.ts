@@ -15,6 +15,9 @@ import { flowDots } from "./flowDots";
 import { baroqueSwirls } from "./baroqueSwirls";
 import { lightTrail } from "./light-trail";
 import { lightPaint } from "./light-paint";
+import { particleFieldSpatial } from "./particleFieldSpatial";
+import { particleFieldBaseline } from "./particleFieldBaseline";
+import { particleFieldCombined } from "./particleFieldCombined";
 import { wrapWithPersist } from "../persist";
 
 export const patterns: Pattern[] = [
@@ -34,4 +37,7 @@ export const patterns: Pattern[] = [
   lines3d,
   lightTrail,
   lightPaint,
+  particleFieldSpatial,
+  particleFieldBaseline,
+  particleFieldCombined,
 ].map(wrapWithPersist);

@@ -226,6 +226,21 @@
     handle = createRenderer(canvas, patterns[0]);
     if (demo.demoActive) startDemo();
 
+    // Keep ctrlVals in sync every frame so motion-reactive sliders move live.
+    let liveRaf: number;
+    const liveSync = () => {
+      if (hudVisible && appState !== 'overview') {
+        for (const c of patterns[index]?.controls ?? []) {
+          if (c.type === 'range') {
+            const v = c.get();
+            if (ctrlVals[c.label] !== v) ctrlVals[c.label] = v;
+          }
+        }
+      }
+      liveRaf = requestAnimationFrame(liveSync);
+    };
+    liveRaf = requestAnimationFrame(liveSync);
+
     const detach = attachKeyboard(handleAction);
     const detachTouch = attachTouch(handleAction);
 
@@ -252,6 +267,7 @@
     window.addEventListener("mousemove", poke);
 
     return () => {
+      cancelAnimationFrame(liveRaf);
       detach();
       detachTouch();
       document.removeEventListener("fullscreenchange", onFsChange);
