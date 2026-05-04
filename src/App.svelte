@@ -235,6 +235,13 @@
     }
     document.addEventListener("fullscreenchange", onFsChange);
     document.addEventListener("webkitfullscreenchange", onFsChange);
+    // Re-hydrate controls when Arc (or any browser) restores the page from bfcache
+    window.addEventListener("pageshow", (e) => {
+      if (e.persisted) {
+        loadSettings(patterns);
+        syncCtrlVals();
+      }
+    });
     window.addEventListener("mousemove", poke);
 
     return () => {
