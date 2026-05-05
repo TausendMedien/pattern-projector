@@ -6,6 +6,7 @@
   import { patterns } from "./lib/patterns";
   import * as fs from "./lib/fullscreen";
   import { loadSettings, saveSettings, loadDemoSettings, saveDemoSettings } from "./lib/settings";
+  import type { PatternControl } from "./lib/patterns/types";
   import { restoreFromKeys } from "./lib/persist";
 
   type AppState = "overview" | "active" | "preview";
@@ -41,6 +42,13 @@
 
   // Re-sync whenever the active pattern changes.
   $effect(() => { const _ = index; syncCtrlVals(); });
+
+  function resetCtrl(ctrl: PatternControl & { type: "range" }) {
+    if (ctrl.default === undefined) return;
+    ctrl.set(ctrl.default);
+    ctrlVals[ctrl.label] = ctrl.default;
+    saveSettings(patterns);
+  }
 
   function poke() {
     hudVisible = true;
@@ -414,7 +422,12 @@
             <div class="flex flex-col gap-1">
               {#if ctrl.type !== "button"}
               <div class="flex justify-between text-xs text-white/70">
-                <span>{ctrl.label}</span>
+                <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                <span
+                  class={ctrl.type === "range" && ctrl.default !== undefined ? "cursor-pointer select-none hover:text-white transition-colors" : ""}
+                  title={ctrl.type === "range" && ctrl.default !== undefined ? "Click to reset" : undefined}
+                  onclick={() => { if (ctrl.type === "range") resetCtrl(ctrl); }}
+                >{ctrl.label}</span>
                 {#if ctrl.type === "range"}
                   <span class="font-mono text-white/40">
                     {(ctrlVals[ctrl.label] ?? ctrl.get()).toFixed(ctrl.step < 0.01 ? 3 : ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}
@@ -435,6 +448,7 @@
                     ctrlVals[ctrl.label] = v;
                     saveSettings(patterns);
                   }}
+                  ondblclick={() => resetCtrl(ctrl)}
                   class="w-full accent-white cursor-pointer"
                 />
               {:else if ctrl.type === "select"}

@@ -81,13 +81,13 @@ export const parallelLinesStraight: Pattern = {
   id: "parallelLinesStraight",
   name: "Parallel Lines — Straight",
   controls: [
-    { label: "Line Count",   type: "range", min: 10,  max: 120, step: 1,    get: () => lineCount,   set: (v) => { lineCount = v; } },
-    { label: "Scroll Speed", type: "range", min: 0.02,max: 1.0, step: 0.01, get: () => scrollSpeed, set: (v) => { scrollSpeed = v; } },
-    { label: "Line Width",   type: "range", min: 0.02,max: 0.4, step: 0.01, get: () => lineWidth,   set: (v) => { lineWidth = v; } },
-    { label: "Colors",       type: "range", min: 0.0, max: 1.0, step: 0.05, get: () => colorRange,  set: (v) => { colorRange = v; } },
-    { label: "Color Speed",  type: "range", min: 0.0, max: 1.0, step: 0.05, get: () => colorSpeed,  set: (v) => { colorSpeed = v; } },
-    { label: "Saturation",   type: "range", min: 0.0, max: 1.0, step: 0.05, get: () => saturation,  set: (v) => { saturation = v; } },
-    { label: "Rotate",       type: "range", min: 0.0, max: 0.5, step: 0.01, get: () => rotateSpeed, set: (v) => { rotateSpeed = v; } },
+    { label: "Line Count",   type: "range", min: 10,  max: 120, step: 1, default: 47,    get: () => lineCount,   set: (v) => { lineCount = v; } },
+    { label: "Scroll Speed", type: "range", min: 0.02,max: 1.0, step: 0.01, default: 0.06, get: () => scrollSpeed, set: (v) => { scrollSpeed = v; } },
+    { label: "Line Width",   type: "range", min: 0.02,max: 0.4, step: 0.01, default: 0.19, get: () => lineWidth,   set: (v) => { lineWidth = v; } },
+    { label: "Colors",       type: "range", min: 0.0, max: 1.0, step: 0.05, default: 0.75, get: () => colorRange,  set: (v) => { colorRange = v; } },
+    { label: "Color Speed",  type: "range", min: 0.0, max: 1.0, step: 0.05, default: 0, get: () => colorSpeed,  set: (v) => { colorSpeed = v; } },
+    { label: "Saturation",   type: "range", min: 0.0, max: 1.0, step: 0.05, default: 1, get: () => saturation,  set: (v) => { saturation = v; } },
+    { label: "Rotate",       type: "range", min: 0.0, max: 0.5, step: 0.01, default: 0.02, get: () => rotateSpeed, set: (v) => { rotateSpeed = v; } },
   ],
 
   init(ctx: PatternContext) {

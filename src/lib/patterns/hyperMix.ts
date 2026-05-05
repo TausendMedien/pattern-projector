@@ -204,36 +204,42 @@ export const hyperMix: Pattern = {
     {
       label: "Speed",
       type: "range", min: 0.002, max: 0.6, step: 0.002,
+      default: 0.03,
       get: () => params.speed,
       set: (v) => { params.speed = v; if (material) material.uniforms.uSpeed.value = v; },
     },
     {
       label: "Turbulence",
       type: "range", min: 0.01, max: 0.50, step: 0.01,
+      default: 0.11,
       get: () => params.curlScale,
       set: (v) => { params.curlScale = v; if (material) material.uniforms.uCurlScale.value = v; },
     },
     {
       label: "Spread",
       type: "range", min: 0.1, max: 6.0, step: 0.1,
+      default: 2.1,
       get: () => params.spread,
       set: (v) => { params.spread = v; if (material) material.uniforms.uSpread.value = v; },
     },
     {
       label: "Point Size",
       type: "range", min: 0.2, max: 12.0, step: 0.2,
+      default: 0.8,
       get: () => params.pointSize,
       set: (v) => { params.pointSize = v; if (material) material.uniforms.uPtSize.value = v; },
     },
     {
       label: "Blur",
       type: "range", min: 0.0, max: 1.0, step: 0.05,
+      default: 0.5,
       get: () => params.blur,
       set: (v) => { params.blur = v; if (material) material.uniforms.uBlur.value = v; },
     },
     {
       label: "Point Count",
       type: "range", min: 5000, max: 100000, step: 5000,
+      default: 55000,
       get: () => params.pointCount,
       set: (v) => {
         params.pointCount = v;
@@ -249,6 +255,7 @@ export const hyperMix: Pattern = {
     {
       label: "Saturation",
       type: "range", min: 0.0, max: 1.0, step: 0.05,
+      default: 1,
       get: () => params.saturation,
       set: (v) => { params.saturation = v; if (material) material.uniforms.uSaturation.value = v; },
     },
