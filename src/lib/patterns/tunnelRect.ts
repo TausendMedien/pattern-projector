@@ -59,7 +59,7 @@ const fragmentShader = /* glsl */ `
     // ── Per-ring rotation ──────────────────────────────────────────────────────
     // Use approxStripe continuously (not floored) so rotation varies smoothly
     // across ring boundaries — no hard seam / jagged tears at the corners.
-    float totalAngle = 0.7854 + uTime * uRotSpeed + approxStripe * uRingOffset;
+    float totalAngle = 0.7854 + uTime * uRotSpeed + floor(approxStripe) * uRingOffset;
     float cosA = cos(totalAngle);
     float sinA = sin(totalAngle);
     vec2 ruv = vec2(cosA * uv.x - sinA * uv.y,
@@ -78,13 +78,13 @@ const fragmentShader = /* glsl */ `
     // ── Per-ring colour ───────────────────────────────────────────────────────
     // Animated stripe index travels with the rings as speed scrolls them.
     float animIndex = floor(stripeRaw);
-    float hue = mod(0.04 + uHueShift + animIndex * 0.11 + sin(uColorPhase * 0.7) * 0.04, 1.0);
+    float hue = mod(0.96 + uHueShift + sin(animIndex * 0.7 + uColorPhase) * 0.14, 1.0);
     float lit = 0.58 + 0.08 * sin(animIndex * 1.9 + uColorPhase * 0.5);
     vec3 col  = hsl2rgb(hue, 0.88, lit);
 
     // ── Shadow strip at inner ring edge ──────────────────────────────────────
     // The front "wall" of each staircase step faces the viewer and is in shadow.
-    float stepShadow = smoothstep(0.0, 0.18, stripe);
+    float stepShadow = smoothstep(0.0, 0.30, stripe);
     col *= mix(0.20, 1.0, stepShadow);
 
     // ── 3-D face shading ──────────────────────────────────────────────────────
