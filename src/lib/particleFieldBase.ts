@@ -1,19 +1,24 @@
-// Factory that creates a camera-reactive Particle Field variant.
-// Visual is the same as the "Particle Field" pattern; camera motion drives
-// point size and flow speed upward, then they decay back.
+// Factory for camera-reactive Particle Field variants.
+// Matches the visual of the original "Particle Field" (particles.ts).
+// Camera motion drives point size and flow speed; a camera-facing selector
+// lets the user switch between rear/external and front cameras.
 
 import * as THREE from "three";
 import type { Pattern, PatternContext } from "./patterns/types";
 import { MotionCamera, showMotionOverlay } from "./motionDetector";
 
 const COUNT = 50000;
+const FACING_KEY = 'pp:camera-facing';
+const FACING_MODES = ['environment', 'user'] as const;
 
-// Shaders are identical to particles.ts — sine-based flow field.
+// ─── Shaders ──────────────────────────────────────────────────────────────────
+// uTime is a JS-integrated accumulated time (dt * effectiveSpeed summed each
+// frame). The shader never sees a speed uniform — changing speed therefore
+// never jumps the wave phase.
 
 const vertexShader = /* glsl */ `
   uniform float uTime;
   uniform float uSize;
-  uniform float uFlowSpeed;
   attribute float aSeed;
   varying float vSeed;
 
@@ -27,9 +32,9 @@ const vertexShader = /* glsl */ `
   void main() {
     vSeed = aSeed;
     vec3 p = position;
-    vec3 disp = flow(p * 0.5 + aSeed, uTime * uFlowSpeed) * 0.6;
+    vec3 disp = flow(p * 0.5 + aSeed, uTime) * 0.6;
     p += disp;
-    float ang = uTime * 0.05 * uFlowSpeed + aSeed * 0.0002;
+    float ang = uTime * 0.05 + aSeed * 0.0002;
     float cs = cos(ang), sn = sin(ang);
     p.xz = mat2(cs, -sn, sn, cs) * p.xz;
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
@@ -61,6 +66,8 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
+// ─── Public interface ─────────────────────────────────────────────────────────
+
 export interface MotionDetector {
   update(diff: Float32Array): number;
 }
@@ -70,24 +77,42 @@ export function makeParticleFieldPattern(
   name: string,
   createDetector: () => MotionDetector,
 ): Pattern {
-  // Base (user-controlled) parameters
-  let baseSize = 2.0;
-  let flowSpeed = 0.2;
+
+  // ── User-controlled base values ──────────────────────────────────────────
+  let baseSize      = 2.0;
+  let baseSpeed     = 0.2;
   let motionStrength = 0.5;
-  let colorRange = 1.0;
-  let saturation = 0.6;
+  let colorRange    = 1.0;
+  let saturation    = 0.6;
+  let facingIndex   = parseInt(localStorage.getItem(FACING_KEY) ?? '0');
 
-  // Only point size is driven by motion — flow speed is intentionally kept
-  // constant so the wave phase never jumps (which would look like time-scrubbing).
-  let effectiveSize = baseSize;
+  // ── Live effective values (base + motion boost) ──────────────────────────
+  // get() returns these so sliders reflect current motion in real time.
+  let effectiveSize  = baseSize;
+  let effectiveSpeed = baseSpeed;
 
-  let points: THREE.Points | null = null;
+  // ── Internal state ───────────────────────────────────────────────────────
+  let accTime = 0;          // accumulated time integrated at effectiveSpeed
+  let smoothedMotion = 0;
+
+  let points:  THREE.Points | null = null;
   let geometry: THREE.BufferGeometry | null = null;
   let material: THREE.ShaderMaterial | null = null;
   let motionCamera: MotionCamera | null = null;
   let detector: MotionDetector | null = null;
-  let smoothedMotion = 0;
+  let canvasRef: HTMLCanvasElement | null = null;
   let overlay: HTMLDivElement | null = null;
+
+  function startCamera(facingMode: typeof FACING_MODES[number]) {
+    motionCamera?.dispose();
+    motionCamera = null;
+    if (!canvasRef) return;
+    MotionCamera.create(canvasRef, facingMode).then((cam) => {
+      overlay?.remove();
+      overlay = null;
+      motionCamera = cam ?? null;
+    });
+  }
 
   return {
     id,
@@ -97,15 +122,14 @@ export function makeParticleFieldPattern(
       {
         label: "Point Size",
         type: "range", min: 0.3, max: 12.0, step: 0.1,
-        // get returns live effective value so the slider moves with motion
-        get: () => effectiveSize,
+        get: () => effectiveSize,          // live: moves with motion
         set: (v) => { baseSize = v; },
       },
       {
         label: "Flow Speed",
-        type: "range", min: 0.1, max: 3.0, step: 0.05,
-        get: () => flowSpeed,
-        set: (v) => { flowSpeed = v; },
+        type: "range", min: 0.05, max: 3.0, step: 0.05,
+        get: () => effectiveSpeed,         // live: moves with motion
+        set: (v) => { baseSpeed = v; },
       },
       {
         label: "Motion Strength",
@@ -125,6 +149,17 @@ export function makeParticleFieldPattern(
         get: () => saturation,
         set: (v) => { saturation = v; },
       },
+      {
+        label: "Camera",
+        type: "select",
+        options: ["Rear / External", "Front"],
+        get: () => facingIndex,
+        set: (v) => {
+          facingIndex = v;
+          localStorage.setItem(FACING_KEY, String(v));
+          startCamera(FACING_MODES[v]);
+        },
+      },
     ],
 
     init(ctx: PatternContext) {
@@ -132,11 +167,11 @@ export function makeParticleFieldPattern(
       ctx.camera.lookAt(0, 0, 0);
 
       const positions = new Float32Array(COUNT * 3);
-      const seeds = new Float32Array(COUNT);
+      const seeds     = new Float32Array(COUNT);
       for (let i = 0; i < COUNT; i++) {
-        const r = Math.cbrt(Math.random()) * 4;
+        const r     = Math.cbrt(Math.random()) * 4;
         const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
+        const phi   = Math.acos(2 * Math.random() - 1);
         positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
         positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
         positions[i * 3 + 2] = r * Math.cos(phi);
@@ -151,7 +186,6 @@ export function makeParticleFieldPattern(
         uniforms: {
           uTime:       { value: 0 },
           uSize:       { value: baseSize },
-          uFlowSpeed:  { value: flowSpeed },
           uColorRange: { value: colorRange },
           uSaturation: { value: saturation },
         },
@@ -167,38 +201,40 @@ export function makeParticleFieldPattern(
 
       detector = createDetector();
       smoothedMotion = 0;
-      effectiveSize = baseSize;
+      accTime = 0;
+      effectiveSize  = baseSize;
+      effectiveSpeed = baseSpeed;
+      canvasRef = ctx.renderer.domElement;
 
-      const canvas = ctx.renderer.domElement;
-      overlay = showMotionOverlay(canvas, "Requesting camera…");
-      MotionCamera.create(canvas).then((cam) => {
-        overlay?.remove();
-        overlay = null;
-        motionCamera = cam ?? null;
-      });
+      overlay = showMotionOverlay(canvasRef, "Requesting camera…");
+      startCamera(FACING_MODES[facingIndex]);
     },
 
-    update(_dt: number, elapsed: number) {
+    update(dt: number, _elapsed: number) {
       if (!material) return;
 
+      // ── Motion detection ─────────────────────────────────────────────────
       if (motionCamera && detector) {
         const diff = motionCamera.tick();
         if (diff) {
           const raw = Math.min(detector.update(diff), 1.0);
-          // Slower attack (0.08), faster decay (0.96) for natural feel
+          // Asymmetric smoothing: faster attack, slower decay
           smoothedMotion = raw > smoothedMotion
-            ? 0.92 * smoothedMotion + 0.08 * raw
-            : 0.96 * smoothedMotion + 0.04 * raw;
+            ? 0.90 * smoothedMotion + 0.10 * raw
+            : 0.97 * smoothedMotion + 0.03 * raw;
         }
       }
 
-      // Only point size is boosted — flow speed stays constant so the wave
-      // phase never shifts (which would look like time-scrubbing).
-      effectiveSize = baseSize + smoothedMotion * motionStrength * 4.0;
+      // ── Effective values (base + motion boost) ───────────────────────────
+      const boost    = smoothedMotion * motionStrength;
+      effectiveSize  = baseSize  + boost * 4.0;
+      effectiveSpeed = baseSpeed + boost * 0.8;
 
-      material.uniforms.uTime.value       = elapsed;
+      // ── Accumulate time at effective speed — no phase jump on speed change ──
+      accTime += dt * effectiveSpeed;
+
+      material.uniforms.uTime.value       = accTime;
       material.uniforms.uSize.value       = effectiveSize;
-      material.uniforms.uFlowSpeed.value  = flowSpeed;
       material.uniforms.uColorRange.value = colorRange;
       material.uniforms.uSaturation.value = saturation;
     },
@@ -211,12 +247,14 @@ export function makeParticleFieldPattern(
       detector = null;
       geometry?.dispose();
       material?.dispose();
-      points = null;
-      geometry = null;
-      material = null;
+      points    = null;
+      geometry  = null;
+      material  = null;
+      canvasRef = null;
       overlay?.remove();
       overlay = null;
       smoothedMotion = 0;
+      accTime = 0;
     },
   };
 }

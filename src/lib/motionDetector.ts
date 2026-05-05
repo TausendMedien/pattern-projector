@@ -37,10 +37,13 @@ export class MotionCamera {
     this.offCtx = this.offCanvas.getContext("2d", { willReadFrequently: true })!;
   }
 
-  static async create(domCanvas: HTMLCanvasElement): Promise<MotionCamera | null> {
+  static async create(
+    domCanvas: HTMLCanvasElement,
+    facingMode: 'environment' | 'user' = 'environment',
+  ): Promise<MotionCamera | null> {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 320 }, height: { ideal: 180 } },
+        video: { facingMode: { ideal: facingMode }, width: { ideal: 320 }, height: { ideal: 180 } },
         audio: false,
       });
       const video = document.createElement("video");
