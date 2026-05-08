@@ -511,14 +511,12 @@
           {/if}
         </div>
       </div>
-      {#if isTouch}
-        <button
-          class="pointer-events-auto mt-3 w-full rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
-          onclick={() => { if (fs.isFullscreen()) fs.exit(); focusedIndex = index; appState = "overview"; }}
-        >
-          ← Patterns
-        </button>
-      {/if}
+      <button
+        class="pointer-events-auto mt-3 w-full rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
+        onclick={() => { if (fs.isFullscreen()) fs.exit(); focusedIndex = index; appState = "overview"; }}
+      >
+        ← Patterns
+      </button>
       <div class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-white/70">
         {#if isTouch}
           <span>↔</span><span>swipe to change pattern</span>
