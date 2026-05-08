@@ -427,21 +427,17 @@
         </div>
       {/if}
       {#if patterns[index].controls?.length}
+        {@const controlMeta = (() => {
+          let sectionOn = true;
+          return (patterns[index].controls ?? []).map(ctrl => {
+            if (ctrl.type === 'section') sectionOn = !!(ctrlVals[ctrl.label] ?? 0);
+            const groupDisabled = !sectionOn && ctrl.type !== 'section' && ctrl.type !== 'separator';
+            return { ctrl, groupDisabled };
+          });
+        })()}
         <!-- Pattern controls -->
         <div class="mb-2 shrink-0 text-xs uppercase tracking-widest text-white/50">Controls</div>
         <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">
-          <!--
-            Build control metadata: track running section-on state so that sub-controls
-            read ctrlVals[sectionLabel] directly, making them reactive when the toggle changes.
-          -->
-          {@const controlMeta = (() => {
-            let sectionOn = true;
-            return (patterns[index].controls ?? []).map(ctrl => {
-              if (ctrl.type === 'section') sectionOn = !!(ctrlVals[ctrl.label] ?? 0);
-              const groupDisabled = !sectionOn && ctrl.type !== 'section' && ctrl.type !== 'separator';
-              return { ctrl, groupDisabled };
-            });
-          })()}
           {#each controlMeta as { ctrl, groupDisabled }}
             {#if ctrl.type === "separator"}
               <!-- Plain section divider (no toggle) -->
