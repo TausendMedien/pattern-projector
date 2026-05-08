@@ -79,17 +79,18 @@ export function makeParticleFieldPattern(
 ): Pattern {
 
   // ── User-controlled base values ──────────────────────────────────────────
-  let baseSize      = 2.0;
-  let baseSpeed     = 0.2;
-  let motionStrength = 0.5;
-  let colorRange    = 1.0;
-  let saturation    = 0.6;
-  let facingIndex   = parseInt(localStorage.getItem(FACING_KEY) ?? '0');
+  let baseSize    = 2.0;
+  let baseSpeed   = 0.2;
+  let sensitivity = 25;      // 0–100; 25 ≈ subtle, 100 = very strong
+  let colorRange  = 1.0;
+  let saturation  = 0.6;
+  let facingIndex = parseInt(localStorage.getItem(FACING_KEY) ?? '0');
 
   // ── Live effective values (base + motion boost) ──────────────────────────
   // get() returns these so sliders reflect current motion in real time.
-  let effectiveSize  = baseSize;
-  let effectiveSpeed = baseSpeed;
+  let effectiveSize    = baseSize;
+  let effectiveSpeed   = baseSpeed;
+  let motionDisplay    = 0;   // smoothedMotion × 100, for the read-only display slider
 
   // ── Internal state ───────────────────────────────────────────────────────
   let accTime = 0;          // accumulated time integrated at effectiveSpeed
@@ -121,21 +122,27 @@ export function makeParticleFieldPattern(
     controls: [
       {
         label: "Point Size",
-        type: "range", min: 0.3, max: 12.0, step: 0.1,
+        type: "range", min: 0.3, max: 20.0, step: 0.1,
         get: () => effectiveSize,          // live: moves with motion
         set: (v) => { baseSize = v; },
       },
       {
         label: "Flow Speed",
-        type: "range", min: 0.05, max: 3.0, step: 0.05,
+        type: "range", min: 0.05, max: 5.0, step: 0.05,
         get: () => effectiveSpeed,         // live: moves with motion
         set: (v) => { baseSpeed = v; },
       },
       {
-        label: "Motion Strength",
-        type: "range", min: 0.0, max: 2.0, step: 0.05,
-        get: () => motionStrength,
-        set: (v) => { motionStrength = v; },
+        label: "Sensitivity",
+        type: "range", min: 0, max: 100, step: 1,
+        get: () => sensitivity,
+        set: (v) => { sensitivity = v; },
+      },
+      {
+        label: "Motion Level",
+        type: "range", min: 0, max: 100, step: 1,
+        get: () => motionDisplay,
+        set: () => {},                     // read-only live display
       },
       {
         label: "Colors",
@@ -226,9 +233,10 @@ export function makeParticleFieldPattern(
       }
 
       // ── Effective values (base + motion boost) ───────────────────────────
-      const boost    = smoothedMotion * motionStrength;
-      effectiveSize  = baseSize  + boost * 4.0;
-      effectiveSpeed = baseSpeed + boost * 0.8;
+      motionDisplay  = Math.round(smoothedMotion * 100);
+      const boost    = smoothedMotion * (sensitivity / 50);
+      effectiveSize  = baseSize  + boost * 8.0;
+      effectiveSpeed = baseSpeed + boost * 1.6;
 
       // ── Accumulate time at effective speed — no phase jump on speed change ──
       accTime += dt * effectiveSpeed;
