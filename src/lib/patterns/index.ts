@@ -3,6 +3,7 @@ import { lines3d } from "./lines3d";
 import { particles } from "./particles";
 import { tunnel } from "./tunnel";
 import { tunnelEdge } from "./tunnelEdge";
+import { tunnelSmooth } from "./tunnelSmooth";
 import { shaderGradient } from "./shaderGradient";
 import { parallelLinesStraight } from "./parallelLinesStraight";
 import { parallelLinesWave } from "./parallelLinesWave";
@@ -38,6 +39,7 @@ const rawPatterns: Pattern[] = [
   hyperMix,
   tunnel,
   tunnelEdge,
+  tunnelSmooth,
   lines3d,
   lightTrail,
   lightPaint,
