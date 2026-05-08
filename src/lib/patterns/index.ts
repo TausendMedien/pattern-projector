@@ -16,6 +16,7 @@ import { baroqueSwirls } from "./baroqueSwirls";
 import { lightTrail } from "./light-trail";
 import { lightPaint } from "./light-paint";
 import { particleFieldSpatial } from "./particleFieldSpatial";
+import { softSedgewick } from "./softSedgewick";
 import { wrapWithPersist } from "../persist";
 import { addMotionCamera } from "../motionCameraWrapper";
 
@@ -38,6 +39,7 @@ const rawPatterns: Pattern[] = [
   hyperMix,
   tunnel,
   tunnelRect,
+  softSedgewick,
   lines3d,
   lightTrail,
   lightPaint,
