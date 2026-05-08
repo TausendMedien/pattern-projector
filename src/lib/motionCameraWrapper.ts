@@ -170,20 +170,18 @@ export function addMotionCamera(pattern: Pattern): Pattern {
       motionDisplay = Math.round(smoothedMotion * 100);
 
       // ── Boost first two controls ─────────────────────────────────────────
-      // Exponential sensitivity curve (same as particleFieldBase):
-      //   sensitivity=10 → subtle; sensitivity=100 → very strong
-      const boost = sensitivity > 0
-        ? smoothedMotion * Math.pow(sensitivity / 10, 1.4) * 0.5
-        : 0;
+      // Linear formula calibrated so that:
+      //   motionLevel 70 (smoothedMotion 0.7) at sensitivity 10 → +80 % of range
+      //   0.7 × (10/10) × (8/7) = 0.800  ✓
+      // Higher sensitivity multiplies the factor linearly; result is clamped at max.
+      const scaledMotion = smoothedMotion * (sensitivity / 10) * (8 / 7);
 
       for (let i = 0; i < firstTwoRange.length; i++) {
         const ctrl = firstTwoRange[i];
         const range = ctrl.max - ctrl.min;
-        // Add up to ~40 % of the control's range at sensitivity=10 max motion;
-        // scales with the exponential curve from there.
-        const effective = Math.min(baseVals[i] + boost * range * 0.08, ctrl.max);
+        const added = Math.min(scaledMotion * range, range);   // cap at full range
+        const effective = Math.min(baseVals[i] + added, ctrl.max);
         effectiveVals[i] = effective;
-        // Push effective value into the pattern's internal state
         ctrl.set(effective);
       }
 
