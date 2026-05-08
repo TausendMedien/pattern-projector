@@ -16,11 +16,15 @@ import { baroqueSwirls } from "./baroqueSwirls";
 import { lightTrail } from "./light-trail";
 import { lightPaint } from "./light-paint";
 import { particleFieldSpatial } from "./particleFieldSpatial";
-import { particleFieldBaseline } from "./particleFieldBaseline";
-import { particleFieldCombined } from "./particleFieldCombined";
 import { wrapWithPersist } from "../persist";
+import { addMotionCamera } from "../motionCameraWrapper";
 
-export const patterns: Pattern[] = [
+// Patterns that must NOT get the generic motion camera wrapper:
+// - lightTrail / lightPaint  (camera-based themselves)
+// - particleFieldSpatial     (has its own built-in motion camera with size+speed control)
+const NO_MOTION_CAMERA = new Set(['lightTrail', 'lightPaint', 'particleFieldSpatial']);
+
+const rawPatterns: Pattern[] = [
   particles,
   parallelLinesStraight,
   parallelLinesWave,
@@ -38,6 +42,8 @@ export const patterns: Pattern[] = [
   lightTrail,
   lightPaint,
   particleFieldSpatial,
-  particleFieldBaseline,
-  particleFieldCombined,
-].map(wrapWithPersist);
+];
+
+export const patterns: Pattern[] = rawPatterns
+  .map((p) => NO_MOTION_CAMERA.has(p.id) ? p : addMotionCamera(p))
+  .map(wrapWithPersist);
