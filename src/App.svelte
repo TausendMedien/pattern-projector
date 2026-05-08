@@ -428,19 +428,31 @@
       {/if}
       {#if patterns[index].controls?.length}
         <!-- Pattern controls -->
-        <div class="mb-2 shrink-0 border-t border-white/10 pt-3 text-xs uppercase tracking-widest text-white/50">Controls</div>
+        <div class="mb-2 shrink-0 text-xs uppercase tracking-widest text-white/50">Controls</div>
         <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">
-          {#each patterns[index].controls! as ctrl}
+          <!--
+            Build control metadata: track running section-on state so that sub-controls
+            read ctrlVals[sectionLabel] directly, making them reactive when the toggle changes.
+          -->
+          {@const controlMeta = (() => {
+            let sectionOn = true;
+            return (patterns[index].controls ?? []).map(ctrl => {
+              if (ctrl.type === 'section') sectionOn = !!(ctrlVals[ctrl.label] ?? 0);
+              const groupDisabled = !sectionOn && ctrl.type !== 'section' && ctrl.type !== 'separator';
+              return { ctrl, groupDisabled };
+            });
+          })()}
+          {#each controlMeta as { ctrl, groupDisabled }}
             {#if ctrl.type === "separator"}
-              <!-- Section separator / group header (no toggle) -->
+              <!-- Plain section divider (no toggle) -->
               <div class="mt-1 flex items-center gap-2">
                 <div class="h-px flex-1 bg-white/20"></div>
                 <span class="text-[10px] uppercase tracking-widest text-white/40">{ctrl.label}</span>
                 <div class="h-px flex-1 bg-white/20"></div>
               </div>
             {:else if ctrl.type === "section"}
-              {@const isOn = !!(ctrlVals[ctrl.label] ?? (ctrl.get() ? 1 : 0))}
-              <!-- Section header with integrated toggle -->
+              {@const isOn = !!(ctrlVals[ctrl.label] ?? 0)}
+              <!-- Section header with integrated mini toggle -->
               <div class="mt-1 flex items-center gap-2">
                 <div class="h-px flex-1 bg-white/20"></div>
                 <span class="text-[10px] uppercase tracking-widest text-white/40">{ctrl.label}</span>
@@ -454,9 +466,9 @@
                 <div class="h-px flex-1 bg-white/20"></div>
               </div>
             {:else if ctrl.type === "toggle"}
-              {@const isOn = !!(ctrlVals[ctrl.label] ?? (ctrl.get() ? 1 : 0))}
+              {@const isOn = !!(ctrlVals[ctrl.label] ?? 0)}
               <!-- Standalone toggle row -->
-              <div class="flex items-center justify-between text-xs text-white/70">
+              <div class="flex items-center justify-between text-xs text-white/70 transition-opacity duration-200 {groupDisabled ? 'opacity-35 pointer-events-none' : ''}">
                 <span>{ctrl.label}</span>
                 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
                 <div
@@ -467,10 +479,9 @@
                 </div>
               </div>
             {:else}
-              {@const isDisabled = ctrl.type !== 'button' && (ctrl.disabled?.() ?? false)}
-              <div class="flex flex-col gap-1 transition-opacity duration-200 {isDisabled ? 'opacity-35 pointer-events-none' : ''}">
+              <div class="flex flex-col gap-1 transition-opacity duration-200 {groupDisabled ? 'opacity-35 pointer-events-none' : ''}">
                 {#if ctrl.type !== "button"}
-                <div class="flex justify-between text-xs {ctrl.type === 'range' && ctrl.readonly && !isDisabled ? 'text-white/50' : 'text-white/70'}">
+                <div class="flex justify-between text-xs text-white/70">
                   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
                   <span
                     class={ctrl.type === "range" && !ctrl.readonly && ctrl.default !== undefined ? "cursor-pointer select-none hover:text-white transition-colors" : ""}
@@ -478,7 +489,7 @@
                     onclick={() => { if (ctrl.type === "range" && !ctrl.readonly) resetCtrl(ctrl); }}
                   >{ctrl.label}</span>
                   {#if ctrl.type === "range"}
-                    <span class="font-mono {ctrl.readonly && !isDisabled ? 'text-white/40' : 'text-white/40'}">
+                    <span class="font-mono text-white/40">
                       {(ctrlVals[ctrl.label] ?? ctrl.get()).toFixed(ctrl.step < 0.01 ? 3 : ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}
                     </span>
                   {/if}
