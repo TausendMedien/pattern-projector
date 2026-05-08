@@ -163,7 +163,7 @@ void main() {
   float gray = dot(col, vec3(0.299, 0.587, 0.114));
   col = mix(vec3(gray), col, uSaturation);
 
-  gl_FragColor = vec4(col, alpha);
+  gl_FragColor = vec4(col * alpha, alpha);
 }
 `;
 
@@ -286,7 +286,12 @@ export const hyperMix: Pattern = {
       fragmentShader,
       transparent: true,
       depthWrite:  false,
-      blending:    THREE.AdditiveBlending,
+      blending:         THREE.CustomBlending,
+      blendEquation:    THREE.AddEquation,
+      blendSrc:         THREE.OneFactor,
+      blendDst:         THREE.OneMinusSrcColorFactor,
+      blendSrcAlpha:    THREE.OneFactor,
+      blendDstAlpha:    THREE.OneMinusSrcAlphaFactor,
     });
 
     points = new THREE.Points(geometry, material);
