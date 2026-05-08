@@ -48,6 +48,7 @@ function buildBasePoints(seed: number): THREE.Vector3[] {
 export const lines3d: Pattern = {
   id: "lines3d",
   name: "3D Lines",
+  motionControlLabels: ["Rotation Speed", "Wobble", "Colors", "Saturation", "Opacity"],
   controls: [
     { label: "Rotation Speed", type: "range", min: 0,   max: 0.5, step: 0.01, default: 0.05, get: () => rotationSpeed, set: (v) => { rotationSpeed = v; } },
     { label: "Wobble",         type: "range", min: 0,   max: 0.8, step: 0.01, default: 0.3, get: () => wobble,         set: (v) => { wobble = v; } },

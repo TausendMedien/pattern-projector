@@ -25,12 +25,13 @@ export function addMotionCamera(pattern: Pattern): Pattern {
   let canvasRef: HTMLCanvasElement | null = null;
   let overlay: HTMLDivElement | null = null;
 
-  // ── Identify the first two range controls to boost ─────────────────────────
-  // We find them once at construction time from the unwrapped pattern.
+  // ── Identify the range controls to boost ──────────────────────────────────
+  // Uses motionControlLabels if specified, otherwise falls back to first two.
   type RangeCtrl = PatternControl & { type: "range" };
-  const firstTwoRange = (pattern.controls ?? [])
-    .filter((c): c is RangeCtrl => c.type === "range")
-    .slice(0, 2);
+  const allRangeControls = (pattern.controls ?? []).filter((c): c is RangeCtrl => c.type === "range");
+  const firstTwoRange = pattern.motionControlLabels
+    ? allRangeControls.filter((c) => pattern.motionControlLabels!.includes(c.label))
+    : allRangeControls.slice(0, 2);
 
   // Base values (what the user dragged the slider to)
   const baseVals: number[]      = firstTwoRange.map((c) => c.get());

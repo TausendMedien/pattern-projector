@@ -20,6 +20,8 @@ export interface Pattern {
   id: string;
   name: string;
   controls?: PatternControl[];
+  /** Labels of range controls that motion detection should boost. Defaults to first two range controls. */
+  motionControlLabels?: string[];
   init(ctx: PatternContext): void;
   update(dt: number, elapsed: number): void;
   resize(width: number, height: number): void;

@@ -104,6 +104,7 @@ const fragmentShader = /* glsl */ `
 export const pearlFlow: Pattern = {
   id: "pearlFlow",
   name: "Pearl Flow",
+  motionControlLabels: ["Dot Density", "Dot Size", "Warp Amount", "Flow Speed"],
   controls: [
     { label: "Dot Density",  type: "range", min: 5,   max: 40,  step: 1, default: 35,    get: () => dotDensity,  set: (v) => { dotDensity = v; } },
     { label: "Dot Size",     type: "range", min: 0.1, max: 1.0, step: 0.01, default: 0.67, get: () => dotSize,     set: (v) => { dotSize = v; } },
