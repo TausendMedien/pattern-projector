@@ -149,16 +149,16 @@ void main() {
   float d = length(uv);
   if (d > 0.5) discard;
 
-  // Blur=0 → hard-edged circle; Blur=1 → full soft gradient.
-  // The transition to soft only kicks in visibly past the lower portion of the range.
-  float innerEdge = mix(0.49, 0.0, uBlur);
+  // uBlur=1 (user slider 0, no blur) → innerEdge=0.5 → step function → hard circle
+  // uBlur=0 (user slider 1, max blur) → innerEdge=0.0 → full soft gradient
+  float innerEdge = mix(0.0, 0.5, uBlur);
   float softness  = 1.0 - smoothstep(innerEdge, 0.5, d);
 
   float alpha = softness * vAlpha * uCountScale * 0.7;
 
   vec3 col = mix(uColor1, uColor2, vColorRatio);
-  // Subtle highlight at the centre — only present when there is some blur
-  col = mix(col, vec3(1.0), smoothstep(0.3, 0.0, d) * 0.4 * uBlur);
+  // Centre highlight only present at higher blur — absent when crisp
+  col = mix(col, vec3(1.0), smoothstep(0.3, 0.0, d) * 0.4 * (1.0 - uBlur));
 
   float gray = dot(col, vec3(0.299, 0.587, 0.114));
   col = mix(vec3(gray), col, uSaturation);
@@ -234,7 +234,7 @@ export const hyperMix: Pattern = {
       type: "range", min: 0.0, max: 1.0, step: 0.05,
       default: 0.5,
       get: () => params.blur,
-      set: (v) => { params.blur = v; if (material) material.uniforms.uBlur.value = v; },
+      set: (v) => { params.blur = v; if (material) material.uniforms.uBlur.value = 1.0 - v; },
     },
     {
       label: "Point Count",
@@ -276,7 +276,7 @@ export const hyperMix: Pattern = {
         uCurlScale:  { value: params.curlScale },
         uSpread:     { value: params.spread },
         uPtSize:     { value: params.pointSize },
-        uBlur:       { value: params.blur },
+        uBlur:       { value: 1.0 - params.blur },
         uCountScale: { value: 1.0 },
         uColor1:     { value: new THREE.Color(0x00ccff) },
         uColor2:     { value: new THREE.Color(0xff00cc) },
