@@ -17,6 +17,7 @@ let rotateSpeed = 0.0;
 
 let colorPhase = 0;
 let rotAngle   = 0;
+let accTime    = 0;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -29,7 +30,6 @@ const fragmentShader = /* glsl */ `
   uniform float uTime;
   uniform vec2  uResolution;
   uniform float uBandCount;
-  uniform float uFlowSpeed;
   uniform float uWarpAmount;
   uniform float uTealAmt;
   uniform float uPurpleAmt;
@@ -54,7 +54,7 @@ const fragmentShader = /* glsl */ `
     vec2 c = (vUv - 0.5) * vec2(aspect, 1.0);
     float cosR = cos(uRotAngle), sinR = sin(uRotAngle);
     vec2 p = vec2(c.x*cosR - c.y*sinR, c.x*sinR + c.y*cosR);
-    float t = uTime * uFlowSpeed;
+    float t = uTime;
 
     // Heavy three-level domain warping for baroque complexity
     vec2 q = vec2(fbm(p * 1.3 + t),
@@ -117,7 +117,6 @@ export const baroqueSwirls: Pattern = {
         uTime:       { value: 0 },
         uResolution: { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
         uBandCount:  { value: bandCount },
-        uFlowSpeed:  { value: flowSpeed },
         uWarpAmount: { value: warpAmount },
         uTealAmt:    { value: tealAmt },
         uPurpleAmt:  { value: purpleAmt },
@@ -133,13 +132,13 @@ export const baroqueSwirls: Pattern = {
     ctx.scene.add(mesh);
   },
 
-  update(dt: number, elapsed: number) {
+  update(dt: number, _elapsed: number) {
     if (!material) return;
+    accTime    += dt * flowSpeed;
     colorPhase += dt * colorSpeed * 0.4;
     rotAngle   += dt * rotateSpeed * 1.5;
-    material.uniforms.uTime.value       = elapsed;
+    material.uniforms.uTime.value       = accTime;
     material.uniforms.uBandCount.value  = bandCount;
-    material.uniforms.uFlowSpeed.value  = flowSpeed;
     material.uniforms.uWarpAmount.value = warpAmount;
     material.uniforms.uTealAmt.value    = tealAmt;
     material.uniforms.uPurpleAmt.value  = purpleAmt;
@@ -156,5 +155,6 @@ export const baroqueSwirls: Pattern = {
   dispose() {
     geometry?.dispose(); material?.dispose();
     mesh = null; geometry = null; material = null;
+    accTime = 0;
   },
 };

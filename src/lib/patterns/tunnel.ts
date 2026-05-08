@@ -13,6 +13,7 @@ let saturation = 1.0;
 let colorSpeed = 0.60;
 
 let colorPhase = 0;
+let accTime    = 0;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -27,7 +28,6 @@ const fragmentShader = /* glsl */ `
   varying vec2 vUv;
   uniform float uTime;
   uniform vec2  uResolution;
-  uniform float uSpeed;
   uniform float uWobble;
   uniform float uRingCount;
   uniform float uLineWidth;
@@ -55,7 +55,7 @@ const fragmentShader = /* glsl */ `
     float wobbleOffset = uWobble * sin(depth * 6.0 - uTime * 2.5) * 0.12;
 
     // uRingCount directly = number of visible rings on screen.
-    float stripeRaw = (depth + wobbleOffset) * uRingCount * 0.042 - uTime * uSpeed * 0.05;
+    float stripeRaw = (depth + wobbleOffset) * uRingCount * 0.042 - uTime * 0.05;
     float stripe    = fract(stripeRaw);
 
     // Derivative on the pre-fract value avoids corruption at fract discontinuities.
@@ -112,7 +112,6 @@ export const tunnel: Pattern = {
       uniforms: {
         uTime:       { value: 0 },
         uResolution: { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
-        uSpeed:      { value: speed },
         uWobble:     { value: wobble },
         uRingCount:  { value: ringCount },
         uLineWidth:  { value: lineThickness },
@@ -131,11 +130,11 @@ export const tunnel: Pattern = {
     ctx.scene.add(mesh);
   },
 
-  update(dt: number, elapsed: number) {
+  update(dt: number, _elapsed: number) {
     if (!material) return;
+    accTime    += dt * speed;
     colorPhase += dt * colorSpeed * 0.3;
-    material.uniforms.uTime.value       = elapsed;
-    material.uniforms.uSpeed.value      = speed;
+    material.uniforms.uTime.value       = accTime;
     material.uniforms.uWobble.value     = wobble;
     material.uniforms.uRingCount.value  = ringCount;
     material.uniforms.uLineWidth.value  = lineThickness;
@@ -153,5 +152,6 @@ export const tunnel: Pattern = {
     mesh = null;
     geometry = null;
     material = null;
+    accTime = 0;
   },
 };

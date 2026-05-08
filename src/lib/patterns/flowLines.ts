@@ -17,6 +17,7 @@ let rotateSpeed = 0.01;
 
 let colorPhase = 0;
 let rotAngle   = 0;
+let accTime    = 0;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -32,7 +33,6 @@ const fragmentShader = /* glsl */ `
   uniform float uTime;
   uniform vec2  uResolution;
   uniform float uLineCount;
-  uniform float uFlowSpeed;
   uniform float uWarpAmount;
   uniform float uLineWidth;
   uniform float uColorRange;
@@ -72,7 +72,7 @@ const fragmentShader = /* glsl */ `
     vec2 p = vec2(centered.x * cosR - centered.y * sinR,
                   centered.x * sinR + centered.y * cosR);
 
-    float t = uTime * uFlowSpeed;
+    float t = uTime;
 
     // Multi-level domain warp for organic curl
     vec2 q = vec2(fbm(p * 1.4 + t),
@@ -128,7 +128,6 @@ export const flowLines: Pattern = {
         uTime:        { value: 0 },
         uResolution:  { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
         uLineCount:   { value: lineCount },
-        uFlowSpeed:   { value: flowSpeed },
         uWarpAmount:  { value: warpAmount },
         uLineWidth:   { value: lineWidth },
         uColorRange:  { value: colorRange },
@@ -147,13 +146,13 @@ export const flowLines: Pattern = {
     ctx.scene.add(mesh);
   },
 
-  update(dt: number, elapsed: number) {
+  update(dt: number, _elapsed: number) {
     if (!material) return;
+    accTime    += dt * flowSpeed;
     colorPhase += dt * colorSpeed * 0.5;
     rotAngle   += dt * rotateSpeed * 1.5;
-    material.uniforms.uTime.value       = elapsed;
+    material.uniforms.uTime.value       = accTime;
     material.uniforms.uLineCount.value  = lineCount;
-    material.uniforms.uFlowSpeed.value  = flowSpeed;
     material.uniforms.uWarpAmount.value = warpAmount;
     material.uniforms.uLineWidth.value  = lineWidth;
     material.uniforms.uColorRange.value = colorRange;
@@ -173,5 +172,6 @@ export const flowLines: Pattern = {
     mesh = null;
     geometry = null;
     material = null;
+    accTime = 0;
   },
 };

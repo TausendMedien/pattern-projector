@@ -19,6 +19,7 @@ let rotateSpeed = 0.0;
 
 let colorPhase = 0;
 let rotAngle   = 0;
+let accTime    = 0;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -33,7 +34,6 @@ const fragmentShader = /* glsl */ `
   uniform float uLineCount;
   uniform float uLineWidth;
   uniform float uFlowScale;
-  uniform float uFlowSpeed;
   uniform float uOrbCount;
   uniform float uOrbSize;
   uniform float uColorRange;
@@ -63,7 +63,7 @@ const fragmentShader = /* glsl */ `
     vec2 c = (vUv - 0.5) * vec2(aspect, 1.0);
     float cosR = cos(uRotAngle), sinR = sin(uRotAngle);
     vec2 p = vec2(c.x*cosR - c.y*sinR, c.x*sinR + c.y*cosR);
-    float t = uTime * uFlowSpeed;
+    float t = uTime;
 
     // --- Distort evaluation point so flow bends around orbs ---
     // Each orb acts as an obstacle: we push the fbm sample point away,
@@ -149,7 +149,6 @@ export const curlOrbs: Pattern = {
         uLineCount:  { value: lineCount },
         uLineWidth:  { value: lineWidth },
         uFlowScale:  { value: flowScale },
-        uFlowSpeed:  { value: flowSpeed },
         uOrbCount:   { value: orbCount },
         uOrbSize:    { value: orbSize },
         uColorRange: { value: colorRange },
@@ -165,15 +164,15 @@ export const curlOrbs: Pattern = {
     ctx.scene.add(mesh);
   },
 
-  update(dt: number, elapsed: number) {
+  update(dt: number, _elapsed: number) {
     if (!material) return;
+    accTime    += dt * flowSpeed;
     colorPhase += dt * colorSpeed * 0.5;
     rotAngle   += dt * rotateSpeed * 1.5;
-    material.uniforms.uTime.value       = elapsed;
+    material.uniforms.uTime.value       = accTime;
     material.uniforms.uLineCount.value  = lineCount;
     material.uniforms.uLineWidth.value  = lineWidth;
     material.uniforms.uFlowScale.value  = flowScale;
-    material.uniforms.uFlowSpeed.value  = flowSpeed;
     material.uniforms.uOrbCount.value   = orbCount;
     material.uniforms.uOrbSize.value    = orbSize;
     material.uniforms.uColorRange.value = colorRange;
@@ -190,5 +189,6 @@ export const curlOrbs: Pattern = {
   dispose() {
     geometry?.dispose(); material?.dispose();
     mesh = null; geometry = null; material = null;
+    accTime = 0;
   },
 };

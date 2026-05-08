@@ -18,7 +18,6 @@ const params = {
 const vertexShader = /* glsl */ `
 
 uniform float uTime;
-uniform float uSpeed;
 uniform float uCurlScale;
 uniform float uSpread;
 uniform float uPtSize;
@@ -101,7 +100,7 @@ vec3 curlNoise(vec3 p) {
 
 void main() {
   float period   = 4.0 + aSeed * 8.0;
-  float tLife    = fract((uTime * uSpeed + aSeed * 37.93) / period);
+  float tLife    = fract((uTime + aSeed * 37.93) / period);
 
   float theta    = aSeed * 6.2831853;
   float phi      = acos(2. * fract(aSeed * 127.1 + 0.5) - 1.);
@@ -110,7 +109,7 @@ void main() {
   spawnPos.x    += aSide * uSpread * 1.8;
 
   vec3 pos = spawnPos;
-  float noiseTime = uTime * uSpeed * 0.4 + aSeed * 13.7;
+  float noiseTime = uTime * 0.4 + aSeed * 13.7;
   float intDt = tLife / 6.0;
   for (int i = 0; i < 6; i++) {
     float tt = noiseTime + float(i) * intDt * 0.8;
@@ -168,6 +167,7 @@ void main() {
 
 // ─── Pattern state ─────────────────────────────────────────────────────────────
 
+let accTime = 0;
 let points: THREE.Points | null = null;
 let geometry: THREE.BufferGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
@@ -205,7 +205,7 @@ export const hyperMix: Pattern = {
       type: "range", min: 0.002, max: 0.6, step: 0.002,
       default: 0.03,
       get: () => params.speed,
-      set: (v) => { params.speed = v; if (material) material.uniforms.uSpeed.value = v; },
+      set: (v) => { params.speed = v; },
     },
     {
       label: "Turbulence",
@@ -271,7 +271,6 @@ export const hyperMix: Pattern = {
     material = new THREE.ShaderMaterial({
       uniforms: {
         uTime:       { value: 0 },
-        uSpeed:      { value: params.speed },
         uCurlScale:  { value: params.curlScale },
         uSpread:     { value: params.spread },
         uPtSize:     { value: params.pointSize },
@@ -292,9 +291,10 @@ export const hyperMix: Pattern = {
     ctx.scene.add(points);
   },
 
-  update(_dt: number, elapsed: number) {
+  update(dt: number, _elapsed: number) {
     if (!material) return;
-    material.uniforms.uTime.value = elapsed;
+    accTime += dt * params.speed;
+    material.uniforms.uTime.value = accTime;
     // Prevent overexposure when point count exceeds the base count.
     material.uniforms.uCountScale.value = Math.min(1.0, BASE_COUNT / params.pointCount);
   },
@@ -309,5 +309,6 @@ export const hyperMix: Pattern = {
     material = null;
     cam = null;
     sceneRef = null;
+    accTime = 0;
   },
 };

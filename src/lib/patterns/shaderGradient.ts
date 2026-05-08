@@ -7,6 +7,7 @@ let material: THREE.ShaderMaterial | null = null;
 let camera: THREE.PerspectiveCamera | null = null;
 let scene: THREE.Scene | null = null;
 let speed = 0.02;
+let accTime = 0;
 let colors = 0.85;
 let saturation = 0.95;
 let blackPoint = 0.14;
@@ -23,7 +24,6 @@ const fragmentShader = /* glsl */ `
   precision highp float;
   varying vec2 vUv;
   uniform float uTime;
-  uniform float uSpeed;
   uniform float uColors;
   uniform float uSaturation;
   uniform float uBlackPoint;
@@ -58,7 +58,7 @@ const fragmentShader = /* glsl */ `
     float aspect = uResolution.x / max(uResolution.y, 1.0);
     vec2 p = (uv - 0.5) * vec2(aspect, 1.0) * 2.0;
 
-    float t = uTime * uSpeed;
+    float t = uTime;
     vec2 q = vec2(fbm(p + t), fbm(p + vec2(5.2, 1.3) - t));
     vec2 r = vec2(fbm(p + 4.0 * q + vec2(1.7, 9.2) + t), fbm(p + 4.0 * q + vec2(8.3, 2.8) - t));
     float f = fbm(p + 4.0 * r);
@@ -101,7 +101,6 @@ export const shaderGradient: Pattern = {
     material = new THREE.ShaderMaterial({
       uniforms: {
         uTime:       { value: 0 },
-        uSpeed:      { value: speed },
         uColors:      { value: colors },
         uSaturation:  { value: saturation },
         uBlackPoint:  { value: blackPoint },
@@ -117,10 +116,10 @@ export const shaderGradient: Pattern = {
     ctx.scene.add(mesh);
   },
 
-  update(_dt: number, elapsed: number) {
+  update(dt: number, _elapsed: number) {
     if (!material) return;
-    material.uniforms.uTime.value = elapsed;
-    material.uniforms.uSpeed.value = speed;
+    accTime += dt * speed;
+    material.uniforms.uTime.value = accTime;
     material.uniforms.uColors.value = colors;
     material.uniforms.uSaturation.value = saturation;
     material.uniforms.uBlackPoint.value = blackPoint;
@@ -138,5 +137,6 @@ export const shaderGradient: Pattern = {
     material = null;
     camera = null;
     scene = null;
+    accTime = 0;
   },
 };
