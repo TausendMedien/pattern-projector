@@ -17,6 +17,7 @@ let saturation = 1.0;
 let colorDrift = 0.2;
 
 let colorPhase = 0;
+let accTime    = 0;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -31,7 +32,6 @@ const fragmentShader = /* glsl */ `
   varying vec2 vUv;
   uniform float uTime;
   uniform vec2  uResolution;
-  uniform float uSpeed;
   uniform float uRotSpeed;
   uniform float uRingCount;
   uniform float uEdges;
@@ -79,7 +79,7 @@ const fragmentShader = /* glsl */ `
     // Wobble: radial breathing between rings
     float wobbleOff = uWobble * sin(depth * 6.0 - uTime * 2.5) * 0.12;
 
-    float stripeRaw = (depth + wobbleOff) * uRingCount * 0.04 - uTime * uSpeed * 0.05;
+    float stripeRaw = (depth + wobbleOff) * uRingCount * 0.04 - uTime * 0.05;
     float stripe    = fract(stripeRaw);   // 0 = inner edge, 1 = outer edge
     float ringIdx   = floor(stripeRaw);
 
@@ -163,7 +163,6 @@ export const tunnelEdge: Pattern = {
       uniforms: {
         uTime:        { value: 0 },
         uResolution:  { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
-        uSpeed:       { value: speed },
         uRotSpeed:    { value: rotSpeed },
         uRingCount:   { value: ringCount },
         uEdges:       { value: edges },
@@ -184,11 +183,11 @@ export const tunnelEdge: Pattern = {
     ctx.scene.add(mesh);
   },
 
-  update(dt: number, elapsed: number) {
+  update(dt: number, _elapsed: number) {
     if (!material) return;
+    accTime    += dt * speed;
     colorPhase += dt * colorDrift * 0.1;
-    material.uniforms.uTime.value        = elapsed;
-    material.uniforms.uSpeed.value       = speed;
+    material.uniforms.uTime.value        = accTime;
     material.uniforms.uRotSpeed.value    = rotSpeed;
     material.uniforms.uRingCount.value   = ringCount;
     material.uniforms.uEdges.value       = edges;
@@ -210,5 +209,6 @@ export const tunnelEdge: Pattern = {
     mesh = null;
     geometry = null;
     material = null;
+    accTime = 0;
   },
 };
