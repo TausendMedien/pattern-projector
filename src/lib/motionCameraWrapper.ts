@@ -1,13 +1,13 @@
 // Generic motion-camera wrapper.
-// Wraps any Pattern, appends Motion Detection Camera controls, and multiplies
-// the dt passed to update() so every time-based animation speeds up when the
-// camera detects person motion. Uses the Spatial Patchiness detector.
+// Wraps any Pattern, appends Motion Detection Camera controls, and boosts the
+// first two range controls in proportion to detected motion. Uses the Spatial
+// Patchiness detector (same as Particle Field · Spatial).
 
 import type { Pattern, PatternControl, PatternContext } from "./patterns/types";
 import { MotionCamera, SpatialPatchinessDetector, showMotionOverlay } from "./motionDetector";
 
 export function addMotionCamera(pattern: Pattern): Pattern {
-  // ── State ──────────────────────────────────────────────────────────────────
+  // ── Motion state ───────────────────────────────────────────────────────────
   let sensitivity    = 10;   // restored by wrapWithPersist
   let cameraEnabled  = false; // restored by wrapWithPersist
   let deviceIndex    = 0;    // restored by wrapWithPersist
@@ -25,8 +25,19 @@ export function addMotionCamera(pattern: Pattern): Pattern {
   let canvasRef: HTMLCanvasElement | null = null;
   let overlay: HTMLDivElement | null = null;
 
-  // ── Camera helpers ─────────────────────────────────────────────────────────
+  // ── Identify the first two range controls to boost ─────────────────────────
+  // We find them once at construction time from the unwrapped pattern.
+  type RangeCtrl = PatternControl & { type: "range" };
+  const firstTwoRange = (pattern.controls ?? [])
+    .filter((c): c is RangeCtrl => c.type === "range")
+    .slice(0, 2);
 
+  // Base values (what the user dragged the slider to)
+  const baseVals: number[]      = firstTwoRange.map((c) => c.get());
+  // Effective values (base + boost, shown on sliders)
+  const effectiveVals: number[] = [...baseVals];
+
+  // ── Camera helpers ─────────────────────────────────────────────────────────
   async function refreshDeviceList() {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
@@ -73,10 +84,30 @@ export function addMotionCamera(pattern: Pattern): Pattern {
       motionDisplay  = 0;
       overlay?.remove();
       overlay = null;
+      // Reset effective vals to base so sliders snap back
+      for (let i = 0; i < firstTwoRange.length; i++) {
+        effectiveVals[i] = baseVals[i];
+        firstTwoRange[i].set(baseVals[i]);
+      }
     }
   }
 
-  // ── Extra controls appended after pattern's own controls ───────────────────
+  // ── Build the wrapped controls list ────────────────────────────────────────
+  // For the first two range controls: override get() → effectiveVal,
+  //                                              set() → only updates baseVal.
+  const wrappedPatternControls: PatternControl[] = (pattern.controls ?? []).map((ctrl) => {
+    const idx = firstTwoRange.indexOf(ctrl as RangeCtrl);
+    if (idx === -1) return ctrl;
+    // Sync baseVal if wrapWithPersist has already restored a saved value
+    baseVals[idx] = (ctrl as RangeCtrl).get();
+    effectiveVals[idx] = baseVals[idx];
+    return {
+      ...ctrl,
+      get: () => effectiveVals[idx],
+      set: (v: number) => { baseVals[idx] = v; },
+    } as RangeCtrl;
+  });
+
   const motionControls: PatternControl[] = [
     {
       label: 'Motion Detection Camera',
@@ -112,16 +143,21 @@ export function addMotionCamera(pattern: Pattern): Pattern {
   // ── Wrapped pattern ────────────────────────────────────────────────────────
   return {
     ...pattern,
-    controls: [...(pattern.controls ?? []), ...motionControls],
+    controls: [...wrappedPatternControls, ...motionControls],
 
     init(ctx: PatternContext) {
       canvasRef = ctx.renderer.domElement;
+      // Re-sync base vals in case wrapWithPersist set them before init
+      for (let i = 0; i < firstTwoRange.length; i++) {
+        baseVals[i] = firstTwoRange[i].get();
+        effectiveVals[i] = baseVals[i];
+      }
       pattern.init(ctx);
       if (cameraEnabled) startCamera();
     },
 
     update(dt: number, elapsed: number) {
-      // Motion detection
+      // ── Motion detection ─────────────────────────────────────────────────
       if (motionCamera) {
         const diff = motionCamera.tick();
         if (diff) {
@@ -133,13 +169,25 @@ export function addMotionCamera(pattern: Pattern): Pattern {
       }
       motionDisplay = Math.round(smoothedMotion * 100);
 
-      // Exponential boost curve — same formula as particleFieldBase
+      // ── Boost first two controls ─────────────────────────────────────────
+      // Exponential sensitivity curve (same as particleFieldBase):
+      //   sensitivity=10 → subtle; sensitivity=100 → very strong
       const boost = sensitivity > 0
         ? smoothedMotion * Math.pow(sensitivity / 10, 1.4) * 0.5
         : 0;
 
-      // Multiply dt: all time-based patterns run faster with motion
-      pattern.update(dt * (1 + boost * 2.0), elapsed);
+      for (let i = 0; i < firstTwoRange.length; i++) {
+        const ctrl = firstTwoRange[i];
+        const range = ctrl.max - ctrl.min;
+        // Add up to ~40 % of the control's range at sensitivity=10 max motion;
+        // scales with the exponential curve from there.
+        const effective = Math.min(baseVals[i] + boost * range * 0.08, ctrl.max);
+        effectiveVals[i] = effective;
+        // Push effective value into the pattern's internal state
+        ctrl.set(effective);
+      }
+
+      pattern.update(dt, elapsed);
     },
 
     resize(width: number, height: number) {
@@ -154,6 +202,10 @@ export function addMotionCamera(pattern: Pattern): Pattern {
       overlay = null;
       smoothedMotion = 0;
       canvasRef = null;
+      // Restore base values so pattern's internal state is clean
+      for (let i = 0; i < firstTwoRange.length; i++) {
+        firstTwoRange[i].set(baseVals[i]);
+      }
       pattern.dispose();
     },
   };
