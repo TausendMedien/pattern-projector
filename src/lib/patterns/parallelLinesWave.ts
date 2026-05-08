@@ -17,6 +17,7 @@ let rotateSpeed = 0.02;
 
 let colorPhase = 0;
 let rotAngle = 0;
+let accTime = 0;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -32,7 +33,6 @@ const fragmentShader = /* glsl */ `
   uniform float uTime;
   uniform vec2 uResolution;
   uniform float uLineCount;
-  uniform float uScrollSpeed;
   uniform float uLineWidth;
   uniform float uWaveAmp;
   uniform float uWaveSpeed;
@@ -57,7 +57,7 @@ const fragmentShader = /* glsl */ `
                    centered.x * sinR + centered.y * cosR);
 
     float waveFreq = 3.0;
-    float scroll = uTime * uScrollSpeed;
+    float scroll = uTime;
 
     float wave = sin(uv.y * waveFreq * 3.14159 + uTime * 1.4 * uWaveSpeed) * uWaveAmp
                + sin(uv.y * waveFreq * 1.7  + uTime * 0.9 * uWaveSpeed) * uWaveAmp * 0.5;
@@ -106,7 +106,6 @@ export const parallelLinesWave: Pattern = {
         uTime:        { value: 0 },
         uResolution:  { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
         uLineCount:   { value: lineCount },
-        uScrollSpeed: { value: scrollSpeed },
         uLineWidth:   { value: lineWidth },
         uWaveAmp:     { value: waveAmp },
         uWaveSpeed:   { value: waveSpeed },
@@ -127,13 +126,13 @@ export const parallelLinesWave: Pattern = {
     ctx.scene.add(mesh);
   },
 
-  update(dt: number, elapsed: number) {
+  update(dt: number, _elapsed: number) {
     if (!material) return;
+    accTime    += dt * scrollSpeed;
     colorPhase += dt * colorSpeed * 0.6;
     rotAngle   += dt * rotateSpeed * 1.5;
-    material.uniforms.uTime.value        = elapsed;
+    material.uniforms.uTime.value        = accTime;
     material.uniforms.uLineCount.value   = lineCount;
-    material.uniforms.uScrollSpeed.value = scrollSpeed;
     material.uniforms.uLineWidth.value   = lineWidth;
     material.uniforms.uWaveAmp.value     = waveAmp;
     material.uniforms.uWaveSpeed.value   = waveSpeed;
@@ -153,5 +152,6 @@ export const parallelLinesWave: Pattern = {
     mesh = null;
     geometry = null;
     material = null;
+    accTime = 0;
   },
 };

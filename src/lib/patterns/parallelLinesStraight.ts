@@ -16,6 +16,7 @@ let rotateSpeed = 0.02;
 // Accumulated phases — updated each frame, never reset on hot-reload
 let colorPhase = 0;
 let rotAngle = 0;
+let accTime = 0;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -31,7 +32,6 @@ const fragmentShader = /* glsl */ `
   uniform float uTime;
   uniform vec2 uResolution;
   uniform float uLineCount;
-  uniform float uScrollSpeed;
   uniform float uLineWidth;
   uniform float uColorRange;
   uniform float uSaturation;
@@ -53,7 +53,7 @@ const fragmentShader = /* glsl */ `
     vec2 uv = vec2(centered.x * cosR - centered.y * sinR,
                    centered.x * sinR + centered.y * cosR);
 
-    float scroll = uTime * uScrollSpeed;
+    float scroll = uTime;
     float stripe = fract(uv.x * uLineCount * 0.5 + scroll);
 
     float fw = fwidth(stripe);
@@ -97,7 +97,6 @@ export const parallelLinesStraight: Pattern = {
         uTime:        { value: 0 },
         uResolution:  { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
         uLineCount:   { value: lineCount },
-        uScrollSpeed: { value: scrollSpeed },
         uLineWidth:   { value: lineWidth },
         uColorRange:  { value: colorRange },
         uSaturation:  { value: saturation },
@@ -116,13 +115,13 @@ export const parallelLinesStraight: Pattern = {
     ctx.scene.add(mesh);
   },
 
-  update(dt: number, elapsed: number) {
+  update(dt: number, _elapsed: number) {
     if (!material) return;
+    accTime    += dt * scrollSpeed;
     colorPhase += dt * colorSpeed * 0.6;
     rotAngle   += dt * rotateSpeed * 1.5;
-    material.uniforms.uTime.value        = elapsed;
+    material.uniforms.uTime.value        = accTime;
     material.uniforms.uLineCount.value   = lineCount;
-    material.uniforms.uScrollSpeed.value = scrollSpeed;
     material.uniforms.uLineWidth.value   = lineWidth;
     material.uniforms.uColorRange.value  = colorRange;
     material.uniforms.uSaturation.value  = saturation;
@@ -140,5 +139,6 @@ export const parallelLinesStraight: Pattern = {
     mesh = null;
     geometry = null;
     material = null;
+    accTime = 0;
   },
 };

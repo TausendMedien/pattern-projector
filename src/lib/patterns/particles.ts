@@ -12,14 +12,13 @@ let points: THREE.Points | null = null;
 let geometry: THREE.BufferGeometry | null = null;
 let material: THREE.ShaderMaterial | null = null;
 let camera: THREE.PerspectiveCamera | null = null;
+let accTime = 0;
 
 const vertexShader = /* glsl */ `
   uniform float uTime;
   uniform float uSize;
   attribute float aSeed;
   varying float vSeed;
-
-  uniform float uFlowSpeed;
 
   vec3 flow(vec3 p, float t) {
     float a = sin(p.y * 0.7 + t * 0.4) + cos(p.z * 0.6 - t * 0.3);
@@ -31,9 +30,9 @@ const vertexShader = /* glsl */ `
   void main() {
     vSeed = aSeed;
     vec3 p = position;
-    vec3 disp = flow(p * 0.5 + aSeed, uTime * uFlowSpeed) * 0.6;
+    vec3 disp = flow(p * 0.5 + aSeed, uTime) * 0.6;
     p += disp;
-    float ang = uTime * 0.05 * uFlowSpeed + aSeed * 0.0002;
+    float ang = uTime * 0.05 + aSeed * 0.0002;
     float cs = cos(ang), sn = sin(ang);
     p.xz = mat2(cs, -sn, sn, cs) * p.xz;
 
@@ -106,7 +105,6 @@ export const particles: Pattern = {
       uniforms: {
         uTime:       { value: 0 },
         uSize:       { value: pointSize },
-        uFlowSpeed:  { value: flowSpeed },
         uColorRange: { value: colorRange },
         uSaturation: { value: saturation },
       },
@@ -121,11 +119,11 @@ export const particles: Pattern = {
     ctx.scene.add(points);
   },
 
-  update(_dt: number, elapsed: number) {
+  update(dt: number, _elapsed: number) {
     if (!material) return;
-    material.uniforms.uTime.value = elapsed;
+    accTime += dt * flowSpeed;
+    material.uniforms.uTime.value = accTime;
     material.uniforms.uSize.value = pointSize;
-    material.uniforms.uFlowSpeed.value = flowSpeed;
     material.uniforms.uColorRange.value = colorRange;
     material.uniforms.uSaturation.value = saturation;
   },
@@ -139,5 +137,6 @@ export const particles: Pattern = {
     geometry = null;
     material = null;
     camera = null;
+    accTime = 0;
   },
 };

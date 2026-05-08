@@ -17,6 +17,7 @@ let rotateSpeed = 0.03;
 
 let colorPhase = 0;
 let rotAngle   = 0;
+let accTime = 0;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -31,7 +32,6 @@ const fragmentShader = /* glsl */ `
   uniform float uDotDensity;
   uniform float uDotSize;
   uniform float uWarpAmount;
-  uniform float uFlowSpeed;
   uniform float uPerspective;
   uniform float uSaturation;
   uniform float uColorPhase;
@@ -54,7 +54,7 @@ const fragmentShader = /* glsl */ `
     vec2 c = (vUv - 0.5) * vec2(aspect, 1.0);
     float cosR = cos(uRotAngle), sinR = sin(uRotAngle);
     vec2 p = vec2(c.x*cosR - c.y*sinR, c.x*sinR + c.y*cosR);
-    float t = uTime * uFlowSpeed;
+    float t = uTime;
 
     // Baroque-style domain warp — teal version
     vec2 q = vec2(fbm(p * 1.4 + t),
@@ -120,7 +120,6 @@ export const flowDots: Pattern = {
         uDotDensity:  { value: dotDensity },
         uDotSize:     { value: dotSize },
         uWarpAmount:  { value: warpAmount },
-        uFlowSpeed:   { value: flowSpeed },
         uPerspective: { value: perspective },
         uSaturation:  { value: saturation },
         uColorPhase:  { value: colorPhase },
@@ -134,15 +133,15 @@ export const flowDots: Pattern = {
     ctx.scene.add(mesh);
   },
 
-  update(dt: number, elapsed: number) {
+  update(dt: number, _elapsed: number) {
     if (!material) return;
+    accTime    += dt * flowSpeed;
     colorPhase += dt * colorSpeed * 0.5;
     rotAngle   += dt * rotateSpeed * 1.5;
-    material.uniforms.uTime.value        = elapsed;
+    material.uniforms.uTime.value        = accTime;
     material.uniforms.uDotDensity.value  = dotDensity;
     material.uniforms.uDotSize.value     = dotSize;
     material.uniforms.uWarpAmount.value  = warpAmount;
-    material.uniforms.uFlowSpeed.value   = flowSpeed;
     material.uniforms.uPerspective.value = perspective;
     material.uniforms.uSaturation.value  = saturation;
     material.uniforms.uColorPhase.value  = colorPhase;
@@ -157,5 +156,6 @@ export const flowDots: Pattern = {
   dispose() {
     geometry?.dispose(); material?.dispose();
     mesh = null; geometry = null; material = null;
+    accTime = 0;
   },
 };

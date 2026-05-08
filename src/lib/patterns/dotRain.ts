@@ -18,6 +18,7 @@ let rotateSpeed = 0.0;
 
 let colorPhase = 0;
 let rotAngle = 0;
+let accTime = 0;
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -33,7 +34,6 @@ const fragmentShader = /* glsl */ `
   uniform float uTime;
   uniform vec2 uResolution;
   uniform float uColumnCount;
-  uniform float uScrollSpeed;
   uniform float uDotSize;
   uniform float uWaveAmp;
   uniform float uBubbleCount;
@@ -63,7 +63,7 @@ const fragmentShader = /* glsl */ `
     float cellX = uv.x / aspect * cols;
     float colIdx = floor(cellX + cols * 0.5);
     float waveOffset = sin(colIdx * 0.8 + uTime * 0.5) * uWaveAmp * cols;
-    float cellY = uv.y * cols + uTime * uScrollSpeed * cols + waveOffset;
+    float cellY = uv.y * cols + uTime * cols + waveOffset;
     vec2 cellFrac = fract(vec2(cellX, cellY)) - 0.5;
     float dotDist = length(cellFrac);
     float r = uDotSize * 0.5;
@@ -128,7 +128,6 @@ export const dotRain: Pattern = {
         uTime:        { value: 0 },
         uResolution:  { value: new THREE.Vector2(ctx.size.width, ctx.size.height) },
         uColumnCount: { value: columnCount },
-        uScrollSpeed: { value: scrollSpeed },
         uDotSize:     { value: dotSize },
         uWaveAmp:     { value: waveAmp },
         uBubbleCount: { value: bubbleCount },
@@ -148,13 +147,13 @@ export const dotRain: Pattern = {
     ctx.scene.add(mesh);
   },
 
-  update(dt: number, elapsed: number) {
+  update(dt: number, _elapsed: number) {
     if (!material) return;
+    accTime    += dt * scrollSpeed;
     colorPhase += dt * colorSpeed * 0.6;
     rotAngle   += dt * rotateSpeed * 1.5;
-    material.uniforms.uTime.value        = elapsed;
+    material.uniforms.uTime.value        = accTime;
     material.uniforms.uColumnCount.value = columnCount;
-    material.uniforms.uScrollSpeed.value = scrollSpeed;
     material.uniforms.uDotSize.value     = dotSize;
     material.uniforms.uWaveAmp.value     = waveAmp;
     material.uniforms.uBubbleCount.value = bubbleCount;
@@ -175,5 +174,6 @@ export const dotRain: Pattern = {
     mesh = null;
     geometry = null;
     material = null;
+    accTime = 0;
   },
 };
