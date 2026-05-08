@@ -149,21 +149,18 @@ void main() {
   float d = length(uv);
   if (d > 0.5) discard;
 
-  // uBlur=1 (user slider 0, no blur) → innerEdge=0.5 → step function → hard circle
-  // uBlur=0 (user slider 1, max blur) → innerEdge=0.0 → full soft gradient
-  float innerEdge = mix(0.0, 0.5, uBlur);
-  float softness  = 1.0 - smoothstep(innerEdge, 0.5, d);
+  // Power-falloff: concentrates brightness near centre, keeps edges genuinely dark.
+  // uBlur=1 (user slider 0): sharp spike; uBlur=0 (user slider 1): wide soft glow.
+  float sharpness = mix(1.5, 6.0, uBlur);
+  float softness  = pow(max(0.0, 1.0 - d * 2.0), sharpness);
 
-  float alpha = softness * vAlpha * uCountScale * 0.7;
+  float alpha = softness * vAlpha * uCountScale * 0.85;
 
   vec3 col = mix(uColor1, uColor2, vColorRatio);
-  // Centre highlight only present at higher blur — absent when crisp
-  col = mix(col, vec3(1.0), smoothstep(0.3, 0.0, d) * 0.4 * (1.0 - uBlur));
-
   float gray = dot(col, vec3(0.299, 0.587, 0.114));
   col = mix(vec3(gray), col, uSaturation);
 
-  gl_FragColor = vec4(col * alpha, alpha);
+  gl_FragColor = vec4(col, alpha);
 }
 `;
 
@@ -286,12 +283,7 @@ export const hyperMix: Pattern = {
       fragmentShader,
       transparent: true,
       depthWrite:  false,
-      blending:         THREE.CustomBlending,
-      blendEquation:    THREE.AddEquation,
-      blendSrc:         THREE.OneFactor,
-      blendDst:         THREE.OneMinusSrcColorFactor,
-      blendSrcAlpha:    THREE.OneFactor,
-      blendDstAlpha:    THREE.OneMinusSrcAlphaFactor,
+      blending:    THREE.AdditiveBlending,
     });
 
     points = new THREE.Points(geometry, material);
