@@ -34,7 +34,10 @@ export function loadSettings(patterns: Pattern[]): void {
         if (v >= ctrl.min && v <= ctrl.max) ctrl.set(v);
       } else if (ctrl.type === "select" && ctrl.label in saved) {
         const v = saved[ctrl.label];
-        if (Number.isInteger(v) && v >= 0 && v < ctrl.options.length) ctrl.set(v);
+        const optLen = typeof ctrl.options === 'function' ? ctrl.options().length : ctrl.options.length;
+        if (Number.isInteger(v) && v >= 0 && v < optLen) ctrl.set(v);
+      } else if (ctrl.type === "toggle" && ctrl.label in saved) {
+        ctrl.set(!!saved[ctrl.label]);
       }
     }
   }
@@ -77,7 +80,10 @@ export function saveSettings(patterns: Pattern[]): void {
     if (!pattern.controls?.length) continue;
     const vals: Record<string, number> = {};
     for (const ctrl of pattern.controls) {
-      vals[ctrl.label] = ctrl.get();
+      if (ctrl.type === 'separator') continue;
+      if (ctrl.type === 'button') continue;
+      if (ctrl.type === 'toggle') vals[ctrl.label] = ctrl.get() ? 1 : 0;
+      else vals[ctrl.label] = ctrl.get();
     }
     patternValues[pattern.id] = vals;
   }

@@ -41,11 +41,18 @@ export class MotionCamera {
     domCanvas: HTMLCanvasElement,
     facingMode: 'environment' | 'user' = 'environment',
   ): Promise<MotionCamera | null> {
+    return MotionCamera.createWithConstraints(domCanvas, {
+      video: { facingMode: { ideal: facingMode }, width: { ideal: 320 }, height: { ideal: 180 } },
+      audio: false,
+    });
+  }
+
+  static async createWithConstraints(
+    domCanvas: HTMLCanvasElement,
+    constraints: MediaStreamConstraints,
+  ): Promise<MotionCamera | null> {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: facingMode }, width: { ideal: 320 }, height: { ideal: 180 } },
-        audio: false,
-      });
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       const video = document.createElement("video");
       video.srcObject = stream;
       video.setAttribute("playsinline", "");

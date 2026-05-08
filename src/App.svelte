@@ -36,7 +36,12 @@
 
   function syncCtrlVals() {
     const next: Record<string, number> = {};
-    for (const c of patterns[index]?.controls ?? []) next[c.label] = c.get();
+    for (const c of patterns[index]?.controls ?? []) {
+      if (c.type === 'separator') continue;
+      if (c.type === 'button') continue;
+      if (c.type === 'toggle') next[c.label] = c.get() ? 1 : 0;
+      else next[c.label] = c.get();
+    }
     ctrlVals = next;
   }
 
@@ -242,6 +247,9 @@
           if (c.type === 'range') {
             const v = c.get();
             if (ctrlVals[c.label] !== v) ctrlVals[c.label] = v;
+          } else if (c.type === 'toggle') {
+            const v = c.get() ? 1 : 0;
+            if (ctrlVals[c.label] !== v) ctrlVals[c.label] = v;
           }
         }
       }
@@ -419,55 +427,77 @@
         <div class="mb-2 shrink-0 border-t border-white/10 pt-3 text-xs uppercase tracking-widest text-white/50">Controls</div>
         <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">
           {#each patterns[index].controls! as ctrl}
-            <div class="flex flex-col gap-1">
-              {#if ctrl.type !== "button"}
-              <div class="flex justify-between text-xs text-white/70">
+            {#if ctrl.type === "separator"}
+              <!-- Section separator / group header -->
+              <div class="mt-1 flex items-center gap-2">
+                <div class="h-px flex-1 bg-white/20"></div>
+                <span class="text-[10px] uppercase tracking-widest text-white/40">{ctrl.label}</span>
+                <div class="h-px flex-1 bg-white/20"></div>
+              </div>
+            {:else if ctrl.type === "toggle"}
+              <!-- Toggle switch row -->
+              <div class="flex items-center justify-between text-xs text-white/70">
+                <span>{ctrl.label}</span>
                 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-                <span
-                  class={ctrl.type === "range" && ctrl.default !== undefined ? "cursor-pointer select-none hover:text-white transition-colors" : ""}
-                  title={ctrl.type === "range" && ctrl.default !== undefined ? "Click to reset" : undefined}
-                  onclick={() => { if (ctrl.type === "range") resetCtrl(ctrl); }}
-                >{ctrl.label}</span>
+                <div
+                  class="relative h-5 w-9 cursor-pointer rounded-full transition-colors duration-200 {(ctrlVals[ctrl.label] ?? (ctrl.get() ? 1 : 0)) ? 'bg-white/70' : 'bg-white/20'}"
+                  onclick={() => { const nv = !ctrl.get(); ctrl.set(nv); ctrlVals[ctrl.label] = nv ? 1 : 0; saveSettings(patterns); }}
+                >
+                  <div class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 {(ctrlVals[ctrl.label] ?? (ctrl.get() ? 1 : 0)) ? 'translate-x-4' : 'translate-x-0.5'}"></div>
+                </div>
+              </div>
+            {:else}
+              <div class="flex flex-col gap-1">
+                {#if ctrl.type !== "button"}
+                <div class="flex justify-between text-xs {ctrl.type === 'range' && ctrl.readonly ? 'text-white/30' : 'text-white/70'}">
+                  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                  <span
+                    class={ctrl.type === "range" && !ctrl.readonly && ctrl.default !== undefined ? "cursor-pointer select-none hover:text-white transition-colors" : ""}
+                    title={ctrl.type === "range" && !ctrl.readonly && ctrl.default !== undefined ? "Click to reset" : undefined}
+                    onclick={() => { if (ctrl.type === "range" && !ctrl.readonly) resetCtrl(ctrl); }}
+                  >{ctrl.label}</span>
+                  {#if ctrl.type === "range"}
+                    <span class="font-mono {ctrl.readonly ? 'text-white/25' : 'text-white/40'}">
+                      {(ctrlVals[ctrl.label] ?? ctrl.get()).toFixed(ctrl.step < 0.01 ? 3 : ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}
+                    </span>
+                  {/if}
+                </div>
+                {/if}
                 {#if ctrl.type === "range"}
-                  <span class="font-mono text-white/40">
-                    {(ctrlVals[ctrl.label] ?? ctrl.get()).toFixed(ctrl.step < 0.01 ? 3 : ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}
-                  </span>
+                  <input
+                    type="range"
+                    min={ctrl.min}
+                    max={ctrl.max}
+                    step={ctrl.step}
+                    value={ctrlVals[ctrl.label] ?? ctrl.get()}
+                    oninput={ctrl.readonly ? undefined : (e) => {
+                      const v = parseFloat((e.target as HTMLInputElement).value);
+                      ctrl.set(v);
+                      ctrlVals[ctrl.label] = v;
+                      saveSettings(patterns);
+                    }}
+                    ondblclick={() => { if (!ctrl.readonly) resetCtrl(ctrl); }}
+                    class="w-full cursor-pointer {ctrl.readonly ? 'opacity-30 pointer-events-none' : 'accent-white'}"
+                  />
+                {:else if ctrl.type === "select"}
+                  {@const opts = typeof ctrl.options === 'function' ? ctrl.options() : ctrl.options}
+                  <select
+                    value={ctrl.get()}
+                    onchange={(e) => { ctrl.set(parseInt((e.target as HTMLSelectElement).value)); saveSettings(patterns); }}
+                    class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
+                  >
+                    {#each opts as opt, i}
+                      <option value={i}>{opt}</option>
+                    {/each}
+                  </select>
+                {:else if ctrl.type === "button"}
+                  <button
+                    onclick={() => ctrl.action()}
+                    class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white cursor-pointer hover:bg-white/20 active:bg-white/30 transition-colors"
+                  >{ctrl.label}</button>
                 {/if}
               </div>
-              {/if}
-              {#if ctrl.type === "range"}
-                <input
-                  type="range"
-                  min={ctrl.min}
-                  max={ctrl.max}
-                  step={ctrl.step}
-                  value={ctrlVals[ctrl.label] ?? ctrl.get()}
-                  oninput={(e) => {
-                    const v = parseFloat((e.target as HTMLInputElement).value);
-                    ctrl.set(v);
-                    ctrlVals[ctrl.label] = v;
-                    saveSettings(patterns);
-                  }}
-                  ondblclick={() => resetCtrl(ctrl)}
-                  class="w-full accent-white cursor-pointer"
-                />
-              {:else if ctrl.type === "select"}
-                <select
-                  value={ctrl.get()}
-                  onchange={(e) => { ctrl.set(parseInt((e.target as HTMLSelectElement).value)); saveSettings(patterns); }}
-                  class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
-                >
-                  {#each ctrl.options as opt, i}
-                    <option value={i}>{opt}</option>
-                  {/each}
-                </select>
-              {:else if ctrl.type === "button"}
-                <button
-                  onclick={() => ctrl.action()}
-                  class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white cursor-pointer hover:bg-white/20 active:bg-white/30 transition-colors"
-                >{ctrl.label}</button>
-              {/if}
-            </div>
+            {/if}
           {/each}
         </div>
       {/if}

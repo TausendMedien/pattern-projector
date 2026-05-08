@@ -8,8 +8,8 @@ import type { Pattern, PatternContext } from "./patterns/types";
 import { MotionCamera, showMotionOverlay } from "./motionDetector";
 
 const COUNT = 50000;
-const FACING_KEY = 'pp:camera-facing';
-const FACING_MODES = ['environment', 'user'] as const;
+const FACING_KEY   = 'pp:camera-facing';
+const CAMERA_ON_KEY = 'pp:camera-on';
 
 // ─── Shaders ──────────────────────────────────────────────────────────────────
 // uTime is a JS-integrated accumulated time (dt * effectiveSpeed summed each
@@ -81,20 +81,26 @@ export function makeParticleFieldPattern(
   // ── User-controlled base values ──────────────────────────────────────────
   let baseSize    = 2.0;
   let baseSpeed   = 0.2;
-  let sensitivity = 25;      // 0–100; 25 ≈ subtle, 100 = very strong
+  let sensitivity = 10;      // 0–100; 10 = old default feel; exponential curve
   let colorRange  = 1.0;
   let saturation  = 0.6;
-  let facingIndex = parseInt(localStorage.getItem(FACING_KEY) ?? '0');
+  let cameraEnabled = localStorage.getItem(CAMERA_ON_KEY) === '1';
+  let deviceIndex   = parseInt(localStorage.getItem(FACING_KEY) ?? '0');
 
   // ── Live effective values (base + motion boost) ──────────────────────────
-  // get() returns these so sliders reflect current motion in real time.
   let effectiveSize    = baseSize;
   let effectiveSpeed   = baseSpeed;
-  let motionDisplay    = 0;   // smoothedMotion × 100, for the read-only display slider
+  let motionDisplay    = 0;   // smoothedMotion × 100, read-only display slider
 
   // ── Internal state ───────────────────────────────────────────────────────
-  let accTime = 0;          // accumulated time integrated at effectiveSpeed
+  let accTime = 0;
   let smoothedMotion = 0;
+
+  // Camera device list — populated after permission granted
+  let cameraDevices: MediaDeviceInfo[] = [];
+  const cameraNames = () => cameraDevices.length > 0
+    ? cameraDevices.map((d) => d.label || `Camera ${cameraDevices.indexOf(d) + 1}`)
+    : ['Rear / External', 'Front'];
 
   let points:  THREE.Points | null = null;
   let geometry: THREE.BufferGeometry | null = null;
@@ -104,15 +110,46 @@ export function makeParticleFieldPattern(
   let canvasRef: HTMLCanvasElement | null = null;
   let overlay: HTMLDivElement | null = null;
 
-  function startCamera(facingMode: typeof FACING_MODES[number]) {
+  async function refreshDeviceList() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      cameraDevices = devices.filter((d) => d.kind === 'videoinput');
+    } catch { /* ignore */ }
+  }
+
+  function startCamera() {
     motionCamera?.dispose();
     motionCamera = null;
     if (!canvasRef) return;
-    MotionCamera.create(canvasRef, facingMode).then((cam) => {
+    const device = cameraDevices[deviceIndex];
+    const constraints: MediaStreamConstraints = {
+      video: device
+        ? { deviceId: { exact: device.deviceId }, width: { ideal: 320 }, height: { ideal: 180 } }
+        : { facingMode: { ideal: 'environment' }, width: { ideal: 320 }, height: { ideal: 180 } },
+      audio: false,
+    };
+    overlay = showMotionOverlay(canvasRef, "Requesting camera…");
+    MotionCamera.createWithConstraints(canvasRef, constraints).then(async (cam) => {
       overlay?.remove();
       overlay = null;
       motionCamera = cam ?? null;
+      if (cam) await refreshDeviceList();   // now labels are available
     });
+  }
+
+  function enableCamera(on: boolean) {
+    cameraEnabled = on;
+    localStorage.setItem(CAMERA_ON_KEY, on ? '1' : '0');
+    if (on) {
+      startCamera();
+    } else {
+      motionCamera?.dispose();
+      motionCamera = null;
+      smoothedMotion = 0;
+      motionDisplay = 0;
+      overlay?.remove();
+      overlay = null;
+    }
   }
 
   return {
@@ -123,26 +160,14 @@ export function makeParticleFieldPattern(
       {
         label: "Point Size",
         type: "range", min: 0.3, max: 20.0, step: 0.1,
-        get: () => effectiveSize,          // live: moves with motion
+        get: () => effectiveSize,
         set: (v) => { baseSize = v; },
       },
       {
         label: "Flow Speed",
         type: "range", min: 0.05, max: 5.0, step: 0.05,
-        get: () => effectiveSpeed,         // live: moves with motion
+        get: () => effectiveSpeed,
         set: (v) => { baseSpeed = v; },
-      },
-      {
-        label: "Sensitivity",
-        type: "range", min: 0, max: 100, step: 1,
-        get: () => sensitivity,
-        set: (v) => { sensitivity = v; },
-      },
-      {
-        label: "Motion Level",
-        type: "range", min: 0, max: 100, step: 1,
-        get: () => motionDisplay,
-        set: () => {},                     // read-only live display
       },
       {
         label: "Colors",
@@ -156,15 +181,36 @@ export function makeParticleFieldPattern(
         get: () => saturation,
         set: (v) => { saturation = v; },
       },
+      // ── Motion Camera group ───────────────────────────────────────────────
+      { label: "Motion Camera", type: "separator" },
+      {
+        label: "Motion Detection Camera",
+        type: "toggle",
+        get: () => cameraEnabled,
+        set: (v) => enableCamera(v),
+      },
+      {
+        label: "Motion Sensitivity",
+        type: "range", min: 0, max: 100, step: 1,
+        get: () => sensitivity,
+        set: (v) => { sensitivity = v; },
+      },
+      {
+        label: "Motion Level",
+        type: "range", min: 0, max: 100, step: 1,
+        readonly: true,
+        get: () => motionDisplay,
+        set: () => {},
+      },
       {
         label: "Camera",
         type: "select",
-        options: ["Rear / External", "Front"],
-        get: () => facingIndex,
+        options: cameraNames,
+        get: () => deviceIndex,
         set: (v) => {
-          facingIndex = v;
+          deviceIndex = v;
           localStorage.setItem(FACING_KEY, String(v));
-          startCamera(FACING_MODES[v]);
+          if (cameraEnabled) startCamera();
         },
       },
     ],
@@ -213,8 +259,7 @@ export function makeParticleFieldPattern(
       effectiveSpeed = baseSpeed;
       canvasRef = ctx.renderer.domElement;
 
-      overlay = showMotionOverlay(canvasRef, "Requesting camera…");
-      startCamera(FACING_MODES[facingIndex]);
+      if (cameraEnabled) startCamera();
     },
 
     update(dt: number, _elapsed: number) {
@@ -233,8 +278,11 @@ export function makeParticleFieldPattern(
       }
 
       // ── Effective values (base + motion boost) ───────────────────────────
+      // Exponential curve: sensitivity=10 ≈ old default; 100 is 6× stronger than old 100.
       motionDisplay  = Math.round(smoothedMotion * 100);
-      const boost    = smoothedMotion * (sensitivity / 50);
+      const boost    = sensitivity > 0
+        ? smoothedMotion * Math.pow(sensitivity / 10, 1.4) * 0.5
+        : 0;
       effectiveSize  = baseSize  + boost * 8.0;
       effectiveSpeed = baseSpeed + boost * 1.6;
 
