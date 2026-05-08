@@ -11,6 +11,8 @@ export type PatternControl =
   | { label: string; type: "range"; min: number; max: number; step: number; default?: number; readonly?: boolean; disabled?: () => boolean; get(): number; set(v: number): void }
   | { label: string; type: "select"; options: string[] | (() => string[]); disabled?: () => boolean; get(): number; set(v: number): void }
   | { label: string; type: "toggle"; disabled?: () => boolean; get(): boolean; set(v: boolean): void }
+  /** Section header with an integrated on/off toggle. Controls below are dimmed while off. */
+  | { label: string; type: "section"; get(): boolean; set(v: boolean): void }
   | { label: string; type: "separator" }
   | { label: string; type: "button"; action(): void };
 

@@ -10,7 +10,7 @@ export function restoreFromKeys(patterns: Pattern[]): void {
       const key = `pp:${pattern.id}:${ctrl.label}`;
       const raw = localStorage.getItem(key);
       if (raw === null) continue;
-      if (ctrl.type === 'toggle') ctrl.set(raw === '1');
+      if (ctrl.type === 'toggle' || ctrl.type === 'section') ctrl.set(raw === '1');
       else ctrl.set(parseFloat(raw));
     }
   }
@@ -20,7 +20,7 @@ export function wrapWithPersist(pattern: Pattern): Pattern {
   const controls = pattern.controls?.map(ctrl => {
     if (ctrl.type === 'button' || ctrl.type === 'separator') return ctrl;
     const key = `pp:${pattern.id}:${ctrl.label}`;
-    if (ctrl.type === 'toggle') {
+    if (ctrl.type === 'toggle' || ctrl.type === 'section') {
       return {
         ...ctrl,
         set(v: boolean) {
@@ -44,7 +44,7 @@ export function wrapWithPersist(pattern: Pattern): Pattern {
     const key = `pp:${pattern.id}:${ctrl.label}`;
     const raw = localStorage.getItem(key);
     if (raw === null) return;
-    if (ctrl.type === 'toggle') ctrl.set(raw === '1');
+    if (ctrl.type === 'toggle' || ctrl.type === 'section') ctrl.set(raw === '1');
     else ctrl.set(parseFloat(raw));
   });
 

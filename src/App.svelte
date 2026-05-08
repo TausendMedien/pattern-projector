@@ -39,7 +39,7 @@
     for (const c of patterns[index]?.controls ?? []) {
       if (c.type === 'separator') continue;
       if (c.type === 'button') continue;
-      if (c.type === 'toggle') next[c.label] = c.get() ? 1 : 0;
+      if (c.type === 'toggle' || c.type === 'section') next[c.label] = c.get() ? 1 : 0;
       else next[c.label] = c.get();
     }
     ctrlVals = next;
@@ -247,7 +247,7 @@
           if (c.type === 'range') {
             const v = c.get();
             if (ctrlVals[c.label] !== v) ctrlVals[c.label] = v;
-          } else if (c.type === 'toggle') {
+          } else if (c.type === 'toggle' || c.type === 'section') {
             const v = c.get() ? 1 : 0;
             if (ctrlVals[c.label] !== v) ctrlVals[c.label] = v;
           } else if (c.type === 'select') {
@@ -432,15 +432,30 @@
         <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">
           {#each patterns[index].controls! as ctrl}
             {#if ctrl.type === "separator"}
-              <!-- Section separator / group header -->
+              <!-- Section separator / group header (no toggle) -->
               <div class="mt-1 flex items-center gap-2">
                 <div class="h-px flex-1 bg-white/20"></div>
                 <span class="text-[10px] uppercase tracking-widest text-white/40">{ctrl.label}</span>
                 <div class="h-px flex-1 bg-white/20"></div>
               </div>
+            {:else if ctrl.type === "section"}
+              {@const isOn = !!(ctrlVals[ctrl.label] ?? (ctrl.get() ? 1 : 0))}
+              <!-- Section header with integrated toggle -->
+              <div class="mt-1 flex items-center gap-2">
+                <div class="h-px flex-1 bg-white/20"></div>
+                <span class="text-[10px] uppercase tracking-widest text-white/40">{ctrl.label}</span>
+                <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                <div
+                  class="relative h-[14px] w-[22px] flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 {isOn ? 'bg-white/60' : 'bg-white/20'}"
+                  onclick={() => { const nv = !ctrl.get(); ctrl.set(nv); ctrlVals[ctrl.label] = nv ? 1 : 0; saveSettings(patterns); }}
+                >
+                  <div class="absolute top-[2px] h-[10px] w-[10px] rounded-full bg-white shadow transition-transform duration-200 {isOn ? 'translate-x-[10px]' : 'translate-x-[2px]'}"></div>
+                </div>
+                <div class="h-px flex-1 bg-white/20"></div>
+              </div>
             {:else if ctrl.type === "toggle"}
               {@const isOn = !!(ctrlVals[ctrl.label] ?? (ctrl.get() ? 1 : 0))}
-              <!-- Toggle switch row -->
+              <!-- Standalone toggle row -->
               <div class="flex items-center justify-between text-xs text-white/70">
                 <span>{ctrl.label}</span>
                 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->

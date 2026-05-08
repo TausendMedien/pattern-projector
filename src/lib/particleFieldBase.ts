@@ -113,9 +113,14 @@ export function makeParticleFieldPattern(
   async function refreshDeviceList() {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      cameraDevices = devices.filter((d) => d.kind === 'videoinput');
+      // Keep all videoinput devices; filter out empty-label entries only if labelled ones exist
+      const all = devices.filter((d) => d.kind === 'videoinput');
+      const labelled = all.filter((d) => d.label);
+      cameraDevices = labelled.length > 0 ? labelled : all;
     } catch { /* ignore */ }
   }
+
+  const onDeviceChange = () => { refreshDeviceList(); };
 
   function startCamera() {
     motionCamera?.dispose();
@@ -133,7 +138,10 @@ export function makeParticleFieldPattern(
       overlay?.remove();
       overlay = null;
       motionCamera = cam ?? null;
-      if (cam) await refreshDeviceList();   // now labels are available
+      if (cam) {
+        await refreshDeviceList();  // labels are available after getUserMedia
+        navigator.mediaDevices.addEventListener('devicechange', onDeviceChange);
+      }
     });
   }
 
@@ -143,6 +151,7 @@ export function makeParticleFieldPattern(
     if (on) {
       startCamera();
     } else {
+      navigator.mediaDevices.removeEventListener('devicechange', onDeviceChange);
       motionCamera?.dispose();
       motionCamera = null;
       smoothedMotion = 0;
@@ -181,11 +190,10 @@ export function makeParticleFieldPattern(
         get: () => saturation,
         set: (v) => { saturation = v; },
       },
-      // ── Motion Camera group ───────────────────────────────────────────────
-      { label: "Motion Camera", type: "separator" },
+      // ── Motion Detection Camera group ─────────────────────────────────────
       {
         label: "Motion Detection Camera",
-        type: "toggle",
+        type: "section",
         get: () => cameraEnabled,
         set: (v) => enableCamera(v),
       },
@@ -301,6 +309,7 @@ export function makeParticleFieldPattern(
     resize() {},
 
     dispose() {
+      navigator.mediaDevices.removeEventListener('devicechange', onDeviceChange);
       motionCamera?.dispose();
       motionCamera = null;
       detector = null;

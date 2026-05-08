@@ -36,7 +36,7 @@ export function loadSettings(patterns: Pattern[]): void {
         const v = saved[ctrl.label];
         const optLen = typeof ctrl.options === 'function' ? ctrl.options().length : ctrl.options.length;
         if (Number.isInteger(v) && v >= 0 && v < optLen) ctrl.set(v);
-      } else if (ctrl.type === "toggle" && ctrl.label in saved) {
+      } else if ((ctrl.type === "toggle" || ctrl.type === "section") && ctrl.label in saved) {
         ctrl.set(!!saved[ctrl.label]);
       }
     }
@@ -82,7 +82,7 @@ export function saveSettings(patterns: Pattern[]): void {
     for (const ctrl of pattern.controls) {
       if (ctrl.type === 'separator') continue;
       if (ctrl.type === 'button') continue;
-      if (ctrl.type === 'toggle') vals[ctrl.label] = ctrl.get() ? 1 : 0;
+      if (ctrl.type === 'toggle' || ctrl.type === 'section') vals[ctrl.label] = ctrl.get() ? 1 : 0;
       else vals[ctrl.label] = ctrl.get();
     }
     patternValues[pattern.id] = vals;
