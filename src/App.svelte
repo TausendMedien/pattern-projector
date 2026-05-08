@@ -250,6 +250,10 @@
           } else if (c.type === 'toggle') {
             const v = c.get() ? 1 : 0;
             if (ctrlVals[c.label] !== v) ctrlVals[c.label] = v;
+          } else if (c.type === 'select') {
+            // Keep current index in sync; re-reading also lets Svelte re-evaluate ctrl.options()
+            const v = c.get();
+            if (ctrlVals[c.label] !== v) ctrlVals[c.label] = v;
           }
         }
       }
@@ -435,21 +439,23 @@
                 <div class="h-px flex-1 bg-white/20"></div>
               </div>
             {:else if ctrl.type === "toggle"}
+              {@const isOn = !!(ctrlVals[ctrl.label] ?? (ctrl.get() ? 1 : 0))}
               <!-- Toggle switch row -->
               <div class="flex items-center justify-between text-xs text-white/70">
                 <span>{ctrl.label}</span>
                 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
                 <div
-                  class="relative h-5 w-9 cursor-pointer rounded-full transition-colors duration-200 {(ctrlVals[ctrl.label] ?? (ctrl.get() ? 1 : 0)) ? 'bg-white/70' : 'bg-white/20'}"
+                  class="relative h-[18px] w-7 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 {isOn ? 'bg-white/70' : 'bg-white/20'}"
                   onclick={() => { const nv = !ctrl.get(); ctrl.set(nv); ctrlVals[ctrl.label] = nv ? 1 : 0; saveSettings(patterns); }}
                 >
-                  <div class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 {(ctrlVals[ctrl.label] ?? (ctrl.get() ? 1 : 0)) ? 'translate-x-4' : 'translate-x-0.5'}"></div>
+                  <div class="absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow transition-transform duration-200 {isOn ? 'translate-x-[11px]' : 'translate-x-[2px]'}"></div>
                 </div>
               </div>
             {:else}
-              <div class="flex flex-col gap-1">
+              {@const isDisabled = ctrl.type !== 'button' && (ctrl.disabled?.() ?? false)}
+              <div class="flex flex-col gap-1 transition-opacity duration-200 {isDisabled ? 'opacity-35 pointer-events-none' : ''}">
                 {#if ctrl.type !== "button"}
-                <div class="flex justify-between text-xs {ctrl.type === 'range' && ctrl.readonly ? 'text-white/30' : 'text-white/70'}">
+                <div class="flex justify-between text-xs {ctrl.type === 'range' && ctrl.readonly && !isDisabled ? 'text-white/50' : 'text-white/70'}">
                   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
                   <span
                     class={ctrl.type === "range" && !ctrl.readonly && ctrl.default !== undefined ? "cursor-pointer select-none hover:text-white transition-colors" : ""}
@@ -457,7 +463,7 @@
                     onclick={() => { if (ctrl.type === "range" && !ctrl.readonly) resetCtrl(ctrl); }}
                   >{ctrl.label}</span>
                   {#if ctrl.type === "range"}
-                    <span class="font-mono {ctrl.readonly ? 'text-white/25' : 'text-white/40'}">
+                    <span class="font-mono {ctrl.readonly && !isDisabled ? 'text-white/40' : 'text-white/40'}">
                       {(ctrlVals[ctrl.label] ?? ctrl.get()).toFixed(ctrl.step < 0.01 ? 3 : ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}
                     </span>
                   {/if}
@@ -477,7 +483,7 @@
                       saveSettings(patterns);
                     }}
                     ondblclick={() => { if (!ctrl.readonly) resetCtrl(ctrl); }}
-                    class="w-full cursor-pointer {ctrl.readonly ? 'opacity-30 pointer-events-none' : 'accent-white'}"
+                    class="w-full accent-white {ctrl.readonly ? 'pointer-events-none' : 'cursor-pointer'}"
                   />
                 {:else if ctrl.type === "select"}
                   {@const opts = typeof ctrl.options === 'function' ? ctrl.options() : ctrl.options}

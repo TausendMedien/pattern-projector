@@ -192,6 +192,7 @@ export function makeParticleFieldPattern(
       {
         label: "Motion Sensitivity",
         type: "range", min: 0, max: 100, step: 1,
+        disabled: () => !cameraEnabled,
         get: () => sensitivity,
         set: (v) => { sensitivity = v; },
       },
@@ -199,6 +200,7 @@ export function makeParticleFieldPattern(
         label: "Motion Level",
         type: "range", min: 0, max: 100, step: 1,
         readonly: true,
+        disabled: () => !cameraEnabled,
         get: () => motionDisplay,
         set: () => {},
       },
@@ -206,6 +208,7 @@ export function makeParticleFieldPattern(
         label: "Camera",
         type: "select",
         options: cameraNames,
+        disabled: () => !cameraEnabled,
         get: () => deviceIndex,
         set: (v) => {
           deviceIndex = v;
