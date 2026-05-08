@@ -140,6 +140,7 @@ uniform vec3 uColor2;
 uniform float uSaturation;
 uniform float uBlur;
 uniform float uCountScale;
+uniform float uPtSize;
 
 varying float vColorRatio;
 varying float vAlpha;
@@ -149,9 +150,10 @@ void main() {
   float d = length(uv);
   if (d > 0.5) discard;
 
-  // Power-falloff: concentrates brightness near centre, keeps edges genuinely dark.
-  // uBlur=1 (user slider 0): sharp spike; uBlur=0 (user slider 1): wide soft glow.
-  float sharpness = mix(1.5, 6.0, uBlur);
+  // Power-falloff with size-aware sharpness: keeps the glow halo ~1 px wide in
+  // screen space regardless of point size. uBlur=1 (user 0): crisp; uBlur=0 (user 1): soft.
+  float maxSharp  = clamp(uPtSize * 2.5, 6.0, 20.0);
+  float sharpness = mix(1.5, maxSharp, uBlur);
   float softness  = pow(max(0.0, 1.0 - d * 2.0), sharpness);
 
   float alpha = softness * vAlpha * uCountScale * 0.85;
