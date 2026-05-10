@@ -42,8 +42,9 @@ function readDPad(gp: Gamepad): DPad {
   const bR = gp.buttons[BTN_DPAD_R]?.pressed ?? false;
   if (bU || bD || bL || bR) return { up: bU, down: bD, left: bL, right: bR };
 
-  // Fallback: axis pairs (skip axes 0–3 which are analog sticks)
-  const pairs: [number, number][] = [[6, 7], [4, 5]];
+  // Fallback: axis pairs. Try high indices first (D-input hat), then 0+1
+  // (controllers without analog sticks, e.g. 8BitDo Micro, use axes 0+1 for D-Pad).
+  const pairs: [number, number][] = [[6, 7], [4, 5], [0, 1]];
   for (const [hAxis, vAxis] of pairs) {
     if (gp.axes.length > vAxis) {
       const h = gp.axes[hAxis] ?? 0;
@@ -68,6 +69,7 @@ export function createGamepadController(
 ): GamepadController {
   let gamepadIndex: number | null = null;
   let prevButtons: Record<number, boolean> = {};
+  let prevAxes: Record<number, number> = {};
   let prevDPad: DPad = { up: false, down: false, left: false, right: false };
   let prevL1 = false;
   const repeating = new Map<string, RepeatEntry>();
@@ -95,6 +97,7 @@ export function createGamepadController(
       console.log('[gamepad] disconnected');
       gamepadIndex = null;
       prevButtons = {};
+      prevAxes = {};
       prevDPad = { up: false, down: false, left: false, right: false };
       prevL1 = false;
       repeating.clear();
@@ -141,10 +144,17 @@ export function createGamepadController(
     const gp = navigator.getGamepads()[gamepadIndex];
     if (!gp) return;
 
-    // Debug: log any newly pressed button
+    // Debug: log any newly pressed button or significant axis change
     for (let i = 0; i < gp.buttons.length; i++) {
       if ((gp.buttons[i]?.pressed ?? false) && !(prevButtons[i] ?? false)) {
         console.log(`[gamepad] button ${i} pressed`);
+      }
+    }
+    for (let i = 0; i < gp.axes.length; i++) {
+      const v = gp.axes[i] ?? 0;
+      const prev = prevAxes[i] ?? 0;
+      if (Math.abs(v) > AXIS_THRESHOLD && Math.abs(prev) <= AXIS_THRESHOLD) {
+        console.log(`[gamepad] axis ${i} = ${v.toFixed(2)}`);
       }
     }
 
@@ -181,6 +191,9 @@ export function createGamepadController(
     // Update edge-detection state
     for (let i = 0; i < gp.buttons.length; i++) {
       prevButtons[i] = gp.buttons[i]?.pressed ?? false;
+    }
+    for (let i = 0; i < gp.axes.length; i++) {
+      prevAxes[i] = gp.axes[i] ?? 0;
     }
     prevDPad = { ...dp };
     prevL1 = l1;
