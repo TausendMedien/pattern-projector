@@ -3,6 +3,9 @@ import type { Pattern, PatternContext } from "./patterns/types";
 
 export interface RendererHandle {
   setPattern: (next: Pattern) => void;
+  setTimeScale: (v: number) => void;
+  getTimeScale: () => number;
+  getCanvas: () => HTMLCanvasElement;
   dispose: () => void;
 }
 
@@ -18,6 +21,7 @@ export function createRenderer(canvas: HTMLCanvasElement, initial: Pattern): Ren
 
   let size = { width: 1, height: 1 };
   let current: Pattern = initial;
+  let timeScale = 1.0;
 
   const ctx: PatternContext = { scene, camera, renderer, size };
 
@@ -61,7 +65,7 @@ export function createRenderer(canvas: HTMLCanvasElement, initial: Pattern): Ren
     const dt = (now - last) / 1000;
     const elapsed = (now - start) / 1000;
     last = now;
-    current.update(dt, elapsed);
+    current.update(dt * timeScale, elapsed);
     renderer.render(scene, camera);
     raf = requestAnimationFrame(loop);
   }
@@ -69,6 +73,9 @@ export function createRenderer(canvas: HTMLCanvasElement, initial: Pattern): Ren
 
   return {
     setPattern,
+    setTimeScale(v: number) { timeScale = Math.max(0, v); },
+    getTimeScale() { return timeScale; },
+    getCanvas() { return canvas; },
     dispose() {
       cancelAnimationFrame(raf);
       ro.disconnect();

@@ -2,6 +2,8 @@
   import { onMount } from "svelte";
   import { createRenderer, type RendererHandle } from "./lib/renderer";
   import { attachKeyboard, type KeyAction } from "./lib/keyboard";
+  import { createGamepadController, type GamepadAction } from "./lib/gamepad";
+  import { takeScreenshot } from "./lib/screenshot";
   import { attachTouch } from "./lib/touch";
   import { patterns } from "./lib/patterns";
   import * as fs from "./lib/fullscreen";
@@ -29,6 +31,22 @@
   let demoTimer: ReturnType<typeof setTimeout> | null = null;
   let snapshotUrl = $state<string | null>(null);
   let snapshotFading = $state(false);
+
+  // Gamepad state
+  let gamepadConnected = $state(false);
+  let l1Held = $state(false);
+  let screenshotFlash = $state(false);
+  let timeScaleMirror = $state(1.0);
+  let frozenPrevScale = $state(1.0);
+  let sliderFocusIndex = $state(0);
+
+  const rangeControls = $derived(
+    (patterns[index]?.controls ?? []).filter(c => c.type === 'range') as
+      (import('./lib/patterns/types').PatternControl & { type: 'range' })[]
+  );
+
+  // Reset slider focus when pattern changes
+  $effect(() => { const _ = index; sliderFocusIndex = 0; });
 
   // Reactive mirror of current pattern's control values so the number display
   // updates live as the user drags a slider.
@@ -225,6 +243,72 @@
     }
   }
 
+  function handleGamepadAction(action: GamepadAction) {
+    poke();
+    switch (action.type) {
+      case "next":
+        index = switchTo(index + 1);
+        focusedIndex = index;
+        resetDemoTimer();
+        break;
+      case "prev":
+        index = switchTo(index - 1);
+        focusedIndex = index;
+        resetDemoTimer();
+        break;
+      case "speedUp": {
+        const cur = handle?.getTimeScale() ?? 1;
+        const next = Math.min(8, parseFloat((cur + 0.1).toFixed(2)));
+        handle?.setTimeScale(next);
+        timeScaleMirror = next;
+        break;
+      }
+      case "speedDown": {
+        const cur = handle?.getTimeScale() ?? 1;
+        const next = Math.max(0.1, parseFloat((cur - 0.1).toFixed(2)));
+        handle?.setTimeScale(next);
+        timeScaleMirror = next;
+        break;
+      }
+      case "freeze": {
+        const cur = handle?.getTimeScale() ?? 1;
+        if (cur === 0) {
+          const restore = frozenPrevScale > 0 ? frozenPrevScale : 1.0;
+          handle?.setTimeScale(restore);
+          timeScaleMirror = restore;
+        } else {
+          frozenPrevScale = cur;
+          handle?.setTimeScale(0);
+          timeScaleMirror = 0;
+        }
+        break;
+      }
+      case "screenshot":
+        takeScreenshot(handle!.getCanvas());
+        screenshotFlash = true;
+        setTimeout(() => { screenshotFlash = false; }, 800);
+        break;
+      case "focusUp":
+        sliderFocusIndex = Math.max(0, sliderFocusIndex - 1);
+        break;
+      case "focusDown":
+        sliderFocusIndex = Math.min(Math.max(rangeControls.length - 1, 0), sliderFocusIndex + 1);
+        break;
+      case "sliderLeft":
+      case "sliderRight": {
+        const ctrl = rangeControls[sliderFocusIndex];
+        if (ctrl && !ctrl.readonly) {
+          const delta = action.type === "sliderRight" ? ctrl.step : -ctrl.step;
+          const next = Math.min(ctrl.max, Math.max(ctrl.min, ctrl.get() + delta));
+          ctrl.set(next);
+          ctrlVals[ctrl.label] = next;
+          saveSettings(patterns);
+        }
+        break;
+      }
+    }
+  }
+
   onMount(() => {
     isTouch = "ontouchstart" in window;
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -239,9 +323,16 @@
     handle = createRenderer(canvas, patterns[0]);
     if (demo.demoActive) startDemo();
 
+    const gpController = createGamepadController(
+      handleGamepadAction,
+      (c) => { gamepadConnected = c; },
+      (held) => { l1Held = held; },
+    );
+
     // Keep ctrlVals in sync every frame so motion-reactive sliders move live.
     let liveRaf: number;
-    const liveSync = () => {
+    const liveSync = (now: number) => {
+      gpController.poll(now);
       if (hudVisible && appState !== 'overview') {
         for (const c of patterns[index]?.controls ?? []) {
           if (c.type === 'range') {
@@ -288,6 +379,7 @@
 
     return () => {
       cancelAnimationFrame(liveRaf);
+      gpController.dispose();
       detach();
       detachTouch();
       document.removeEventListener("fullscreenchange", onFsChange);
@@ -366,6 +458,11 @@
   </div>
 {/if}
 
+<!-- ─── Screenshot flash ─────────────────────────────────────────────── -->
+{#if screenshotFlash}
+  <div class="pointer-events-none fixed inset-0 z-50 bg-white/25 transition-opacity duration-500"></div>
+{/if}
+
 <!-- ─── Controls panel (active + preview) ─────────────────────────────── -->
 {#if appState !== "overview"}
   <div
@@ -439,6 +536,7 @@
         <div class="mb-2 shrink-0 text-xs uppercase tracking-widest text-white/50">Controls</div>
         <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">
           {#each controlMeta as { ctrl, groupDisabled }}
+            {@const focusedRangeCtrl = l1Held ? rangeControls[sliderFocusIndex] : null}
             {#if ctrl.type === "separator"}
               <!-- Plain section divider (no toggle) -->
               <div class="mt-1 flex items-center gap-2">
@@ -475,7 +573,7 @@
                 </div>
               </div>
             {:else}
-              <div class="flex flex-col gap-1 transition-opacity duration-200 {groupDisabled ? 'opacity-35 pointer-events-none' : ''}">
+              <div class="flex flex-col gap-1 transition-all duration-150 {groupDisabled ? 'opacity-35 pointer-events-none' : ''} {ctrl === focusedRangeCtrl ? 'rounded bg-white/10 px-1.5 py-0.5 -mx-1.5' : ''}">
                 {#if ctrl.type !== "button"}
                 <div class="flex justify-between text-xs text-white/70">
                   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -547,6 +645,14 @@
           <div class="text-xs uppercase tracking-widest text-white/50">Pattern</div>
           <div class="text-lg font-semibold">{patterns[index].name}</div>
           <div class="mt-1 text-xs text-white/40">{index + 1} / {patterns.length}</div>
+          {#if timeScaleMirror === 0}
+            <div class="mt-1 text-xs font-mono text-amber-400/80">FREEZE</div>
+          {:else if Math.abs(timeScaleMirror - 1.0) > 0.05}
+            <div class="mt-1 text-xs font-mono text-white/50">{timeScaleMirror.toFixed(1)}×</div>
+          {/if}
+          {#if gamepadConnected}
+            <div class="mt-1 text-xs text-white/30">⎮ Gamepad</div>
+          {/if}
         </div>
         <div class="flex flex-col items-end gap-1.5">
           <button
