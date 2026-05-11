@@ -19,6 +19,7 @@ export type PatternControl =
 export interface Pattern {
   id: string;
   name: string;
+  attribution?: string;
   controls?: PatternControl[];
   /** Labels of range controls that motion detection should boost. Defaults to first two range controls. */
   motionControlLabels?: string[];

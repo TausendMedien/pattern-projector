@@ -73,6 +73,29 @@
     saveSettings(patterns);
   }
 
+  function resetAllControls() {
+    for (const c of patterns[index]?.controls ?? []) {
+      if (c.type === 'range' && c.default !== undefined && !c.readonly) {
+        c.set(c.default);
+        ctrlVals[c.label] = c.default;
+      }
+    }
+    saveSettings(patterns);
+  }
+
+  function randomizeControls() {
+    for (const c of patterns[index]?.controls ?? []) {
+      if (c.type === 'range' && !c.readonly) {
+        const steps = Math.round((c.max - c.min) / c.step);
+        const r = Math.floor(Math.random() * (steps + 1));
+        const v = parseFloat(Math.min(c.max, c.min + r * c.step).toFixed(10));
+        c.set(v);
+        ctrlVals[c.label] = v;
+      }
+    }
+    saveSettings(patterns);
+  }
+
   function poke() {
     hudVisible = true;
     if (hudTimer) clearTimeout(hudTimer);
@@ -539,7 +562,13 @@
           });
         })()}
         <!-- Pattern controls -->
-        <div class="mb-2 shrink-0 text-xs uppercase tracking-widest text-white/50">Controls</div>
+        <div class="mb-2 shrink-0 flex items-center justify-between gap-2">
+          <span class="text-xs uppercase tracking-widest text-white/50">Controls</span>
+          <div class="flex gap-1">
+            <button onclick={resetAllControls} class="rounded px-2 py-0.5 text-[10px] text-white/50 border border-white/15 hover:border-white/40 hover:text-white/80 transition-colors cursor-pointer">Default</button>
+            <button onclick={randomizeControls} class="rounded px-2 py-0.5 text-[10px] text-white/50 border border-white/15 hover:border-white/40 hover:text-white/80 transition-colors cursor-pointer">Randomize</button>
+          </div>
+        </div>
         <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">
           {#each controlMeta as { ctrl, groupDisabled }}
             {@const focusedRangeCtrl = l1Held ? rangeControls[sliderFocusIndex] : null}
@@ -631,6 +660,11 @@
               </div>
             {/if}
           {/each}
+        </div>
+      {/if}
+      {#if patterns[index].attribution}
+        <div class="mt-3 pt-2 border-t border-white/10 text-[10px] text-white/25 leading-snug">
+          {patterns[index].attribution}
         </div>
       {/if}
     </div>
