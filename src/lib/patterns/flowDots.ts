@@ -14,6 +14,7 @@ let saturation  = 0.50;
 let colorSpeed  = 0.55;
 let brightness  = 1.20;
 let rotateSpeed = 0.03;
+let opacity = 0.85;
 
 let colorPhase = 0;
 let rotAngle   = 0;
@@ -37,6 +38,7 @@ const fragmentShader = /* glsl */ `
   uniform float uColorPhase;
   uniform float uBrightness;
   uniform float uRotAngle;
+  uniform float uOpacity;
 
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float noise(vec2 p) {
@@ -92,7 +94,7 @@ const fragmentShader = /* glsl */ `
     vec3  dCol = dBase * (0.3 + 0.7 * df) + vec3(1.0) * sp * 0.55;
 
     vec3 col = mix(bgCol, dCol * uBrightness, dotMask);
-    gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+    gl_FragColor = vec4(clamp(col, 0.0, 1.0), uOpacity);
   }
 `;
 
@@ -109,6 +111,7 @@ export const flowDots: Pattern = {
     { label: "Saturation",   type: "range", min: 0.0, max: 1.0, step: 0.05, default: 0.5, get: () => saturation,  set: (v) => { saturation = v; } },
     { label: "Brightness",   type: "range", min: 0.2, max: 2.0, step: 0.05, default: 1.2, get: () => brightness,  set: (v) => { brightness = v; } },
     { label: "Rotate",       type: "range", min: 0.0, max: 0.5, step: 0.01, default: 0.03, get: () => rotateSpeed, set: (v) => { rotateSpeed = v; } },
+    { label: "Opacity",      type: "range", min: 0.0, max: 1.0, step: 0.05, default: 0.85, get: () => opacity,     set: (v) => { opacity = v; } },
   ],
 
   init(ctx: PatternContext) {
@@ -125,8 +128,9 @@ export const flowDots: Pattern = {
         uColorPhase:  { value: colorPhase },
         uBrightness:  { value: brightness },
         uRotAngle:    { value: rotAngle },
+        uOpacity:     { value: opacity },
       },
-      vertexShader, fragmentShader, depthTest: false, depthWrite: false,
+      vertexShader, fragmentShader, transparent: true, depthTest: false, depthWrite: false,
     });
     mesh = new THREE.Mesh(geometry, material);
     mesh.frustumCulled = false;
@@ -147,6 +151,7 @@ export const flowDots: Pattern = {
     material.uniforms.uColorPhase.value  = colorPhase;
     material.uniforms.uBrightness.value  = brightness;
     material.uniforms.uRotAngle.value    = rotAngle;
+    material.uniforms.uOpacity.value     = opacity;
   },
 
   resize(width: number, height: number) {

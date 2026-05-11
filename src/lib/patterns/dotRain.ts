@@ -15,6 +15,7 @@ let colorRange = 1.0;
 let saturation = 1.0;
 let colorSpeed = 0.45;
 let rotateSpeed = 0.0;
+let opacity = 0.85;
 
 let colorPhase = 0;
 let rotAngle = 0;
@@ -42,6 +43,7 @@ const fragmentShader = /* glsl */ `
   uniform float uSaturation;
   uniform float uColorPhase;
   uniform float uRotAngle;
+  uniform float uOpacity;
 
   vec3 hsl2rgb(float h, float s, float l) {
     vec3 rgb = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
@@ -101,7 +103,7 @@ const fragmentShader = /* glsl */ `
       col = mix(col, bColor, glow);
     }
 
-    gl_FragColor = vec4(col, 1.0);
+    gl_FragColor = vec4(col, uOpacity);
   }
 `;
 
@@ -118,7 +120,8 @@ export const dotRain: Pattern = {
     { label: "Colors",         type: "range", min: 0.0,  max: 1.0,  step: 0.05, default: 1,  get: () => colorRange,  set: (v) => { colorRange = v; } },
     { label: "Color Speed",    type: "range", min: 0.0,  max: 1.0,  step: 0.05, default: 0.45,  get: () => colorSpeed,  set: (v) => { colorSpeed = v; } },
     { label: "Saturation",     type: "range", min: 0.0,  max: 1.0,  step: 0.05, default: 1,  get: () => saturation,  set: (v) => { saturation = v; } },
-    { label: "Rotate",         type: "range", min: 0.0,  max: 0.5,  step: 0.01, default: 0,  get: () => rotateSpeed, set: (v) => { rotateSpeed = v; } },
+    { label: "Rotate",         type: "range", min: 0.0,  max: 0.5,  step: 0.01, default: 0,    get: () => rotateSpeed, set: (v) => { rotateSpeed = v; } },
+    { label: "Opacity",        type: "range", min: 0.0,  max: 1.0,  step: 0.05, default: 0.85, get: () => opacity,     set: (v) => { opacity = v; } },
   ],
 
   init(ctx: PatternContext) {
@@ -136,9 +139,11 @@ export const dotRain: Pattern = {
         uSaturation:  { value: saturation },
         uColorPhase:  { value: colorPhase },
         uRotAngle:    { value: rotAngle },
+        uOpacity:     { value: opacity },
       },
       vertexShader,
       fragmentShader,
+      transparent: true,
       depthTest: false,
       depthWrite: false,
     });
@@ -162,6 +167,7 @@ export const dotRain: Pattern = {
     material.uniforms.uSaturation.value  = saturation;
     material.uniforms.uColorPhase.value  = colorPhase;
     material.uniforms.uRotAngle.value    = rotAngle;
+    material.uniforms.uOpacity.value     = opacity;
   },
 
   resize(width: number, height: number) {
