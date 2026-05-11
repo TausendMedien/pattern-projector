@@ -210,9 +210,9 @@
         case "jump":
           if (action.index < patterns.length) { focusedIndex = action.index; switchTo(focusedIndex); }
           break;
-        case "enter":
-        case "freeze":    // B / Space / Start → activate
-        case "randomize": // A → activate
+        case "resetToDefault": // B / South → activate (confirm button)
+        case "freeze":         // Space / Start / Enter → activate
+        case "randomize":      // A → activate
           activatePattern(focusedIndex);
           break;
         case "fullscreen":
@@ -230,6 +230,7 @@
       case "freeze":           poke(); applyFreeze();    return;
       case "blackout":         poke(); blackout = !blackout; return;
       case "randomize":        poke(); startRandomize(performance.now()); return;
+      case "resetToDefault":   poke(); resetAllControls(); return;
       case "screenshot":       poke(); applyScreenshot(); return;
       case "toggleRecording":  recorder?.toggle(); return;
       case "toggleCamera":     poke(); toggleCamera();   return;
@@ -369,6 +370,7 @@
           focusedIndex = Math.min(patterns.length - 1, focusedIndex + 3); switchTo(focusedIndex); break;
         case "speedUp":
           focusedIndex = Math.max(0, focusedIndex - 3); switchTo(focusedIndex); break;
+        case "resetToDefault":
         case "freeze":
         case "randomize":
           activatePattern(focusedIndex); break;
@@ -388,6 +390,7 @@
       case "speedDown":        applySpeedDown(); break;
       case "freeze":           applyFreeze();    break;
       case "blackout":         blackout = !blackout; break;
+      case "resetToDefault":   resetAllControls(); break;
       case "screenshot":       applyScreenshot(); break;
       case "toggleRecording":  recorder?.toggle(); break;
       case "randomize":        startRandomize(performance.now()); break;
@@ -630,38 +633,40 @@
       onclick={(e) => e.stopPropagation()}
     >
       <div class="mb-4 flex items-center justify-between">
-        <span class="text-[11px] uppercase tracking-[0.3em] text-white/40">Controls Reference</span>
+        <span class="text-xs font-semibold uppercase tracking-[0.3em] text-white/60">Controls Reference</span>
         <button
-          class="cursor-pointer rounded px-2 py-0.5 text-[11px] text-white/40 hover:text-white/70 transition-colors"
+          class="cursor-pointer rounded px-2 py-0.5 text-xs text-white/50 hover:text-white/80 transition-colors"
           onclick={() => { cheatsheetVisible = false; }}
-        >✕  M</button>
+        >✕  any key</button>
       </div>
       <div class="grid grid-cols-2 gap-6">
         <!-- 8BitDo K-Mode column -->
         <div>
-          <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">8BitDo Micro (K-Mode)</div>
-          <table class="w-full border-collapse text-xs">
+          <div class="mb-2 text-xs font-semibold uppercase tracking-wider text-white/50">8BitDo Micro (K-Mode)</div>
+          <table class="w-full border-collapse">
             <tbody>
               {#each [
-                ["B / Space / Start", "Freeze toggle"],
+                ["B  (South)", "Reset controls"],
+                ["Space / Start", "Freeze toggle"],
                 ["A", "Randomize controls"],
                 ["X", "Blackout toggle"],
                 ["Y", "Hide / show HUD"],
                 ["L", "Screenshot"],
                 ["M", "This reference"],
-                ["1  (L2)", "Video aufnehmen"],
-                ["2  (R2)", "Kamera-Toggle"],
+                ["1  (L2)", "Record video"],
+                ["2  (R2)", "Camera toggle"],
                 ["← →", "Prev / next pattern"],
                 ["↑ ↓", "Speed +/−"],
-                ["R (halten) + ←→", "Slider anpassen"],
-                ["F", "Vollbild"],
-                ["D", "Demo-Modus"],
-                ["3–9", "Pattern direkt wählen"],
-                ["Esc", "Übersicht / Vorschau"],
+                ["R (hold) + ↑↓", "Switch slider"],
+                ["R (hold) + ←→", "Adjust slider"],
+                ["F", "Fullscreen"],
+                ["D", "Demo mode"],
+                ["3–9", "Jump to pattern"],
+                ["Esc", "Overview / preview"],
               ] as row}
-                <tr class="border-b border-white/5">
-                  <td class="py-1 pr-3 font-mono text-[10px] text-white/60 whitespace-nowrap">{row[0]}</td>
-                  <td class="py-1 text-white/50">{row[1]}</td>
+                <tr class="border-b border-white/[0.06]">
+                  <td class="py-1.5 pr-3 font-mono text-xs text-white/80 whitespace-nowrap">{row[0]}</td>
+                  <td class="py-1.5 text-sm text-white/70">{row[1]}</td>
                 </tr>
               {/each}
             </tbody>
@@ -669,24 +674,26 @@
         </div>
         <!-- DualShock / DualSense column -->
         <div>
-          <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">DualShock / DualSense</div>
-          <table class="w-full border-collapse text-xs">
+          <div class="mb-2 text-xs font-semibold uppercase tracking-wider text-white/50">DualShock / DualSense</div>
+          <table class="w-full border-collapse">
             <tbody>
               {#each [
-                ["× South / Start", "Freeze toggle"],
+                ["× South", "Reset controls"],
+                ["Start (btn 9)", "Freeze toggle"],
                 ["○ East", "Randomize controls"],
                 ["△ North", "Blackout toggle"],
                 ["□ West", "Hide / show HUD"],
                 ["R1", "Screenshot"],
-                ["L2", "Video aufnehmen"],
-                ["R2", "Kamera-Toggle"],
+                ["L2", "Record video"],
+                ["R2", "Camera toggle"],
                 ["D-Pad ← →", "Prev / next pattern"],
                 ["D-Pad ↑ ↓", "Speed +/−"],
-                ["L1 (halten) + ←→", "Slider anpassen"],
+                ["L1 (hold) + ↑↓", "Switch slider"],
+                ["L1 (hold) + ←→", "Adjust slider"],
               ] as row}
-                <tr class="border-b border-white/5">
-                  <td class="py-1 pr-3 font-mono text-[10px] text-white/60 whitespace-nowrap">{row[0]}</td>
-                  <td class="py-1 text-white/50">{row[1]}</td>
+                <tr class="border-b border-white/[0.06]">
+                  <td class="py-1.5 pr-3 font-mono text-xs text-white/80 whitespace-nowrap">{row[0]}</td>
+                  <td class="py-1.5 text-sm text-white/70">{row[1]}</td>
                 </tr>
               {/each}
             </tbody>
@@ -899,6 +906,7 @@
     <div class="rounded-md border border-white/10 bg-black/60 px-4 py-3 text-white backdrop-blur-sm">
       <div class="flex items-start justify-between gap-4">
         <div>
+          <div class="text-[10px] font-semibold tracking-[0.3em] text-white/25 mb-1">PATTERN PROJECTOR</div>
           <div class="text-xs uppercase tracking-widest text-white/50">Pattern</div>
           <div class="text-lg font-semibold">{patterns[index].name}</div>
           <div class="mt-1 text-xs text-white/40">{index + 1} / {patterns.length}</div>
@@ -949,16 +957,18 @@
           <span>prev / next</span>
           <kbd class="rounded bg-white/10 px-1.5 font-mono">↑ ↓</kbd>
           <span>speed +/−</span>
-          <kbd class="rounded bg-white/10 px-1.5 font-mono">B / Space</kbd>
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">Space</kbd>
           <span>freeze</span>
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">B</kbd>
+          <span>reset controls</span>
           <kbd class="rounded bg-white/10 px-1.5 font-mono">A / X</kbd>
           <span>randomize / blackout</span>
           <kbd class="rounded bg-white/10 px-1.5 font-mono">L</kbd>
           <span>screenshot</span>
           <kbd class="rounded bg-white/10 px-1.5 font-mono">R + ←→</kbd>
-          <span>slider anpassen</span>
+          <span>adjust slider</span>
           <kbd class="rounded bg-white/10 px-1.5 font-mono">M</kbd>
-          <span>alle Shortcuts</span>
+          <span>all shortcuts</span>
         {/if}
       </div>
     </div>

@@ -4,11 +4,11 @@ export type KeyAction =
   | { type: "jump"; index: number }
   | { type: "fullscreen" }
   | { type: "demo" }
-  | { type: "enter" }
   | { type: "escape" }
   | { type: "freeze" }
   | { type: "blackout" }
   | { type: "randomize" }
+  | { type: "resetToDefault" }
   | { type: "screenshot" }
   | { type: "toggleRecording" }
   | { type: "toggleCamera" }
@@ -30,7 +30,7 @@ export function attachKeyboard(
   function onKeyDown(e: KeyboardEvent) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-    // R held: left/right arrows adjust the focused slider
+    // R held: arrows navigate sliders (↑↓ = switch, ←→ = adjust)
     if (e.key === "r" || e.key === "R") {
       if (!rHeld) { rHeld = true; onRHeldChange?.(true); }
       e.preventDefault();
@@ -39,9 +39,10 @@ export function attachKeyboard(
 
     if (rHeld) {
       switch (e.key) {
-        case "ArrowLeft":  handler({ type: "sliderLeft" });  e.preventDefault(); return;
-        case "ArrowRight": handler({ type: "sliderRight" }); e.preventDefault(); return;
-        // up/down fall through — they still control speed in slider mode
+        case "ArrowUp":    handler({ type: "focusUp" });    e.preventDefault(); return;
+        case "ArrowDown":  handler({ type: "focusDown" });  e.preventDefault(); return;
+        case "ArrowLeft":  handler({ type: "sliderLeft" }); e.preventDefault(); return;
+        case "ArrowRight": handler({ type: "sliderRight" });e.preventDefault(); return;
       }
     }
 
@@ -53,7 +54,7 @@ export function attachKeyboard(
         handler({ type: "demo" });
         e.preventDefault(); return;
       case "b": case "B":
-        handler({ type: "freeze" });
+        handler({ type: "resetToDefault" });
         e.preventDefault(); return;
       case " ":
         handler({ type: "freeze" });

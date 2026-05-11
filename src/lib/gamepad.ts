@@ -13,6 +13,7 @@ export type GamepadAction =
   | { type: "sliderLeft" }
   | { type: "sliderRight" }
   | { type: "blackout" }
+  | { type: "resetToDefault" }
   | { type: "toggleOverlay" };
 
 export interface GamepadController {
@@ -23,7 +24,7 @@ export interface GamepadController {
 // Standard HID gamepad button indices
 // Face buttons follow positional layout (South/East/West/North)
 // consistent between 8BitDo (B/A/Y/X) and PlayStation (×/○/□/△)
-const BTN_FREEZE          = 0;  // South: × / B  → Freeze
+const BTN_SOUTH           = 0;  // South: × / B  → Reset to default
 const BTN_RANDOMIZE       = 1;  // East:  ○ / A  → Randomize
 const BTN_TOGGLE_OVERLAY  = 2;  // West:  □ / Y  → Toggle Overlay (hide/show HUD)
 const BTN_BLACKOUT        = 3;  // North: △ / X  → Blackout toggle
@@ -189,7 +190,7 @@ export function createGamepadController(
     }
 
     // Single-fire buttons
-    if (wasJustPressed(gp, BTN_FREEZE))          handler({ type: "freeze" });
+    if (wasJustPressed(gp, BTN_SOUTH))           handler({ type: "resetToDefault" });
     if (wasJustPressed(gp, BTN_START))           handler({ type: "freeze" });
     if (wasJustPressed(gp, BTN_RANDOMIZE))      handler({ type: "randomize" });
     if (wasJustPressed(gp, BTN_TOGGLE_OVERLAY)) handler({ type: "toggleOverlay" });
