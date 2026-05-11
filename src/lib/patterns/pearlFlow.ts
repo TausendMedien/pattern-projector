@@ -98,8 +98,8 @@ const fragmentShader = /* glsl */ `
     pBase = mix(vec3(gray), pBase, uSaturation);
     vec3  pCol = pBase * (0.25 + 0.75 * df) + vec3(1.0) * sp * 0.85;
 
-    vec3 col = mix(bgCol, pCol * uBrightness, dotMask);
-    gl_FragColor = vec4(clamp(col, 0.0, 1.0), mix(1.0, uOpacity, dotMask));
+    vec3 col = mix(bgCol, pCol * uBrightness, dotMask * uOpacity);
+    gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
   }
 `;
 
@@ -136,7 +136,7 @@ export const pearlFlow: Pattern = {
         uRotAngle:   { value: rotAngle },
         uOpacity:    { value: opacity },
       },
-      vertexShader, fragmentShader, transparent: true, depthTest: false, depthWrite: false,
+      vertexShader, fragmentShader, depthTest: false, depthWrite: false,
     });
     mesh = new THREE.Mesh(geometry, material);
     mesh.frustumCulled = false;
