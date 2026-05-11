@@ -3,7 +3,7 @@ export function takeScreenshot(canvas: HTMLCanvasElement): void {
     .toISOString()
     .replace(/[:.]/g, '-')
     .slice(0, 19);
-  const filename = `pattern-projector-Ulrich_Tausend-1000lights.de-${timestamp}.png`;
+  const filename = `Lichtspiel-Ulrich_Tausend-1000lights.de-${timestamp}.png`;
 
   canvas.toBlob((blob) => {
     if (!blob) { console.warn('[screenshot] toBlob returned null'); return; }
