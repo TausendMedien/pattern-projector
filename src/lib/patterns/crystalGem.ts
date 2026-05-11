@@ -44,6 +44,13 @@ const fragmentShader = /* glsl */ `
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
   }
 
+  // Remap [0,1] hue to skip the green zone [0.20, 0.45]
+  // → warm reds/oranges/yellows (0–0.20) then cyan/blues/violets/magentas (0.45–1.0)
+  float remapHue(float h) {
+    float t = fract(h) * 0.75;          // squeeze into 75 % of the wheel
+    return t < 0.20 ? t : t + 0.25;    // shift up past the green gap
+  }
+
   void main() {
     // Flat (per-face) normal via screen-space derivatives — creates the faceted gem look
     vec3 vNormal = normalize(cross(dFdx(vWorldPos), dFdy(vWorldPos)));
@@ -52,9 +59,9 @@ const fragmentShader = /* glsl */ `
     float up   = dot(vNormal, vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5;
     float side = dot(vNormal, vec3(1.0, 0.0, 0.0)) * 0.5 + 0.5;
 
-    // Primary gem color from hue + normal-driven variation
-    float h1 = fract(uHue + up * 0.15);
-    float h2 = fract(uHue + 0.5 + side * 0.2);
+    // Primary gem color — green zone excluded via remapHue
+    float h1 = remapHue(uHue + up * 0.15);
+    float h2 = remapHue(uHue + 0.5 + side * 0.2);
     vec3 col1 = hsv2rgb(vec3(h1, uSaturation, 0.9));
     vec3 col2 = hsv2rgb(vec3(h2, uSaturation * 0.6, 0.5));
 

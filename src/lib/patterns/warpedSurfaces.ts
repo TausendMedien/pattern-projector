@@ -64,20 +64,41 @@ const fragmentShader = /* glsl */ `
     return p;
   }
 
-  // Cosine palette helper
-  vec3 cosPalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
-    return a + b * cos(TAU * (c * t + d));
-  }
-
+  // Piecewise palette — no green hues anywhere
   vec3 applyPalette(float v) {
-    if (uPalette == 0) // Iridescent
-      return cosPalette(v, vec3(0.5,0.5,0.5), vec3(0.5,0.5,0.5), vec3(1.0,1.0,1.0), vec3(0.00,0.33,0.67));
-    if (uPalette == 1) // Fire
-      return cosPalette(v, vec3(0.5,0.2,0.1), vec3(0.5,0.4,0.1), vec3(1.0,1.0,1.0), vec3(0.0,0.15,0.25));
-    if (uPalette == 2) // Ocean
-      return cosPalette(v, vec3(0.1,0.4,0.5), vec3(0.2,0.3,0.3), vec3(1.0,1.0,1.0), vec3(0.1,0.4,0.7));
-    // Void (3)
-    return cosPalette(v, vec3(0.3,0.1,0.4), vec3(0.3,0.1,0.4), vec3(1.0,1.0,1.0), vec3(0.55,0.65,0.75));
+    float t = fract(v);
+    if (uPalette == 0) { // Iridescent: dark indigo → cyan → gold → dark
+      vec3 dark = vec3(0.04, 0.03, 0.18);
+      vec3 cyan = vec3(0.0,  0.87, 1.0);
+      vec3 gold = vec3(1.0,  0.76, 0.05);
+      if (t < 0.40) return mix(dark, cyan, t / 0.40);
+      if (t < 0.70) return mix(cyan, gold, (t - 0.40) / 0.30);
+      return              mix(gold, dark, (t - 0.70) / 0.30);
+    }
+    if (uPalette == 1) { // Fire: black → deep red → orange → gold
+      vec3 blk  = vec3(0.02, 0.0,  0.0);
+      vec3 red  = vec3(0.70, 0.05, 0.0);
+      vec3 oran = vec3(0.95, 0.40, 0.0);
+      vec3 gold = vec3(1.0,  0.82, 0.1);
+      if (t < 0.35) return mix(blk,  red,  t / 0.35);
+      if (t < 0.65) return mix(red,  oran, (t - 0.35) / 0.30);
+      return              mix(oran, gold, (t - 0.65) / 0.35);
+    }
+    if (uPalette == 2) { // Ocean: deep blue → teal → cyan → gold
+      vec3 deep = vec3(0.0,  0.05, 0.20);
+      vec3 teal = vec3(0.0,  0.50, 0.60);
+      vec3 cyan = vec3(0.10, 0.88, 1.0);
+      vec3 gold = vec3(0.90, 0.72, 0.05);
+      if (t < 0.35) return mix(deep, teal, t / 0.35);
+      if (t < 0.65) return mix(teal, cyan, (t - 0.35) / 0.30);
+      return              mix(cyan, gold, (t - 0.65) / 0.35);
+    }
+    // Void: deep purple → violet → magenta
+    vec3 dark   = vec3(0.04, 0.0,  0.10);
+    vec3 violet = vec3(0.45, 0.0,  0.85);
+    vec3 magen  = vec3(0.90, 0.10, 0.75);
+    if (t < 0.5) return mix(dark,   violet, t * 2.0);
+    return            mix(violet, magen,  (t - 0.5) * 2.0);
   }
 
   void main() {
@@ -107,7 +128,7 @@ export const warpedSurfaces: Pattern = {
       get: () => warpIterations - 1, set: (v) => { warpIterations = v + 1; } },
     { label: "Noise Scale",  type: "range", min: 0.3, max: 3.0, step: 0.05, default: 1.2, get: () => noiseScale,  set: (v) => { noiseScale = v; } },
     { label: "Warp Amount",  type: "range", min: 0.0, max: 4.0, step: 0.1,  default: 1.6, get: () => warpAmount,  set: (v) => { warpAmount = v; } },
-    { label: "Flow Speed",   type: "range", min: 0.0, max: 0.2, step: 0.005, default: 0.04, get: () => flowSpeed, set: (v) => { flowSpeed = v; } },
+    { label: "Flow Speed",   type: "range", min: 0.0, max: 0.4, step: 0.005, default: 0.04, get: () => flowSpeed, set: (v) => { flowSpeed = v; } },
     { label: "Color Palette", type: "select", options: ["Iridescent", "Fire", "Ocean", "Void"],
       get: () => palette, set: (v) => { palette = v; } },
     { label: "Saturation",   type: "range", min: 0.0, max: 1.0, step: 0.05, default: 0.9,  get: () => saturation, set: (v) => { saturation = v; } },

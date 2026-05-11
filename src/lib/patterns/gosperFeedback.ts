@@ -66,13 +66,13 @@ export const gosperFeedback: Pattern = {
   attribution: "Adapted from Three.js Examples by Ricardo Cabello (mrdoob)",
   controls: [
     { label: "Color Speed", type: "range", min: 0.0, max: 3.0, step: 0.05, default: 0.5,  get: () => colorSpeed,    set: (v) => { colorSpeed = v; } },
-    { label: "Rotation",    type: "range", min: 0.0, max: 2.0, step: 0.05, default: 0.15, get: () => rotationSpeed, set: (v) => { rotationSpeed = v; } },
+    { label: "Rotation",    type: "range", min: 0.0, max: 0.5, step: 0.01, default: 0.15, get: () => rotationSpeed, set: (v) => { rotationSpeed = v; } },
     { label: "Zoom",        type: "range", min: 0.3, max: 3.0, step: 0.05, default: 1.0,  get: () => zoom,          set: (v) => { zoom = v; } },
   ],
 
   init(ctx: PatternContext) {
     renderer3 = ctx.renderer;
-    rtSize    = Math.min(1024, Math.max(256, Math.round(Math.min(ctx.size.width, ctx.size.height) * 0.8)));
+    rtSize    = Math.min(512, Math.max(128, Math.round(Math.min(ctx.size.width, ctx.size.height) * 0.5)));
 
     // ── Build Gosper geometry (order 5 → ~16 k segments) ──
     const pts  = gosperPoints(5);
@@ -104,10 +104,11 @@ export const gosperFeedback: Pattern = {
     gosperCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 10);
     gosperCamera.position.z = 1;
 
-    // ── Render target ──
-    renderTarget = new THREE.WebGLRenderTarget(rtSize, rtSize, {
+    // ── Render target at 2× for supersampling (dramatically reduces stair-stepping) ──
+    renderTarget = new THREE.WebGLRenderTarget(rtSize * 2, rtSize * 2, {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
+      samples: 4, // MSAA on top of the 2× supersample
     });
 
     // ── Display quad in the main scene ──
@@ -158,8 +159,8 @@ export const gosperFeedback: Pattern = {
   },
 
   resize(width: number, height: number) {
-    rtSize = Math.min(1024, Math.max(256, Math.round(Math.min(width, height) * 0.8)));
-    renderTarget?.setSize(rtSize, rtSize);
+    rtSize = Math.min(512, Math.max(128, Math.round(Math.min(width, height) * 0.5)));
+    renderTarget?.setSize(rtSize * 2, rtSize * 2);
   },
 
   dispose() {

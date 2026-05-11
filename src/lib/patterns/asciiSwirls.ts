@@ -32,11 +32,12 @@ let viewWidth  = 1280;
 let viewHeight =  720;
 
 // ─── Character sets ───────────────────────────────────────────────────────────
+// Ordered dark→bright by visual density; wider sets → more character variety
 const CHAR_SETS = [
-  " .:-=+*#%@",     // Dense (10 chars, dark→bright)
-  " .oO0@",         // Sparse (6 chars)
-  " .:·•◉",         // Dots (6 chars)
-  " ░▒▓█",          // Blocks (5 chars)
+  " .,-:;=+!*ioO0B#%@",          // Dense  (19 chars)
+  " .,;-+coO0B@",                 // Sparse (12 chars)
+  " .,;-+|/\\!?1iIlLoO0Xx#",     // Geometric (24 chars)
+  " .,:;-+=!?*abcdeopqsuvwxyzABCDEFGHIJKLMNOPQRST0123456789#@", // Letters (60 chars)
 ];
 
 const CELL_SIZES = [4, 8, 12, 16];
@@ -134,6 +135,10 @@ const asciiFrag = /* glsl */ `
     vec4 src  = texture2D(uSource, cellCenter);
     float luma = dot(src.rgb, vec3(0.299, 0.587, 0.114));
 
+    // Gamma expansion: redistributes the bimodal luma of the swirls source
+    // so the full character range is actually used (not just space + one char)
+    luma = pow(luma, 0.35);
+
     // Character index (darker = sparser chars, brighter = denser)
     float ci = floor(luma * uNumChars);
     ci = clamp(ci, 0.0, uNumChars - 1.0);
@@ -148,7 +153,7 @@ const asciiFrag = /* glsl */ `
     // Color output
     vec3 srcCol = src.rgb;
     vec3 col;
-    if (uColorMode == 1) col = vec3(0.0, charMask, 0.0);            // Green
+    if (uColorMode == 1) col = vec3(charMask * 0.05, charMask * 0.2, charMask); // Blue
     else if (uColorMode == 2) col = vec3(charMask, charMask*0.6, 0.0); // Amber
     else if (uColorMode == 3) col = vec3(charMask);                  // White
     else col = srcCol * charMask;                                    // Source
@@ -197,11 +202,11 @@ export const asciiSwirls: Pattern = {
       get: () => cellSize,
       set: (v) => { cellSize = v; rebuildCharTex(); }
     },
-    { label: "Char Set",    type: "select", options: ["Dense", "Sparse", "Dots", "Blocks"],
+    { label: "Char Set",    type: "select", options: ["Dense", "Sparse", "Geometric", "Letters"],
       get: () => charSet,
       set: (v) => { charSet = v; rebuildCharTex(); }
     },
-    { label: "Color Mode",  type: "select", options: ["Source Colors", "Green", "Amber", "White"],
+    { label: "Color Mode",  type: "select", options: ["Source Colors", "Blue", "Amber", "White"],
       get: () => colorMode, set: (v) => { colorMode = v; }
     },
     { label: "Swirl Speed", type: "range", min: 0.0, max: 0.3,  step: 0.005, default: 0.05, get: () => swirlSpeed, set: (v) => { swirlSpeed = v; } },
