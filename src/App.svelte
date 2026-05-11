@@ -247,11 +247,13 @@
     poke();
     switch (action.type) {
       case "next":
+        if (appState === "overview") appState = "active";
         index = switchTo(index + 1);
         focusedIndex = index;
         resetDemoTimer();
         break;
       case "prev":
+        if (appState === "overview") appState = "active";
         index = switchTo(index - 1);
         focusedIndex = index;
         resetDemoTimer();
@@ -265,7 +267,7 @@
       }
       case "speedDown": {
         const cur = handle?.getTimeScale() ?? 1;
-        const next = Math.max(0.1, parseFloat((cur - 0.1).toFixed(2)));
+        const next = Math.max(0, parseFloat((cur - 0.1).toFixed(2)));
         handle?.setTimeScale(next);
         timeScaleMirror = next;
         break;
@@ -283,11 +285,15 @@
         }
         break;
       }
-      case "screenshot":
-        takeScreenshot(handle!.getCanvas());
-        screenshotFlash = true;
-        setTimeout(() => { screenshotFlash = false; }, 800);
+      case "screenshot": {
+        const c = handle?.getCanvas();
+        if (c) {
+          takeScreenshot(c);
+          screenshotFlash = true;
+          setTimeout(() => { screenshotFlash = false; }, 800);
+        }
         break;
+      }
       case "focusUp":
         sliderFocusIndex = Math.max(0, sliderFocusIndex - 1);
         break;
