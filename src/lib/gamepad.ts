@@ -11,8 +11,8 @@ export type GamepadAction =
   | { type: "focusDown" }
   | { type: "sliderLeft" }
   | { type: "sliderRight" }
-  | { type: "toggleOverlay" }
-  | { type: "showOverlay" };
+  | { type: "blackout" }
+  | { type: "toggleOverlay" };
 
 export interface GamepadController {
   poll(now: number): void;
@@ -25,7 +25,7 @@ export interface GamepadController {
 const BTN_FREEZE          = 0;  // South: × / B  → Freeze
 const BTN_RANDOMIZE       = 1;  // East:  ○ / A  → Randomize
 const BTN_TOGGLE_OVERLAY  = 2;  // West:  □ / Y  → Toggle Overlay (hide/show HUD)
-const BTN_SHOW_OVERLAY    = 3;  // North: △ / X  → Show Overlay
+const BTN_BLACKOUT        = 3;  // North: △ / X  → Blackout toggle
 const BTN_L1              = 4;
 const BTN_R1              = 5;  // Screenshot
 const BTN_L2              = 6;  // Toggle Camera
@@ -189,7 +189,7 @@ export function createGamepadController(
     if (wasJustPressed(gp, BTN_FREEZE))         handler({ type: "freeze" });
     if (wasJustPressed(gp, BTN_RANDOMIZE))      handler({ type: "randomize" });
     if (wasJustPressed(gp, BTN_TOGGLE_OVERLAY)) handler({ type: "toggleOverlay" });
-    if (wasJustPressed(gp, BTN_SHOW_OVERLAY))   handler({ type: "showOverlay" });
+    if (wasJustPressed(gp, BTN_BLACKOUT))       handler({ type: "blackout" });
     if (wasJustPressed(gp, BTN_R1))             handler({ type: "screenshot" });
     if (wasJustPressed(gp, BTN_L2))             handler({ type: "toggleCamera" });
 

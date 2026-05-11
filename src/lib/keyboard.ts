@@ -15,8 +15,8 @@ export type KeyAction =
   | { type: "focusDown" }
   | { type: "sliderLeft" }
   | { type: "sliderRight" }
+  | { type: "blackout" }
   | { type: "toggleOverlay" }
-  | { type: "showOverlay" }
   | { type: "toggleCheatsheet" };
 
 export function attachKeyboard(handler: (action: KeyAction) => void): () => void {
@@ -58,7 +58,7 @@ export function attachKeyboard(handler: (action: KeyAction) => void): () => void
         handler({ type: "randomize" });
         e.preventDefault(); return;
       case "x": case "X":
-        handler({ type: "showOverlay" });
+        handler({ type: "blackout" });
         e.preventDefault(); return;
       case "r": case "R":
         handler({ type: "screenshot" });

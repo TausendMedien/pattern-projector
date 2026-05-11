@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { fade } from "svelte/transition";
   import { createRenderer, type RendererHandle } from "./lib/renderer";
   import { attachKeyboard, type KeyAction } from "./lib/keyboard";
   import { createGamepadController, type GamepadAction } from "./lib/gamepad";
@@ -39,11 +40,15 @@
   let timeScaleMirror = $state(1.0);
   let frozenPrevScale = $state(1.0);
   let sliderFocusIndex = $state(0);
+  let blackout = $state(false);
   let overlayHidden = $state(false);
   let cheatsheetVisible = $state(false);
 
-  type RandAnim = { from: number; to: number; startMs: number };
+  type RandAnim  = { from: number; to: number; startMs: number };
+  type FreezeAnim = { from: number; to: number; startMs: number };
   let randomizeAnims = $state<Record<string, RandAnim>>({});
+  let freezeAnim = $state<FreezeAnim | null>(null);
+  const isFreezing = $derived(freezeAnim ? freezeAnim.to === 0 : timeScaleMirror === 0);
 
   const rangeControls = $derived(
     (patterns[index]?.controls ?? []).filter(c => c.type === 'range') as
@@ -117,6 +122,7 @@
     index = switchTo(n);
     focusedIndex = index;
     appState = "active";
+    overlayHidden = false;
     poke();
   }
 
@@ -174,115 +180,86 @@
   }
 
   function handleAction(action: KeyAction) {
-    // Global actions work in all app states
-    switch (action.type) {
-      case "freeze":          poke(); applyFreeze();    return;
-      case "randomize":       poke(); startRandomize(performance.now()); return;
-      case "screenshot":      poke(); applyScreenshot(); return;
-      case "speedUp":         poke(); applySpeedUp();   return;
-      case "speedDown":       poke(); applySpeedDown(); return;
-      case "focusUp":         poke(); sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); return;
-      case "focusDown":       poke(); sliderFocusIndex = Math.min(Math.max(rangeControls.length - 1, 0), sliderFocusIndex + 1); return;
-      case "sliderLeft":      poke(); applySliderStep("left");  return;
-      case "sliderRight":     poke(); applySliderStep("right"); return;
-      case "toggleOverlay":   overlayHidden = !overlayHidden; return;
-      case "showOverlay":     overlayHidden = false; poke(); return;
-      case "toggleCheatsheet": cheatsheetVisible = !cheatsheetVisible; return;
-    }
-
+    // Overview: navigation + activate only; all other actions suppressed
     if (appState === "overview") {
       switch (action.type) {
         case "next":
+        case "speedDown":
           focusedIndex = (focusedIndex + 1) % patterns.length;
           switchTo(focusedIndex);
           break;
         case "prev":
+        case "speedUp":
           focusedIndex = (focusedIndex - 1 + patterns.length) % patterns.length;
           switchTo(focusedIndex);
           break;
         case "jump":
-          if (action.index < patterns.length) {
-            focusedIndex = action.index;
-            switchTo(focusedIndex);
-          }
+          if (action.index < patterns.length) { focusedIndex = action.index; switchTo(focusedIndex); }
           break;
         case "enter":
+        case "freeze":    // B / Space → activate
+        case "randomize": // A → activate
           activatePattern(focusedIndex);
           break;
         case "fullscreen":
           activateFullscreen(focusedIndex);
           break;
+        case "toggleCheatsheet":
+          cheatsheetVisible = !cheatsheetVisible;
+          break;
       }
-    } else if (appState === "active") {
+      return;
+    }
+
+    // Global actions for active + preview
+    switch (action.type) {
+      case "freeze":           poke(); applyFreeze();    return;
+      case "blackout":         poke(); blackout = !blackout; return;
+      case "randomize":        poke(); startRandomize(performance.now()); return;
+      case "screenshot":       poke(); applyScreenshot(); return;
+      case "speedUp":          poke(); applySpeedUp();   return;
+      case "speedDown":        poke(); applySpeedDown(); return;
+      case "focusUp":          poke(); sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); return;
+      case "focusDown":        poke(); sliderFocusIndex = Math.min(Math.max(rangeControls.length - 1, 0), sliderFocusIndex + 1); return;
+      case "sliderLeft":       poke(); applySliderStep("left");  return;
+      case "sliderRight":      poke(); applySliderStep("right"); return;
+      case "toggleOverlay":    overlayHidden = !overlayHidden; return;
+      case "toggleCheatsheet": cheatsheetVisible = !cheatsheetVisible; return;
+    }
+
+    if (appState === "active") {
       switch (action.type) {
         case "next":
-          index = switchTo(index + 1);
-          focusedIndex = index;
-          resetDemoTimer();
-          poke();
-          break;
+          index = switchTo(index + 1); focusedIndex = index; resetDemoTimer(); poke(); break;
         case "prev":
-          index = switchTo(index - 1);
-          focusedIndex = index;
-          resetDemoTimer();
-          poke();
-          break;
+          index = switchTo(index - 1); focusedIndex = index; resetDemoTimer(); poke(); break;
         case "jump":
-          if (action.index < patterns.length) {
-            index = switchTo(action.index);
-            focusedIndex = index;
-            resetDemoTimer();
-            poke();
-          }
+          if (action.index < patterns.length) { index = switchTo(action.index); focusedIndex = index; resetDemoTimer(); poke(); }
           break;
         case "fullscreen":
-          fs.toggle(document.documentElement);
-          hudVisible = false;
-          break;
+          fs.toggle(document.documentElement); hudVisible = false; break;
         case "demo":
-          demoActive ? stopDemo() : startDemo();
-          break;
+          demoActive ? stopDemo() : startDemo(); break;
         case "escape":
           if (fs.isFullscreen()) fs.exit();
-          appState = "preview";
-          poke();
-          break;
+          appState = "preview"; overlayHidden = false; poke(); break;
       }
     } else {
       // preview
       switch (action.type) {
         case "next":
-          index = switchTo(index + 1);
-          focusedIndex = index;
-          resetDemoTimer();
-          poke();
-          break;
+          index = switchTo(index + 1); focusedIndex = index; resetDemoTimer(); poke(); break;
         case "prev":
-          index = switchTo(index - 1);
-          focusedIndex = index;
-          resetDemoTimer();
-          poke();
-          break;
+          index = switchTo(index - 1); focusedIndex = index; resetDemoTimer(); poke(); break;
         case "jump":
-          if (action.index < patterns.length) {
-            index = switchTo(action.index);
-            focusedIndex = index;
-            resetDemoTimer();
-            poke();
-          }
+          if (action.index < patterns.length) { index = switchTo(action.index); focusedIndex = index; resetDemoTimer(); poke(); }
           break;
         case "fullscreen":
-          fs.enter(document.documentElement);
-          appState = "active";
-          hudVisible = false;
-          break;
+          fs.enter(document.documentElement); appState = "active"; hudVisible = false; break;
         case "demo":
-          demoActive ? stopDemo() : startDemo();
-          break;
+          demoActive ? stopDemo() : startDemo(); break;
         case "escape":
-          focusedIndex = index;
-          appState = "overview";
-          break;
+          focusedIndex = index; appState = "overview"; overlayHidden = false; break;
       }
     }
   }
@@ -305,30 +282,33 @@
   }
 
   function applyFreeze() {
-    const cur = handle?.getTimeScale() ?? 1;
-    if (cur === 0) {
+    const currentTarget = freezeAnim ? freezeAnim.to : (handle?.getTimeScale() ?? 1);
+    const curActual = handle?.getTimeScale() ?? currentTarget;
+    if (currentTarget === 0) {
       const restore = frozenPrevScale > 0 ? frozenPrevScale : 1.0;
-      handle?.setTimeScale(restore);
-      timeScaleMirror = restore;
+      freezeAnim = { from: curActual, to: restore, startMs: performance.now() };
     } else {
-      frozenPrevScale = cur;
-      handle?.setTimeScale(0);
-      timeScaleMirror = 0;
+      frozenPrevScale = currentTarget;
+      freezeAnim = { from: curActual, to: 0, startMs: performance.now() };
     }
   }
 
   function applySpeedUp() {
+    freezeAnim = null;
     const cur = handle?.getTimeScale() ?? 1;
     const next = Math.min(8, parseFloat((cur + 0.1).toFixed(2)));
     handle?.setTimeScale(next);
     timeScaleMirror = next;
+    if (next > 0) frozenPrevScale = next;
   }
 
   function applySpeedDown() {
+    freezeAnim = null;
     const cur = handle?.getTimeScale() ?? 1;
     const next = Math.max(0, parseFloat((cur - 0.1).toFixed(2)));
     handle?.setTimeScale(next);
     timeScaleMirror = next;
+    if (next > 0) frozenPrevScale = next;
   }
 
   function applyScreenshot() {
@@ -352,34 +332,42 @@
   }
 
   function handleGamepadAction(action: GamepadAction) {
+    // Overview: navigation + activate only
+    if (appState === "overview") {
+      switch (action.type) {
+        case "next":
+        case "speedDown":
+          focusedIndex = (focusedIndex + 1) % patterns.length; switchTo(focusedIndex); break;
+        case "prev":
+        case "speedUp":
+          focusedIndex = (focusedIndex - 1 + patterns.length) % patterns.length; switchTo(focusedIndex); break;
+        case "freeze":
+        case "randomize":
+          activatePattern(focusedIndex); break;
+        case "toggleOverlay":
+          overlayHidden = !overlayHidden; break;
+      }
+      return;
+    }
+
     poke();
     switch (action.type) {
       case "next":
-        if (appState === "overview") appState = "active";
-        index = switchTo(index + 1);
-        focusedIndex = index;
-        resetDemoTimer();
-        break;
+        index = switchTo(index + 1); focusedIndex = index; resetDemoTimer(); break;
       case "prev":
-        if (appState === "overview") appState = "active";
-        index = switchTo(index - 1);
-        focusedIndex = index;
-        resetDemoTimer();
-        break;
-      case "speedUp":    applySpeedUp();   break;
-      case "speedDown":  applySpeedDown(); break;
-      case "freeze":         applyFreeze();    break;
-      case "screenshot":     applyScreenshot(); break;
-      case "randomize":      startRandomize(performance.now()); break;
-      case "toggleCamera":   toggleCamera(); break;
-      case "toggleOverlay":  overlayHidden = !overlayHidden; break;
-      case "showOverlay":    overlayHidden = false; poke(); break;
+        index = switchTo(index - 1); focusedIndex = index; resetDemoTimer(); break;
+      case "speedUp":      applySpeedUp();   break;
+      case "speedDown":    applySpeedDown(); break;
+      case "freeze":       applyFreeze();    break;
+      case "blackout":     blackout = !blackout; break;
+      case "screenshot":   applyScreenshot(); break;
+      case "randomize":    startRandomize(performance.now()); break;
+      case "toggleCamera": toggleCamera(); break;
+      case "toggleOverlay": overlayHidden = !overlayHidden; break;
       case "focusUp":
-        sliderFocusIndex = Math.max(0, sliderFocusIndex - 1);
-        break;
+        sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); break;
       case "focusDown":
-        sliderFocusIndex = Math.min(Math.max(rangeControls.length - 1, 0), sliderFocusIndex + 1);
-        break;
+        sliderFocusIndex = Math.min(Math.max(rangeControls.length - 1, 0), sliderFocusIndex + 1); break;
       case "sliderLeft":  applySliderStep("left");  break;
       case "sliderRight": applySliderStep("right"); break;
     }
@@ -409,6 +397,20 @@
     let liveRaf: number;
     const liveSync = (now: number) => {
       gpController.poll(now);
+
+      // Animate freeze / unfreeze (ease-in-out over 0.5 s)
+      if (freezeAnim) {
+        const t = Math.min(1, (now - freezeAnim.startMs) / 500);
+        const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        const v = freezeAnim.from + (freezeAnim.to - freezeAnim.from) * ease;
+        handle?.setTimeScale(v);
+        timeScaleMirror = v;
+        if (t >= 1) {
+          handle?.setTimeScale(freezeAnim.to);
+          timeScaleMirror = freezeAnim.to;
+          freezeAnim = null;
+        }
+      }
 
       // Animate randomize targets (ease-in-out over 1 s)
       const animKeys = Object.keys(randomizeAnims);
@@ -595,7 +597,7 @@
               {#each [
                 ["B / Space", "Freeze toggle"],
                 ["A", "Randomize controls"],
-                ["X", "Show HUD"],
+                ["X", "Blackout toggle"],
                 ["Y", "Hide / show HUD"],
                 ["R", "Screenshot"],
                 ["M", "This reference"],
@@ -624,7 +626,7 @@
               {#each [
                 ["× South", "Freeze toggle"],
                 ["○ East", "Randomize controls"],
-                ["△ North", "Show HUD"],
+                ["△ North", "Blackout toggle"],
                 ["□ West", "Hide / show HUD"],
                 ["R1", "Screenshot"],
                 ["L2", "Camera toggle"],
@@ -644,6 +646,11 @@
       </div>
     </div>
   </div>
+{/if}
+
+<!-- ─── Blackout ────────────────────────────────────────────────────────── -->
+{#if blackout}
+  <div transition:fade={{ duration: 500 }} class="fixed inset-0 z-40 bg-black"></div>
 {/if}
 
 <!-- ─── Controls panel (active + preview) ─────────────────────────────── -->
@@ -839,9 +846,9 @@
           <div class="text-xs uppercase tracking-widest text-white/50">Pattern</div>
           <div class="text-lg font-semibold">{patterns[index].name}</div>
           <div class="mt-1 text-xs text-white/40">{index + 1} / {patterns.length}</div>
-          {#if timeScaleMirror === 0}
+          {#if isFreezing}
             <div class="mt-1 text-xs font-mono text-amber-400/80">FREEZE</div>
-          {:else if Math.abs(timeScaleMirror - 1.0) > 0.05}
+          {:else if !freezeAnim && Math.abs(timeScaleMirror - 1.0) > 0.05}
             <div class="mt-1 text-xs font-mono text-white/50">{timeScaleMirror.toFixed(1)}×</div>
           {/if}
           {#if gamepadConnected}
@@ -887,8 +894,10 @@
           <span>freeze</span>
           <kbd class="rounded bg-white/10 px-1.5 font-mono">A</kbd>
           <span>randomize</span>
-          <kbd class="rounded bg-white/10 px-1.5 font-mono">Y / X</kbd>
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">Y</kbd>
           <span>hide / show HUD</span>
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">X</kbd>
+          <span>blackout</span>
           <kbd class="rounded bg-white/10 px-1.5 font-mono">M</kbd>
           <span>controls reference</span>
         {/if}
