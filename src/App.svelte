@@ -185,24 +185,33 @@
   }
 
   function handleAction(action: KeyAction) {
+    // Any action dismisses the cheatsheet
+    if (cheatsheetVisible) { cheatsheetVisible = false; return; }
+
     // Overview: navigation + activate only; all other actions suppressed
     if (appState === "overview") {
       switch (action.type) {
         case "next":
-        case "speedDown":
           focusedIndex = (focusedIndex + 1) % patterns.length;
           switchTo(focusedIndex);
           break;
         case "prev":
-        case "speedUp":
           focusedIndex = (focusedIndex - 1 + patterns.length) % patterns.length;
+          switchTo(focusedIndex);
+          break;
+        case "speedDown": // ↓ moves one row down in the 3-column grid
+          focusedIndex = Math.min(patterns.length - 1, focusedIndex + 3);
+          switchTo(focusedIndex);
+          break;
+        case "speedUp":   // ↑ moves one row up
+          focusedIndex = Math.max(0, focusedIndex - 3);
           switchTo(focusedIndex);
           break;
         case "jump":
           if (action.index < patterns.length) { focusedIndex = action.index; switchTo(focusedIndex); }
           break;
         case "enter":
-        case "freeze":    // B / Space → activate
+        case "freeze":    // B / Space / Start → activate
         case "randomize": // A → activate
           activatePattern(focusedIndex);
           break;
@@ -346,15 +355,20 @@
   }
 
   function handleGamepadAction(action: GamepadAction) {
+    // Any action dismisses the cheatsheet
+    if (cheatsheetVisible) { cheatsheetVisible = false; return; }
+
     // Overview: navigation + activate only
     if (appState === "overview") {
       switch (action.type) {
         case "next":
-        case "speedDown":
           focusedIndex = (focusedIndex + 1) % patterns.length; switchTo(focusedIndex); break;
         case "prev":
-        case "speedUp":
           focusedIndex = (focusedIndex - 1 + patterns.length) % patterns.length; switchTo(focusedIndex); break;
+        case "speedDown":
+          focusedIndex = Math.min(patterns.length - 1, focusedIndex + 3); switchTo(focusedIndex); break;
+        case "speedUp":
+          focusedIndex = Math.max(0, focusedIndex - 3); switchTo(focusedIndex); break;
         case "freeze":
         case "randomize":
           activatePattern(focusedIndex); break;
@@ -628,7 +642,7 @@
           <table class="w-full border-collapse text-xs">
             <tbody>
               {#each [
-                ["B / Space", "Freeze toggle"],
+                ["B / Space / Start", "Freeze toggle"],
                 ["A", "Randomize controls"],
                 ["X", "Blackout toggle"],
                 ["Y", "Hide / show HUD"],
@@ -658,7 +672,7 @@
           <table class="w-full border-collapse text-xs">
             <tbody>
               {#each [
-                ["× South", "Freeze toggle"],
+                ["× South / Start", "Freeze toggle"],
                 ["○ East", "Randomize controls"],
                 ["△ North", "Blackout toggle"],
                 ["□ West", "Hide / show HUD"],

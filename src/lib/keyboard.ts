@@ -92,7 +92,7 @@ export function attachKeyboard(
         handler({ type: "speedDown" });
         e.preventDefault(); return;
       case "Enter":
-        handler({ type: "enter" });
+        handler({ type: "freeze" }); // Start button in K-Mode sends Enter
         e.preventDefault(); return;
       case "Escape":
         handler({ type: "escape" });
