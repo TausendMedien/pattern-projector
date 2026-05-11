@@ -5,6 +5,7 @@
   import { attachKeyboard, type KeyAction } from "./lib/keyboard";
   import { createGamepadController, type GamepadAction } from "./lib/gamepad";
   import { takeScreenshot } from "./lib/screenshot";
+  import { startRecording, stopRecording } from "./lib/screenrecorder";
   import { attachTouch } from "./lib/touch";
   import { patterns } from "./lib/patterns";
   import * as fs from "./lib/fullscreen";
@@ -37,6 +38,7 @@
   let gamepadConnected = $state(false);
   let l1Held = $state(false);
   let screenshotFlash = $state(false);
+  let recording = $state(false);
   let timeScaleMirror = $state(1.0);
   let frozenPrevScale = $state(1.0);
   let sliderFocusIndex = $state(0);
@@ -320,6 +322,13 @@
     }
   }
 
+  function applyToggleRecording() {
+    const c = handle?.getCanvas();
+    if (!c) return;
+    if (recording) { stopRecording(); recording = false; }
+    else           { startRecording(c); recording = true; }
+  }
+
   function applySliderStep(dir: "left" | "right") {
     const ctrl = rangeControls[sliderFocusIndex];
     if (ctrl && !ctrl.readonly) {
@@ -356,14 +365,15 @@
         index = switchTo(index + 1); focusedIndex = index; resetDemoTimer(); break;
       case "prev":
         index = switchTo(index - 1); focusedIndex = index; resetDemoTimer(); break;
-      case "speedUp":      applySpeedUp();   break;
-      case "speedDown":    applySpeedDown(); break;
-      case "freeze":       applyFreeze();    break;
-      case "blackout":     blackout = !blackout; break;
-      case "screenshot":   applyScreenshot(); break;
-      case "randomize":    startRandomize(performance.now()); break;
-      case "toggleCamera": toggleCamera(); break;
-      case "toggleOverlay": overlayHidden = !overlayHidden; break;
+      case "speedUp":         applySpeedUp();   break;
+      case "speedDown":       applySpeedDown(); break;
+      case "freeze":          applyFreeze();    break;
+      case "blackout":        blackout = !blackout; break;
+      case "screenshot":      applyScreenshot(); break;
+      case "toggleRecording": applyToggleRecording(); break;
+      case "randomize":       startRandomize(performance.now()); break;
+      case "toggleCamera":    toggleCamera(); break;
+      case "toggleOverlay":   overlayHidden = !overlayHidden; break;
       case "focusUp":
         sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); break;
       case "focusDown":
@@ -569,6 +579,14 @@
   <div class="pointer-events-none fixed inset-0 z-50 bg-white/25 transition-opacity duration-500"></div>
 {/if}
 
+<!-- ─── Recording indicator ────────────────────────────────────────────── -->
+{#if recording}
+  <div class="pointer-events-none fixed top-4 right-4 z-50 flex items-center gap-2">
+    <span class="h-3 w-3 animate-pulse rounded-full bg-red-500"></span>
+    <span class="font-mono text-xs text-white/70">REC</span>
+  </div>
+{/if}
+
 <!-- ─── Cheatsheet modal ──────────────────────────────────────────────── -->
 {#if cheatsheetVisible}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -629,6 +647,7 @@
                 ["△ North", "Blackout toggle"],
                 ["□ West", "Hide / show HUD"],
                 ["R1", "Screenshot"],
+                ["R2", "Screen recording"],
                 ["L2", "Camera toggle"],
                 ["D-Pad ← →", "Prev / next pattern"],
                 ["D-Pad ↑ ↓", "Speed +/−"],
