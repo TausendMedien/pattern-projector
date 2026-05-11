@@ -8,6 +8,7 @@ const GLOW_SEGMENTS    = 100;
 
 let rotationSpeed = 0.05;
 let wobble        = 0.30;
+let waveAmp       = 1.0;
 let colorRange    = 1.0;
 let saturation    = 1.0;
 let opacity       = 0.60;
@@ -51,7 +52,8 @@ export const lines3d: Pattern = {
   motionControlLabels: ["Rotation Speed", "Wobble", "Colors", "Saturation", "Opacity"],
   controls: [
     { label: "Rotation Speed", type: "range", min: 0,   max: 0.5, step: 0.01, default: 0.05, get: () => rotationSpeed, set: (v) => { rotationSpeed = v; } },
-    { label: "Wobble",         type: "range", min: 0,   max: 0.8, step: 0.01, default: 0.3, get: () => wobble,         set: (v) => { wobble = v; } },
+    { label: "Wobble",         type: "range", min: 0,   max: 0.8, step: 0.01, default: 0.3,  get: () => wobble,         set: (v) => { wobble = v; } },
+    { label: "Wave Amp",       type: "range", min: 0,   max: 5.0, step: 0.1,  default: 1.0,  get: () => waveAmp,        set: (v) => { waveAmp = v; } },
     { label: "Glow",           type: "range", min: 0,   max: 1.0, step: 0.05, default: 0.45, get: () => glow,           set: (v) => { glow = v; } },
     { label: "Colors",         type: "range", min: 0.0, max: 1.0, step: 0.05, default: 1, get: () => colorRange,     set: (v) => { colorRange = v; } },
     { label: "Saturation",     type: "range", min: 0.0, max: 1.0, step: 0.05, default: 1, get: () => saturation,     set: (v) => { saturation = v; } },
@@ -122,8 +124,8 @@ export const lines3d: Pattern = {
 
       const animated = line.basePoints.map((p, idx) => {
         const t   = idx / (POINTS_PER_LINE - 1);
-        const wob = Math.sin(elapsed * 0.8 + line.phase + t * 6) * wobble
-                  + Math.cos(elapsed * 0.5 + line.phase * 1.7 + t * 4) * wobble * 0.6;
+        const wob = (Math.sin(elapsed * 0.8 + line.phase + t * 6)
+                  + Math.cos(elapsed * 0.5 + line.phase * 1.7 + t * 4) * 0.6) * wobble * waveAmp;
         return new THREE.Vector3(p.x + wob, p.y, p.z + wob * 0.7);
       });
 

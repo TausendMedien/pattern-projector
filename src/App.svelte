@@ -286,6 +286,11 @@
     for (const ctrl of patterns[index]?.controls ?? []) {
       if (ctrl.type === 'range' && !ctrl.readonly) {
         anims[ctrl.label] = { from: ctrl.get(), to: ctrl.min + Math.random() * (ctrl.max - ctrl.min), startMs: now };
+      } else if (ctrl.type === 'select' && !ctrl.disabled?.()) {
+        const opts = typeof ctrl.options === 'function' ? ctrl.options() : ctrl.options;
+        const idx = Math.floor(Math.random() * opts.length);
+        ctrl.set(idx);
+        ctrlVals[ctrl.label] = idx;
       }
     }
     randomizeAnims = anims;
@@ -790,7 +795,7 @@
           <span class="text-xs uppercase tracking-widest text-white/50">Controls</span>
           <div class="flex gap-1">
             <button onclick={resetAllControls} class="rounded px-2 py-0.5 text-[10px] text-white/50 border border-white/15 hover:border-white/40 hover:text-white/80 transition-colors cursor-pointer">Default</button>
-            <button onclick={randomizeControls} class="rounded px-2 py-0.5 text-[10px] text-white/50 border border-white/15 hover:border-white/40 hover:text-white/80 transition-colors cursor-pointer">Randomize</button>
+            <button onclick={() => { poke(); startRandomize(performance.now()); }} class="rounded px-2 py-0.5 text-[10px] text-white/50 border border-white/15 hover:border-white/40 hover:text-white/80 transition-colors cursor-pointer">Randomize</button>
           </div>
         </div>
         <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">

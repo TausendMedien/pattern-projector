@@ -19,7 +19,7 @@ let asciiMat:  THREE.ShaderMaterial | null = null;
 let charTex:   THREE.CanvasTexture | null = null;
 
 // Controls
-let cellSize    = 1;   // select index → 4, 8, 12, 16 px
+let signSize    = 8;   // px per character cell
 let charSet     = 0;   // select: Dense / Sparse / Dots / Blocks
 let colorMode   = 0;   // select: Source / Green / Amber / White
 let swirlSpeed  = 0.05;
@@ -40,9 +40,7 @@ const CHAR_SETS = [
   " .,:;-+=!?*abcdeopqsuvwxyzABCDEFGHIJKLMNOPQRST0123456789#@", // Letters (60 chars)
 ];
 
-const CELL_SIZES = [4, 8, 12, 16];
-
-// ─── Build character atlas texture (once per charSet change) ─────────────────
+// ─── Build character atlas texture (once per charSet/signSize change) ────────
 function buildCharAtlas(chars: string, cellW: number, cellH: number): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width  = chars.length * cellW;
@@ -164,8 +162,7 @@ const asciiFrag = /* glsl */ `
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function cellPx(): number { return CELL_SIZES[cellSize]; }
-function chars():  string { return CHAR_SETS[charSet]; }
+function chars(): string { return CHAR_SETS[charSet]; }
 
 function buildSwirlRT(w: number, h: number): THREE.WebGLRenderTarget {
   return new THREE.WebGLRenderTarget(w, h, {
@@ -176,12 +173,11 @@ function buildSwirlRT(w: number, h: number): THREE.WebGLRenderTarget {
 
 function rebuildCharTex() {
   charTex?.dispose();
-  const px   = cellPx();
-  charTex = buildCharAtlas(chars(), px, px);
+  charTex = buildCharAtlas(chars(), signSize, signSize);
   if (asciiMat) {
     asciiMat.uniforms.uCharAtlas.value = charTex;
     asciiMat.uniforms.uNumChars.value  = chars().length;
-    asciiMat.uniforms.uCellSize.value  = px;
+    asciiMat.uniforms.uCellSize.value  = signSize;
   }
 }
 
@@ -198,9 +194,9 @@ export const asciiSwirls: Pattern = {
   name: "ASCII Swirls",
   attribution: "ASCII rendering — source pattern: Baroque Swirls",
   controls: [
-    { label: "Cell Size",   type: "select", options: ["4 px", "8 px", "12 px", "16 px"],
-      get: () => cellSize,
-      set: (v) => { cellSize = v; rebuildCharTex(); }
+    { label: "Sign Size",   type: "range", min: 4, max: 32, step: 1, default: 8,
+      get: () => signSize,
+      set: (v) => { signSize = v; rebuildCharTex(); }
     },
     { label: "Char Set",    type: "select", options: ["Dense", "Sparse", "Geometric", "Letters"],
       get: () => charSet,
@@ -241,8 +237,7 @@ export const asciiSwirls: Pattern = {
     swirlRT = buildSwirlRT(viewWidth, viewHeight);
 
     // ── Character atlas ──
-    const px  = cellPx();
-    charTex   = buildCharAtlas(chars(), px, px);
+    charTex   = buildCharAtlas(chars(), signSize, signSize);
 
     // ── Pass 2: ASCII display in main scene ──
     asciiGeo = new THREE.PlaneGeometry(2, 2);
@@ -251,7 +246,7 @@ export const asciiSwirls: Pattern = {
         uSource:    { value: swirlRT.texture },
         uCharAtlas: { value: charTex },
         uResolution:{ value: new THREE.Vector2(viewWidth, viewHeight) },
-        uCellSize:  { value: px },
+        uCellSize:  { value: signSize },
         uNumChars:  { value: chars().length },
         uColorMode: { value: colorMode },
       },

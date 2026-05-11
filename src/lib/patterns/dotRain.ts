@@ -77,9 +77,8 @@ const fragmentShader = /* glsl */ `
     float gray = dot(dotColor, vec3(0.299, 0.587, 0.114));
     dotColor = mix(vec3(gray), dotColor, uSaturation);
 
-    vec3 col = dotColor * dotMask;
-
-    // --- Large floating bubbles ---
+    // --- Large floating bubbles (background layer) ---
+    vec3 col = vec3(0.0);
     int nBubbles = int(clamp(uBubbleCount, 0.0, 150.0));
     for (int i = 0; i < 150; i++) {
       if (i >= nBubbles) break;
@@ -102,6 +101,9 @@ const fragmentShader = /* glsl */ `
       float glow = clamp(core * 0.9 + halo * 0.35, 0.0, 1.0);
       col = mix(col, bColor, glow);
     }
+
+    // --- Dot curtain on top (foreground layer) ---
+    col = mix(col, dotColor, dotMask);
 
     gl_FragColor = vec4(col, mix(1.0, uOpacity, dotMask));
   }
