@@ -37,6 +37,7 @@ let compositeMesh: THREE.Mesh | null = null;
 
 // DOM overlay
 let overlay: HTMLDivElement | null = null;
+let canvasRef: HTMLCanvasElement | null = null;
 
 // ─── Shaders ────────────────────────────────────────────────────────────────
 
@@ -214,7 +215,8 @@ export const lightTrail: Pattern = {
   init(ctx: PatternContext) {
     _renderer = ctx.renderer;
     const { width, height } = ctx.size;
-    const canvas = ctx.renderer.domElement;
+    canvasRef = ctx.renderer.domElement;
+    const canvas = canvasRef;
 
     blackTexture = new THREE.DataTexture(
       new Uint8Array([0, 0, 0, 255]), 1, 1, THREE.RGBAFormat
@@ -278,8 +280,13 @@ export const lightTrail: Pattern = {
     compositeMesh.frustumCulled = false;
     ctx.scene.add(compositeMesh);
 
-    showOverlay(canvas, "Requesting camera access…");
-    startCamera(canvas);
+  },
+
+  activate() {
+    if (canvasRef) {
+      showOverlay(canvasRef, "Requesting camera access…");
+      startCamera(canvasRef);
+    }
   },
 
   update(_dt, _elapsed) {

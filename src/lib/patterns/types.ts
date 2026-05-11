@@ -24,6 +24,8 @@ export interface Pattern {
   /** Labels of range controls that motion detection should boost. Defaults to first two range controls. */
   motionControlLabels?: string[];
   init(ctx: PatternContext): void;
+  /** Called only on real activation (not on overview hover preview). Start cameras here. */
+  activate?(): void;
   update(dt: number, elapsed: number): void;
   resize(width: number, height: number): void;
   dispose(): void;

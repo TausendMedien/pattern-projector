@@ -154,7 +154,11 @@ export function addMotionCamera(pattern: Pattern): Pattern {
         effectiveVals[i] = baseVals[i];
       }
       pattern.init(ctx);
+    },
+
+    activate() {
       if (cameraEnabled) startCamera();
+      pattern.activate?.();
     },
 
     update(dt: number, elapsed: number) {

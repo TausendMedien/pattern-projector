@@ -3,6 +3,7 @@ import type { Pattern, PatternContext } from "./patterns/types";
 
 export interface RendererHandle {
   setPattern: (next: Pattern) => void;
+  activateCurrentPattern: () => void;
   setTimeScale: (v: number) => void;
   getTimeScale: () => number;
   getCanvas: () => HTMLCanvasElement;
@@ -73,6 +74,7 @@ export function createRenderer(canvas: HTMLCanvasElement, initial: Pattern): Ren
 
   return {
     setPattern,
+    activateCurrentPattern() { current.activate?.(); },
     setTimeScale(v: number) { timeScale = Math.max(0, v); },
     getTimeScale() { return timeScale; },
     getCanvas() { return canvas; },

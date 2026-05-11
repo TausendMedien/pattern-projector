@@ -126,6 +126,7 @@
   function activatePattern(n: number) {
     index = switchTo(n);
     focusedIndex = index;
+    handle?.activateCurrentPattern();
     appState = "active";
     overlayHidden = false;
     poke();
@@ -247,11 +248,11 @@
     if (appState === "active") {
       switch (action.type) {
         case "next":
-          index = switchTo(index + 1); focusedIndex = index; resetDemoTimer(); poke(); break;
+          index = switchTo(index + 1); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); poke(); break;
         case "prev":
-          index = switchTo(index - 1); focusedIndex = index; resetDemoTimer(); poke(); break;
+          index = switchTo(index - 1); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); poke(); break;
         case "jump":
-          if (action.index < patterns.length) { index = switchTo(action.index); focusedIndex = index; resetDemoTimer(); poke(); }
+          if (action.index < patterns.length) { index = switchTo(action.index); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); poke(); }
           break;
         case "fullscreen":
           fs.toggle(document.documentElement); hudVisible = false; break;
@@ -265,11 +266,11 @@
       // preview
       switch (action.type) {
         case "next":
-          index = switchTo(index + 1); focusedIndex = index; resetDemoTimer(); poke(); break;
+          index = switchTo(index + 1); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); poke(); break;
         case "prev":
-          index = switchTo(index - 1); focusedIndex = index; resetDemoTimer(); poke(); break;
+          index = switchTo(index - 1); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); poke(); break;
         case "jump":
-          if (action.index < patterns.length) { index = switchTo(action.index); focusedIndex = index; resetDemoTimer(); poke(); }
+          if (action.index < patterns.length) { index = switchTo(action.index); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); poke(); }
           break;
         case "fullscreen":
           fs.enter(document.documentElement); appState = "active"; hudVisible = false; break;
