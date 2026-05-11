@@ -133,6 +133,7 @@ export function addMotionCamera(pattern: Pattern): Pattern {
       label: 'Camera',
       type: 'select',
       options: cameraNames,
+      disabled: () => !cameraEnabled,
       get: () => deviceIndex,
       set: (v) => {
         deviceIndex = v;

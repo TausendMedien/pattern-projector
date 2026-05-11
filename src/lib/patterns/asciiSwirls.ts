@@ -18,10 +18,20 @@ let asciiGeo:  THREE.PlaneGeometry | null = null;
 let asciiMat:  THREE.ShaderMaterial | null = null;
 let charTex:   THREE.CanvasTexture | null = null;
 
+// Fallback 1×1 black texture used when camera is off
+let blackTex: THREE.DataTexture | null = null;
+
+// Camera mode state
+let cameraMode  = false;
+let camBlend    = 0.5;
+let videoEl:    HTMLVideoElement | null = null;
+let videoTex:   THREE.VideoTexture | null = null;
+let camStream:  MediaStream | null = null;
+
 // Controls
 let signSize    = 8;   // px per character cell
-let charSet     = 0;   // select: Dense / Sparse / Dots / Blocks
-let colorMode   = 0;   // select: Source / Green / Amber / White
+let charSet     = 0;   // select: Dense / Sparse / Geometric / Letters
+let colorMode   = 0;   // select: Source / Neon / Fire / Ice
 let swirlSpeed  = 0.05;
 let warpAmount  = 1.4;
 let bandCount   = 13;
@@ -32,7 +42,6 @@ let viewWidth  = 1280;
 let viewHeight =  720;
 
 // ─── Character sets ───────────────────────────────────────────────────────────
-// Ordered dark→bright by visual density; wider sets → more character variety
 const CHAR_SETS = [
   " .,-:;=+!*ioO0B#%@",          // Dense  (19 chars)
   " .,;-+coO0B@",                 // Sparse (12 chars)
@@ -40,7 +49,7 @@ const CHAR_SETS = [
   " .,:;-+=!?*abcdeopqsuvwxyzABCDEFGHIJKLMNOPQRST0123456789#@", // Letters (60 chars)
 ];
 
-// ─── Build character atlas texture (once per charSet/signSize change) ────────
+// ─── Build character atlas texture ───────────────────────────────────────────
 function buildCharAtlas(chars: string, cellW: number, cellH: number): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width  = chars.length * cellW;
@@ -113,48 +122,73 @@ const asciiVert = /* glsl */ `
   void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
 `;
 
+// Color gradient helper: 3-stop ramp from lo→mid→hi via charMask
+// Mode 0 Source: use srcCol directly
+// Mode 1 Neon:   dark purple → cyan → near-white
+// Mode 2 Fire:   black → deep orange → bright yellow
+// Mode 3 Ice:    dark navy → teal → ice white
 const asciiFrag = /* glsl */ `
   precision highp float;
   varying vec2 vUv;
   uniform sampler2D uSource;
+  uniform sampler2D uCamera;
   uniform sampler2D uCharAtlas;
   uniform vec2  uResolution;
   uniform float uCellSize;
   uniform float uNumChars;
   uniform int   uColorMode;
+  uniform float uCamBlend;
+
+  vec3 gradRamp(float m, vec3 lo, vec3 mi, vec3 hi) {
+    return m < 0.5 ? mix(lo, mi, m * 2.0) : mix(mi, hi, (m - 0.5) * 2.0);
+  }
 
   void main() {
-    // Cell the current pixel belongs to
-    vec2 cellCount = floor(uResolution / uCellSize);
-    vec2 cellId    = floor(vUv * cellCount);
+    vec2 cellCount  = floor(uResolution / uCellSize);
+    vec2 cellId     = floor(vUv * cellCount);
     vec2 cellCenter = (cellId + 0.5) / cellCount;
 
-    // Sample source color at cell center
-    vec4 src  = texture2D(uSource, cellCenter);
+    // Sample swirl and camera sources at cell center
+    vec4 swirlSrc = texture2D(uSource, cellCenter);
+    // Mirror camera horizontally (front-camera feel)
+    vec4 camSrc   = texture2D(uCamera, vec2(1.0 - cellCenter.x, cellCenter.y));
+
+    // Blend the two sources
+    vec4 src  = mix(swirlSrc, camSrc, uCamBlend);
     float luma = dot(src.rgb, vec3(0.299, 0.587, 0.114));
 
-    // Gamma expansion: redistributes the bimodal luma of the swirls source
-    // so the full character range is actually used (not just space + one char)
+    // Gamma expansion so full character range is used
     luma = pow(luma, 0.35);
 
-    // Character index (darker = sparser chars, brighter = denser)
-    float ci = floor(luma * uNumChars);
-    ci = clamp(ci, 0.0, uNumChars - 1.0);
+    float ci = clamp(floor(luma * uNumChars), 0.0, uNumChars - 1.0);
 
-    // Position within the character cell [0,1]^2
-    vec2 posInCell = fract(vUv * cellCount);
+    vec2 posInCell  = fract(vUv * cellCount);
+    float atlasU    = (ci + posInCell.x) / uNumChars;
+    float charMask  = texture2D(uCharAtlas, vec2(atlasU, posInCell.y)).r;
 
-    // Sample from the character atlas
-    float atlasU  = (ci + posInCell.x) / uNumChars;
-    float charMask = texture2D(uCharAtlas, vec2(atlasU, posInCell.y)).r;
-
-    // Color output
-    vec3 srcCol = src.rgb;
     vec3 col;
-    if (uColorMode == 1) col = vec3(charMask * 0.05, charMask * 0.2, charMask); // Blue
-    else if (uColorMode == 2) col = vec3(charMask, charMask*0.6, 0.0); // Amber
-    else if (uColorMode == 3) col = vec3(charMask);                  // White
-    else col = srcCol * charMask;                                    // Source
+    if (uColorMode == 1) {
+      // Neon: dark purple → cyan → near-white
+      col = gradRamp(charMask,
+        vec3(0.12, 0.0, 0.22),
+        vec3(0.0,  0.9, 0.85),
+        vec3(0.85, 1.0, 1.0)) * charMask;
+    } else if (uColorMode == 2) {
+      // Fire: near-black → deep orange → bright yellow
+      col = gradRamp(charMask,
+        vec3(0.05, 0.0, 0.0),
+        vec3(0.9,  0.3, 0.0),
+        vec3(1.0,  0.95,0.2)) * charMask;
+    } else if (uColorMode == 3) {
+      // Ice: dark navy → teal → ice white
+      col = gradRamp(charMask,
+        vec3(0.0,  0.05, 0.18),
+        vec3(0.1,  0.75, 0.8),
+        vec3(0.85, 0.97, 1.0)) * charMask;
+    } else {
+      // Source (mode 0)
+      col = src.rgb * charMask;
+    }
 
     gl_FragColor = vec4(col, 1.0);
   }
@@ -163,6 +197,13 @@ const asciiFrag = /* glsl */ `
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function chars(): string { return CHAR_SETS[charSet]; }
+
+function buildBlackTex(): THREE.DataTexture {
+  const data = new Uint8Array([0, 0, 0, 255]);
+  const tex = new THREE.DataTexture(data, 1, 1, THREE.RGBAFormat);
+  tex.needsUpdate = true;
+  return tex;
+}
 
 function buildSwirlRT(w: number, h: number): THREE.WebGLRenderTarget {
   return new THREE.WebGLRenderTarget(w, h, {
@@ -187,6 +228,33 @@ function rebuildSwirlRT(w: number, h: number) {
   if (asciiMat) asciiMat.uniforms.uSource.value = swirlRT.texture;
 }
 
+async function enableAsciiCamera() {
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    videoEl = document.createElement("video");
+    videoEl.srcObject = camStream;
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    await videoEl.play();
+    videoTex?.dispose();
+    videoTex = new THREE.VideoTexture(videoEl);
+    videoTex.minFilter = THREE.LinearFilter;
+    videoTex.magFilter = THREE.LinearFilter;
+    if (asciiMat) asciiMat.uniforms.uCamera.value = videoTex;
+  } catch {
+    cameraMode = false;
+  }
+}
+
+function disableAsciiCamera() {
+  camStream?.getTracks().forEach((t) => t.stop());
+  camStream = null;
+  videoTex?.dispose();
+  videoTex = null;
+  if (videoEl) { videoEl.srcObject = null; videoEl = null; }
+  if (asciiMat && blackTex) asciiMat.uniforms.uCamera.value = blackTex;
+}
+
 // ─── Pattern ─────────────────────────────────────────────────────────────────
 
 export const asciiSwirls: Pattern = {
@@ -202,18 +270,36 @@ export const asciiSwirls: Pattern = {
       get: () => charSet,
       set: (v) => { charSet = v; rebuildCharTex(); }
     },
-    { label: "Color Mode",  type: "select", options: ["Source Colors", "Blue", "Amber", "White"],
+    { label: "Color Mode",  type: "select", options: ["Source", "Neon", "Fire", "Ice"],
       get: () => colorMode, set: (v) => { colorMode = v; }
     },
     { label: "Swirl Speed", type: "range", min: 0.0, max: 0.3,  step: 0.005, default: 0.05, get: () => swirlSpeed, set: (v) => { swirlSpeed = v; } },
     { label: "Warp Amount", type: "range", min: 0.0, max: 3.0,  step: 0.05,  default: 1.4,  get: () => warpAmount, set: (v) => { warpAmount = v; } },
     { label: "Band Count",  type: "range", min: 2,   max: 20,   step: 1,     default: 13,   get: () => bandCount,  set: (v) => { bandCount = v; } },
+    {
+      label: "Camera Mode",
+      type:  "section",
+      get: () => cameraMode,
+      set: (v) => {
+        cameraMode = !!v;
+        if (cameraMode) { enableAsciiCamera(); } else { disableAsciiCamera(); }
+      },
+    },
+    {
+      label: "Cam Blend",
+      type: "range", min: 0.0, max: 1.0, step: 0.05, default: 0.5,
+      disabled: () => !cameraMode,
+      get: () => camBlend,
+      set: (v) => { camBlend = v; },
+    },
   ],
 
   init(ctx: PatternContext) {
     renderer3  = ctx.renderer;
     viewWidth  = ctx.size.width;
     viewHeight = ctx.size.height;
+
+    blackTex = buildBlackTex();
 
     // ── Pass 1: Swirl scene ──
     swirlScene  = new THREE.Scene();
@@ -237,18 +323,20 @@ export const asciiSwirls: Pattern = {
     swirlRT = buildSwirlRT(viewWidth, viewHeight);
 
     // ── Character atlas ──
-    charTex   = buildCharAtlas(chars(), signSize, signSize);
+    charTex = buildCharAtlas(chars(), signSize, signSize);
 
     // ── Pass 2: ASCII display in main scene ──
     asciiGeo = new THREE.PlaneGeometry(2, 2);
     asciiMat = new THREE.ShaderMaterial({
       uniforms: {
-        uSource:    { value: swirlRT.texture },
-        uCharAtlas: { value: charTex },
-        uResolution:{ value: new THREE.Vector2(viewWidth, viewHeight) },
-        uCellSize:  { value: signSize },
-        uNumChars:  { value: chars().length },
-        uColorMode: { value: colorMode },
+        uSource:     { value: swirlRT.texture },
+        uCamera:     { value: blackTex },
+        uCharAtlas:  { value: charTex },
+        uResolution: { value: new THREE.Vector2(viewWidth, viewHeight) },
+        uCellSize:   { value: signSize },
+        uNumChars:   { value: chars().length },
+        uColorMode:  { value: colorMode },
+        uCamBlend:   { value: 0.0 },
       },
       vertexShader: asciiVert,
       fragmentShader: asciiFrag,
@@ -263,6 +351,8 @@ export const asciiSwirls: Pattern = {
     ctx.camera.near = 0.01;
     ctx.camera.far  = 10;
     ctx.camera.updateProjectionMatrix();
+
+    if (cameraMode) enableAsciiCamera();
   },
 
   update(dt: number, _elapsed: number) {
@@ -273,6 +363,9 @@ export const asciiSwirls: Pattern = {
     swirlMat.uniforms.uBandCount.value  = bandCount;
     swirlMat.uniforms.uWarpAmount.value = warpAmount;
     asciiMat.uniforms.uColorMode.value  = colorMode;
+    asciiMat.uniforms.uCamBlend.value   = cameraMode && videoTex ? camBlend : 0.0;
+
+    if (videoTex) videoTex.needsUpdate = true;
 
     // Render swirl into the RT
     const prev = renderer3.getRenderTarget();
@@ -290,6 +383,7 @@ export const asciiSwirls: Pattern = {
   },
 
   dispose() {
+    disableAsciiCamera();
     swirlGeo?.dispose(); swirlMat?.dispose();
     swirlScene = null; swirlCamera = null; swirlMesh = null;
     swirlGeo = null; swirlMat = null;
@@ -297,6 +391,7 @@ export const asciiSwirls: Pattern = {
     asciiGeo?.dispose(); asciiMat?.dispose();
     asciiMesh = null; asciiGeo = null; asciiMat = null;
     charTex?.dispose(); charTex = null;
+    blackTex?.dispose(); blackTex = null;
     renderer3 = null;
     accTime = 0;
   },
