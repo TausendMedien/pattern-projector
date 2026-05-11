@@ -29,8 +29,8 @@ const BTN_TOGGLE_OVERLAY  = 2;  // West:  □ / Y  → Toggle Overlay (hide/show
 const BTN_BLACKOUT        = 3;  // North: △ / X  → Blackout toggle
 const BTN_L1              = 4;
 const BTN_R1              = 5;  // Screenshot
-const BTN_L2              = 6;  // Toggle Camera
-const BTN_R2              = 7;  // Screen recording toggle
+const BTN_L2              = 6;  // Toggle Recording
+const BTN_R2              = 7;  // Toggle Camera
 const BTN_DPAD_U    = 12;
 const BTN_DPAD_D    = 13;
 const BTN_DPAD_L    = 14;
@@ -193,8 +193,8 @@ export function createGamepadController(
     if (wasJustPressed(gp, BTN_TOGGLE_OVERLAY)) handler({ type: "toggleOverlay" });
     if (wasJustPressed(gp, BTN_BLACKOUT))       handler({ type: "blackout" });
     if (wasJustPressed(gp, BTN_R1))             handler({ type: "screenshot" });
-    if (wasJustPressed(gp, BTN_R2))             handler({ type: "toggleRecording" });
-    if (wasJustPressed(gp, BTN_L2))             handler({ type: "toggleCamera" });
+    if (wasJustPressed(gp, BTN_L2))             handler({ type: "toggleRecording" });
+    if (wasJustPressed(gp, BTN_R2))             handler({ type: "toggleCamera" });
 
     for (let i = 0; i < gp.buttons.length; i++) {
       prevButtons[i] = gp.buttons[i]?.pressed ?? false;

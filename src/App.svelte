@@ -5,7 +5,7 @@
   import { attachKeyboard, type KeyAction } from "./lib/keyboard";
   import { createGamepadController, type GamepadAction } from "./lib/gamepad";
   import { takeScreenshot } from "./lib/screenshot";
-  import { startRecording, stopRecording } from "./lib/screenrecorder";
+  import { createRecorder, type RecorderHandle } from "./lib/recording";
   import { attachTouch } from "./lib/touch";
   import { patterns } from "./lib/patterns";
   import * as fs from "./lib/fullscreen";
@@ -36,9 +36,12 @@
 
   // Gamepad / controller state
   let gamepadConnected = $state(false);
-  let l1Held = $state(false);
+  let gpL1Held = $state(false);   // gamepad L1
+  let kbRHeld  = $state(false);   // keyboard R hold
+  const sliderModeActive = $derived(gpL1Held || kbRHeld);
   let screenshotFlash = $state(false);
-  let recording = $state(false);
+  let isRecording = $state(false);
+  let recorder: RecorderHandle | null = null;
   let timeScaleMirror = $state(1.0);
   let frozenPrevScale = $state(1.0);
   let sliderFocusIndex = $state(0);
@@ -219,6 +222,8 @@
       case "blackout":         poke(); blackout = !blackout; return;
       case "randomize":        poke(); startRandomize(performance.now()); return;
       case "screenshot":       poke(); applyScreenshot(); return;
+      case "toggleRecording":  recorder?.toggle(); return;
+      case "toggleCamera":     poke(); toggleCamera();   return;
       case "speedUp":          poke(); applySpeedUp();   return;
       case "speedDown":        poke(); applySpeedDown(); return;
       case "focusUp":          poke(); sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); return;
@@ -365,15 +370,15 @@
         index = switchTo(index + 1); focusedIndex = index; resetDemoTimer(); break;
       case "prev":
         index = switchTo(index - 1); focusedIndex = index; resetDemoTimer(); break;
-      case "speedUp":         applySpeedUp();   break;
-      case "speedDown":       applySpeedDown(); break;
-      case "freeze":          applyFreeze();    break;
-      case "blackout":        blackout = !blackout; break;
-      case "screenshot":      applyScreenshot(); break;
-      case "toggleRecording": applyToggleRecording(); break;
-      case "randomize":       startRandomize(performance.now()); break;
-      case "toggleCamera":    toggleCamera(); break;
-      case "toggleOverlay":   overlayHidden = !overlayHidden; break;
+      case "speedUp":          applySpeedUp();   break;
+      case "speedDown":        applySpeedDown(); break;
+      case "freeze":           applyFreeze();    break;
+      case "blackout":         blackout = !blackout; break;
+      case "screenshot":       applyScreenshot(); break;
+      case "toggleRecording":  recorder?.toggle(); break;
+      case "randomize":        startRandomize(performance.now()); break;
+      case "toggleCamera":     toggleCamera(); break;
+      case "toggleOverlay":    overlayHidden = !overlayHidden; break;
       case "focusUp":
         sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); break;
       case "focusDown":
@@ -395,12 +400,13 @@
     demoDwell = demo.demoDwell;
     demoPatternIds = new Set(demo.demoPatternIds);
     handle = createRenderer(canvas, patterns[0]);
+    recorder = createRecorder(handle.getCanvas(), (r) => { isRecording = r; });
     if (demo.demoActive) startDemo();
 
     const gpController = createGamepadController(
       handleGamepadAction,
       (c) => { gamepadConnected = c; },
-      (held) => { l1Held = held; },
+      (held) => { gpL1Held = held; },
     );
 
     // Keep ctrlVals in sync every frame so motion-reactive sliders move live.
@@ -468,7 +474,7 @@
     };
     liveRaf = requestAnimationFrame(liveSync);
 
-    const detach = attachKeyboard(handleAction);
+    const detach = attachKeyboard(handleAction, (held) => { kbRHeld = held; });
     const detachTouch = attachTouch(handleAction);
 
     function onFsChange() {
@@ -503,6 +509,8 @@
       window.removeEventListener("mousemove", poke);
       if (hudTimer) clearTimeout(hudTimer);
       if (demoTimer) clearTimeout(demoTimer);
+      recorder?.dispose();
+      recorder = null;
       handle?.dispose();
       handle = null;
     };
@@ -624,16 +632,17 @@
                 ["A", "Randomize controls"],
                 ["X", "Blackout toggle"],
                 ["Y", "Hide / show HUD"],
-                ["R", "Screenshot"],
+                ["L", "Screenshot"],
                 ["M", "This reference"],
+                ["1  (L2)", "Video aufnehmen"],
+                ["2  (R2)", "Kamera-Toggle"],
                 ["← →", "Prev / next pattern"],
                 ["↑ ↓", "Speed +/−"],
-                ["L (hold) + ↑↓", "Select slider"],
-                ["L (hold) + ←→", "Adjust slider"],
-                ["F", "Fullscreen"],
-                ["D", "Demo mode"],
-                ["1–9", "Jump to pattern"],
-                ["Esc", "Overview / preview"],
+                ["R (halten) + ←→", "Slider anpassen"],
+                ["F", "Vollbild"],
+                ["D", "Demo-Modus"],
+                ["3–9", "Pattern direkt wählen"],
+                ["Esc", "Übersicht / Vorschau"],
               ] as row}
                 <tr class="border-b border-white/5">
                   <td class="py-1 pr-3 font-mono text-[10px] text-white/60 whitespace-nowrap">{row[0]}</td>
@@ -654,12 +663,11 @@
                 ["△ North", "Blackout toggle"],
                 ["□ West", "Hide / show HUD"],
                 ["R1", "Screenshot"],
-                ["R2", "Screen recording"],
-                ["L2", "Camera toggle"],
+                ["L2", "Video aufnehmen"],
+                ["R2", "Kamera-Toggle"],
                 ["D-Pad ← →", "Prev / next pattern"],
                 ["D-Pad ↑ ↓", "Speed +/−"],
-                ["L1 (hold) + ↑↓", "Select slider"],
-                ["L1 (hold) + ←→", "Adjust slider"],
+                ["L1 (halten) + ←→", "Slider anpassen"],
               ] as row}
                 <tr class="border-b border-white/5">
                   <td class="py-1 pr-3 font-mono text-[10px] text-white/60 whitespace-nowrap">{row[0]}</td>
@@ -765,7 +773,7 @@
         </div>
         <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">
           {#each controlMeta as { ctrl, groupDisabled }}
-            {@const focusedRangeCtrl = l1Held ? rangeControls[sliderFocusIndex] : null}
+            {@const focusedRangeCtrl = sliderModeActive ? rangeControls[sliderFocusIndex] : null}
             {#if ctrl.type === "separator"}
               <!-- Plain section divider (no toggle) -->
               <div class="mt-1 flex items-center gap-2">
@@ -884,6 +892,9 @@
           {:else if !freezeAnim && Math.abs(timeScaleMirror - 1.0) > 0.05}
             <div class="mt-1 text-xs font-mono text-white/50">{timeScaleMirror.toFixed(1)}×</div>
           {/if}
+          {#if isRecording}
+            <div class="mt-1 text-xs font-mono text-red-400/90">● REC</div>
+          {/if}
           {#if gamepadConnected}
             <div class="mt-1 text-xs text-white/30">⎮ Gamepad</div>
           {/if}
@@ -925,14 +936,14 @@
           <span>speed +/−</span>
           <kbd class="rounded bg-white/10 px-1.5 font-mono">B / Space</kbd>
           <span>freeze</span>
-          <kbd class="rounded bg-white/10 px-1.5 font-mono">A</kbd>
-          <span>randomize</span>
-          <kbd class="rounded bg-white/10 px-1.5 font-mono">Y</kbd>
-          <span>hide / show HUD</span>
-          <kbd class="rounded bg-white/10 px-1.5 font-mono">X</kbd>
-          <span>blackout</span>
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">A / X</kbd>
+          <span>randomize / blackout</span>
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">L</kbd>
+          <span>screenshot</span>
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">R + ←→</kbd>
+          <span>slider anpassen</span>
           <kbd class="rounded bg-white/10 px-1.5 font-mono">M</kbd>
-          <span>controls reference</span>
+          <span>alle Shortcuts</span>
         {/if}
       </div>
     </div>
