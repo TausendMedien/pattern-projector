@@ -19,7 +19,8 @@ export type KeyAction =
   | { type: "sliderLeft" }
   | { type: "sliderRight" }
   | { type: "toggleOverlay" }
-  | { type: "toggleCheatsheet" };
+  | { type: "toggleCheatsheet" }
+  | { type: "undo" };
 
 export function attachKeyboard(
   handler: (action: KeyAction) => void,
@@ -28,6 +29,13 @@ export function attachKeyboard(
   let rHeld = false;
 
   function onKeyDown(e: KeyboardEvent) {
+    // Ctrl/Cmd+Z — undo (before the general modifier guard)
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === 'z') {
+      handler({ type: 'undo' });
+      e.preventDefault();
+      return;
+    }
+
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
     // R held: arrows navigate sliders (↑↓ = switch, ←→ = adjust)

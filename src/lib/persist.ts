@@ -1,4 +1,5 @@
 import type { Pattern } from './patterns/types';
+import { pushUndo } from './undo';
 
 // Re-read pp: keys and push values into controls.
 // Call this AFTER loadSettings so individual keys (updated more
@@ -11,6 +12,7 @@ export function restoreFromKeys(patterns: Pattern[]): void {
       const raw = localStorage.getItem(key);
       if (raw === null) continue;
       if (ctrl.type === 'toggle' || ctrl.type === 'section') ctrl.set(raw === '1');
+      else if (ctrl.type === 'text' || ctrl.type === 'color') ctrl.set(raw);
       else ctrl.set(parseFloat(raw));
     }
   }
@@ -24,14 +26,26 @@ export function wrapWithPersist(pattern: Pattern): Pattern {
       return {
         ...ctrl,
         set(v: boolean) {
+          pushUndo({ patternId: pattern.id, label: ctrl.label, value: ctrl.get() });
           ctrl.set(v);
           localStorage.setItem(key, v ? '1' : '0');
+        },
+      };
+    }
+    if (ctrl.type === 'text' || ctrl.type === 'color') {
+      return {
+        ...ctrl,
+        set(v: string) {
+          pushUndo({ patternId: pattern.id, label: ctrl.label, value: ctrl.get() });
+          ctrl.set(v);
+          localStorage.setItem(key, v);
         },
       };
     }
     return {
       ...ctrl,
       set(v: number) {
+        pushUndo({ patternId: pattern.id, label: ctrl.label, value: ctrl.get() });
         ctrl.set(v);
         localStorage.setItem(key, String(v));
       },
@@ -45,6 +59,7 @@ export function wrapWithPersist(pattern: Pattern): Pattern {
     const raw = localStorage.getItem(key);
     if (raw === null) return;
     if (ctrl.type === 'toggle' || ctrl.type === 'section') ctrl.set(raw === '1');
+    else if (ctrl.type === 'text' || ctrl.type === 'color') ctrl.set(raw);
     else ctrl.set(parseFloat(raw));
   });
 
