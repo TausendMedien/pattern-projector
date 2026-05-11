@@ -103,7 +103,7 @@ const fragmentShader = /* glsl */ `
       col = mix(col, bColor, glow);
     }
 
-    gl_FragColor = vec4(col, uOpacity);
+    gl_FragColor = vec4(col, mix(1.0, uOpacity, dotMask));
   }
 `;
 

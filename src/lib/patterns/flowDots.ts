@@ -94,7 +94,7 @@ const fragmentShader = /* glsl */ `
     vec3  dCol = dBase * (0.3 + 0.7 * df) + vec3(1.0) * sp * 0.55;
 
     vec3 col = mix(bgCol, dCol * uBrightness, dotMask);
-    gl_FragColor = vec4(clamp(col, 0.0, 1.0), uOpacity);
+    gl_FragColor = vec4(clamp(col, 0.0, 1.0), mix(1.0, uOpacity, dotMask));
   }
 `;
 
