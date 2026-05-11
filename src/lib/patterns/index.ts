@@ -16,7 +16,6 @@ import { flowDots } from "./flowDots";
 import { baroqueSwirls } from "./baroqueSwirls";
 import { lightTrail } from "./light-trail";
 import { lightPaint } from "./light-paint";
-import { particleFieldSpatial } from "./particleFieldSpatial";
 import { warpedSurfaces } from "./warpedSurfaces";
 import { wavySphere } from "./wavySphere";
 import { plasmaSphere } from "./plasmaSphere";
@@ -28,9 +27,8 @@ import { addMotionCamera } from "../motionCameraWrapper";
 
 // Patterns that must NOT get the generic motion camera wrapper:
 // - lightTrail / lightPaint  (camera-based themselves)
-// - particleFieldSpatial     (has its own built-in motion camera with size+speed control)
 // - gosperFeedback / asciiSwirls  (manage their own internal scene + renderer ref)
-const NO_MOTION_CAMERA = new Set(['lightTrail', 'lightPaint', 'particleFieldSpatial', 'gosperFeedback', 'asciiSwirls']);
+const NO_MOTION_CAMERA = new Set(['lightTrail', 'lightPaint', 'gosperFeedback', 'asciiSwirls']);
 
 const rawPatterns: Pattern[] = [
   particles,
@@ -48,7 +46,6 @@ const rawPatterns: Pattern[] = [
   tunnelEdge,
   tunnelSmooth,
   lines3d,
-  particleFieldSpatial,
   warpedSurfaces,
   wavySphere,
   plasmaSphere,
