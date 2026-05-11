@@ -539,6 +539,13 @@
 
     <div class="grid grid-cols-3 gap-2 px-3 w-full max-w-lg pb-4">
       {#each patterns as p, i}
+        {#if i === patterns.length - 2}
+          <div class="col-span-3 mt-2 flex items-center gap-2">
+            <div class="h-px flex-1 bg-white/20"></div>
+            <span class="text-[10px] uppercase tracking-widest text-white/40">Live Light Painting</span>
+            <div class="h-px flex-1 bg-white/20"></div>
+          </div>
+        {/if}
         <button
           class="relative flex flex-col gap-1 rounded-xl border px-3 py-3 text-left transition-all duration-150 cursor-pointer
             {focusedIndex === i
@@ -710,6 +717,13 @@
             <div class="text-xs text-white/70">Patterns in cycle</div>
             <div class="flex flex-col gap-0.5">
               {#each patterns as p, i}
+                {#if i === patterns.length - 2}
+                  <div class="mt-1 mb-0.5 flex items-center gap-2">
+                    <div class="h-px flex-1 bg-white/20"></div>
+                    <span class="text-[10px] uppercase tracking-widest text-white/40">Live Light Painting</span>
+                    <div class="h-px flex-1 bg-white/20"></div>
+                  </div>
+                {/if}
                 {@const enabled = demoPatternIds.has(p.id)}
                 <button
                   class="flex items-center gap-2 rounded px-1.5 py-1 text-left text-xs transition-colors cursor-pointer

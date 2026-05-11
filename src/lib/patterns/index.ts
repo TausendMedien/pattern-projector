@@ -48,8 +48,6 @@ const rawPatterns: Pattern[] = [
   tunnelEdge,
   tunnelSmooth,
   lines3d,
-  lightTrail,
-  lightPaint,
   particleFieldSpatial,
   warpedSurfaces,
   wavySphere,
@@ -57,6 +55,8 @@ const rawPatterns: Pattern[] = [
   crystalGem,
   gosperFeedback,
   asciiSwirls,
+  lightTrail,
+  lightPaint,
 ];
 
 export const patterns: Pattern[] = rawPatterns
