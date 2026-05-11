@@ -339,8 +339,8 @@
   function applyToggleRecording() {
     const c = handle?.getCanvas();
     if (!c) return;
-    if (recording) { stopRecording(); recording = false; }
-    else           { startRecording(c); recording = true; }
+    if (isRecording) { stopRecording(); isRecording = false; }
+    else             { startRecording(c); isRecording = true; }
   }
 
   function applySliderStep(dir: "left" | "right") {
@@ -556,7 +556,8 @@
   >
 
     <div class="shrink-0 pt-10 pb-4 text-center">
-      <p class="text-xs uppercase tracking-[0.35em] text-white/35">Pattern Projector</p>
+      <p class="text-sm uppercase tracking-[0.35em] text-white/60">Lichtspiel</p>
+      <p class="text-[10px] tracking-widest text-white/30">by 1000lights</p>
     </div>
 
     <div class="grid grid-cols-3 gap-2 px-3 w-full max-w-lg pb-4">
@@ -609,7 +610,7 @@
 {/if}
 
 <!-- ─── Recording indicator ────────────────────────────────────────────── -->
-{#if recording}
+{#if isRecording}
   <div class="pointer-events-none fixed top-4 right-4 z-50 flex items-center gap-2">
     <span class="h-3 w-3 animate-pulse rounded-full bg-red-500"></span>
     <span class="font-mono text-xs text-white/70">REC</span>
