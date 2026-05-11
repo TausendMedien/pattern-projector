@@ -32,13 +32,17 @@
   let snapshotUrl = $state<string | null>(null);
   let snapshotFading = $state(false);
 
-  // Gamepad state
+  // Gamepad / controller state
   let gamepadConnected = $state(false);
   let l1Held = $state(false);
   let screenshotFlash = $state(false);
   let timeScaleMirror = $state(1.0);
   let frozenPrevScale = $state(1.0);
   let sliderFocusIndex = $state(0);
+  let blackout = $state(false);
+
+  type RandAnim = { from: number; to: number; startMs: number };
+  let randomizeAnims = $state<Record<string, RandAnim>>({});
 
   const rangeControls = $derived(
     (patterns[index]?.controls ?? []).filter(c => c.type === 'range') as
@@ -169,6 +173,21 @@
   }
 
   function handleAction(action: KeyAction) {
+    // Global actions work in all app states
+    switch (action.type) {
+      case "freeze":       poke(); applyFreeze();    return;
+      case "blackout":     poke(); blackout = !blackout; return;
+      case "randomize":    poke(); startRandomize(performance.now()); return;
+      case "screenshot":   poke(); applyScreenshot(); return;
+      case "speedUp":      poke(); applySpeedUp();   return;
+      case "speedDown":    poke(); applySpeedDown(); return;
+      case "toggleCamera": poke(); toggleCamera();   return;
+      case "focusUp":      poke(); sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); return;
+      case "focusDown":    poke(); sliderFocusIndex = Math.min(Math.max(rangeControls.length - 1, 0), sliderFocusIndex + 1); return;
+      case "sliderLeft":   poke(); applySliderStep("left");  return;
+      case "sliderRight":  poke(); applySliderStep("right"); return;
+    }
+
     if (appState === "overview") {
       switch (action.type) {
         case "next":
@@ -266,6 +285,70 @@
     }
   }
 
+  function startRandomize(now: number) {
+    const anims: Record<string, RandAnim> = {};
+    for (const ctrl of patterns[index]?.controls ?? []) {
+      if (ctrl.type === 'range' && !ctrl.readonly) {
+        anims[ctrl.label] = { from: ctrl.get(), to: ctrl.min + Math.random() * (ctrl.max - ctrl.min), startMs: now };
+      }
+    }
+    randomizeAnims = anims;
+  }
+
+  function toggleCamera() {
+    const ctrl = (patterns[index]?.controls ?? []).find(
+      c => c.type === 'section' && c.label === 'Motion Detection Camera'
+    );
+    if (ctrl && ctrl.type === 'section') { ctrl.set(!ctrl.get()); syncCtrlVals(); }
+  }
+
+  function applyFreeze() {
+    const cur = handle?.getTimeScale() ?? 1;
+    if (cur === 0) {
+      const restore = frozenPrevScale > 0 ? frozenPrevScale : 1.0;
+      handle?.setTimeScale(restore);
+      timeScaleMirror = restore;
+    } else {
+      frozenPrevScale = cur;
+      handle?.setTimeScale(0);
+      timeScaleMirror = 0;
+    }
+  }
+
+  function applySpeedUp() {
+    const cur = handle?.getTimeScale() ?? 1;
+    const next = Math.min(8, parseFloat((cur + 0.1).toFixed(2)));
+    handle?.setTimeScale(next);
+    timeScaleMirror = next;
+  }
+
+  function applySpeedDown() {
+    const cur = handle?.getTimeScale() ?? 1;
+    const next = Math.max(0, parseFloat((cur - 0.1).toFixed(2)));
+    handle?.setTimeScale(next);
+    timeScaleMirror = next;
+  }
+
+  function applyScreenshot() {
+    const c = handle?.getCanvas();
+    if (c) {
+      takeScreenshot(c);
+      screenshotFlash = true;
+      setTimeout(() => { screenshotFlash = false; }, 800);
+    }
+  }
+
+  function applySliderStep(dir: "left" | "right") {
+    const ctrl = rangeControls[sliderFocusIndex];
+    if (ctrl && !ctrl.readonly) {
+      const delta = dir === "right" ? ctrl.step : -ctrl.step;
+      const next = Math.min(ctrl.max, Math.max(ctrl.min, ctrl.get() + delta));
+      ctrl.set(next);
+      ctrlVals[ctrl.label] = next;
+      saveSettings(patterns);
+    }
+  }
+
   function handleGamepadAction(action: GamepadAction) {
     poke();
     switch (action.type) {
@@ -281,60 +364,21 @@
         focusedIndex = index;
         resetDemoTimer();
         break;
-      case "speedUp": {
-        const cur = handle?.getTimeScale() ?? 1;
-        const next = Math.min(8, parseFloat((cur + 0.1).toFixed(2)));
-        handle?.setTimeScale(next);
-        timeScaleMirror = next;
-        break;
-      }
-      case "speedDown": {
-        const cur = handle?.getTimeScale() ?? 1;
-        const next = Math.max(0, parseFloat((cur - 0.1).toFixed(2)));
-        handle?.setTimeScale(next);
-        timeScaleMirror = next;
-        break;
-      }
-      case "freeze": {
-        const cur = handle?.getTimeScale() ?? 1;
-        if (cur === 0) {
-          const restore = frozenPrevScale > 0 ? frozenPrevScale : 1.0;
-          handle?.setTimeScale(restore);
-          timeScaleMirror = restore;
-        } else {
-          frozenPrevScale = cur;
-          handle?.setTimeScale(0);
-          timeScaleMirror = 0;
-        }
-        break;
-      }
-      case "screenshot": {
-        const c = handle?.getCanvas();
-        if (c) {
-          takeScreenshot(c);
-          screenshotFlash = true;
-          setTimeout(() => { screenshotFlash = false; }, 800);
-        }
-        break;
-      }
+      case "speedUp":    applySpeedUp();   break;
+      case "speedDown":  applySpeedDown(); break;
+      case "freeze":     applyFreeze();    break;
+      case "screenshot": applyScreenshot(); break;
+      case "blackout":   blackout = !blackout; break;
+      case "randomize":  startRandomize(performance.now()); break;
+      case "toggleCamera": toggleCamera(); break;
       case "focusUp":
         sliderFocusIndex = Math.max(0, sliderFocusIndex - 1);
         break;
       case "focusDown":
         sliderFocusIndex = Math.min(Math.max(rangeControls.length - 1, 0), sliderFocusIndex + 1);
         break;
-      case "sliderLeft":
-      case "sliderRight": {
-        const ctrl = rangeControls[sliderFocusIndex];
-        if (ctrl && !ctrl.readonly) {
-          const delta = action.type === "sliderRight" ? ctrl.step : -ctrl.step;
-          const next = Math.min(ctrl.max, Math.max(ctrl.min, ctrl.get() + delta));
-          ctrl.set(next);
-          ctrlVals[ctrl.label] = next;
-          saveSettings(patterns);
-        }
-        break;
-      }
+      case "sliderLeft":  applySliderStep("left");  break;
+      case "sliderRight": applySliderStep("right"); break;
     }
   }
 
@@ -362,6 +406,34 @@
     let liveRaf: number;
     const liveSync = (now: number) => {
       gpController.poll(now);
+
+      // Animate randomize targets (ease-in-out over 1 s)
+      const animKeys = Object.keys(randomizeAnims);
+      if (animKeys.length > 0) {
+        let anyDone = false;
+        for (const ctrl of patterns[index]?.controls ?? []) {
+          if (ctrl.type !== 'range') continue;
+          const anim = randomizeAnims[ctrl.label];
+          if (!anim) continue;
+          const t = Math.min(1, (now - anim.startMs) / 1000);
+          const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          ctrl.set(anim.from + (anim.to - anim.from) * ease);
+          ctrlVals[ctrl.label] = ctrl.get();
+          if (t >= 1) anyDone = true;
+        }
+        if (anyDone) {
+          const next: Record<string, RandAnim> = {};
+          for (const ctrl of patterns[index]?.controls ?? []) {
+            if (ctrl.type === 'range' && ctrl.label in randomizeAnims) {
+              const anim = randomizeAnims[ctrl.label];
+              if ((now - anim.startMs) / 1000 < 1) next[ctrl.label] = anim;
+            }
+          }
+          randomizeAnims = next;
+          saveSettings(patterns);
+        }
+      }
+
       if (hudVisible && appState !== 'overview') {
         for (const c of patterns[index]?.controls ?? []) {
           if (c.type === 'range') {
@@ -490,6 +562,11 @@
 <!-- ─── Screenshot flash ─────────────────────────────────────────────── -->
 {#if screenshotFlash}
   <div class="pointer-events-none fixed inset-0 z-50 bg-white/25 transition-opacity duration-500"></div>
+{/if}
+
+<!-- ─── Blackout ────────────────────────────────────────────────────────── -->
+{#if blackout}
+  <div class="fixed inset-0 z-40 bg-black"></div>
 {/if}
 
 <!-- ─── Controls panel (active + preview) ─────────────────────────────── -->
@@ -689,6 +766,9 @@
             <div class="mt-1 text-xs font-mono text-amber-400/80">FREEZE</div>
           {:else if Math.abs(timeScaleMirror - 1.0) > 0.05}
             <div class="mt-1 text-xs font-mono text-white/50">{timeScaleMirror.toFixed(1)}×</div>
+          {/if}
+          {#if blackout}
+            <div class="mt-1 text-xs font-mono text-white/50">■ BLACKOUT</div>
           {/if}
           {#if gamepadConnected}
             <div class="mt-1 text-xs text-white/30">⎮ Gamepad</div>
