@@ -39,7 +39,8 @@
   let timeScaleMirror = $state(1.0);
   let frozenPrevScale = $state(1.0);
   let sliderFocusIndex = $state(0);
-  let blackout = $state(false);
+  let overlayHidden = $state(false);
+  let cheatsheetVisible = $state(false);
 
   type RandAnim = { from: number; to: number; startMs: number };
   let randomizeAnims = $state<Record<string, RandAnim>>({});
@@ -175,17 +176,18 @@
   function handleAction(action: KeyAction) {
     // Global actions work in all app states
     switch (action.type) {
-      case "freeze":       poke(); applyFreeze();    return;
-      case "blackout":     poke(); blackout = !blackout; return;
-      case "randomize":    poke(); startRandomize(performance.now()); return;
-      case "screenshot":   poke(); applyScreenshot(); return;
-      case "speedUp":      poke(); applySpeedUp();   return;
-      case "speedDown":    poke(); applySpeedDown(); return;
-      case "toggleCamera": poke(); toggleCamera();   return;
-      case "focusUp":      poke(); sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); return;
-      case "focusDown":    poke(); sliderFocusIndex = Math.min(Math.max(rangeControls.length - 1, 0), sliderFocusIndex + 1); return;
-      case "sliderLeft":   poke(); applySliderStep("left");  return;
-      case "sliderRight":  poke(); applySliderStep("right"); return;
+      case "freeze":          poke(); applyFreeze();    return;
+      case "randomize":       poke(); startRandomize(performance.now()); return;
+      case "screenshot":      poke(); applyScreenshot(); return;
+      case "speedUp":         poke(); applySpeedUp();   return;
+      case "speedDown":       poke(); applySpeedDown(); return;
+      case "focusUp":         poke(); sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); return;
+      case "focusDown":       poke(); sliderFocusIndex = Math.min(Math.max(rangeControls.length - 1, 0), sliderFocusIndex + 1); return;
+      case "sliderLeft":      poke(); applySliderStep("left");  return;
+      case "sliderRight":     poke(); applySliderStep("right"); return;
+      case "toggleOverlay":   overlayHidden = !overlayHidden; return;
+      case "showOverlay":     overlayHidden = false; poke(); return;
+      case "toggleCheatsheet": cheatsheetVisible = !cheatsheetVisible; return;
     }
 
     if (appState === "overview") {
@@ -366,11 +368,12 @@
         break;
       case "speedUp":    applySpeedUp();   break;
       case "speedDown":  applySpeedDown(); break;
-      case "freeze":     applyFreeze();    break;
-      case "screenshot": applyScreenshot(); break;
-      case "blackout":   blackout = !blackout; break;
-      case "randomize":  startRandomize(performance.now()); break;
-      case "toggleCamera": toggleCamera(); break;
+      case "freeze":         applyFreeze();    break;
+      case "screenshot":     applyScreenshot(); break;
+      case "randomize":      startRandomize(performance.now()); break;
+      case "toggleCamera":   toggleCamera(); break;
+      case "toggleOverlay":  overlayHidden = !overlayHidden; break;
+      case "showOverlay":    overlayHidden = false; poke(); break;
       case "focusUp":
         sliderFocusIndex = Math.max(0, sliderFocusIndex - 1);
         break;
@@ -564,9 +567,83 @@
   <div class="pointer-events-none fixed inset-0 z-50 bg-white/25 transition-opacity duration-500"></div>
 {/if}
 
-<!-- ─── Blackout ────────────────────────────────────────────────────────── -->
-{#if blackout}
-  <div class="fixed inset-0 z-40 bg-black"></div>
+<!-- ─── Cheatsheet modal ──────────────────────────────────────────────── -->
+{#if cheatsheetVisible}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div
+    class="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-sm"
+    onclick={() => { cheatsheetVisible = false; }}
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div
+      class="mx-4 w-full max-w-2xl rounded-xl border border-white/10 bg-black/90 p-5 text-white"
+      onclick={(e) => e.stopPropagation()}
+    >
+      <div class="mb-4 flex items-center justify-between">
+        <span class="text-[11px] uppercase tracking-[0.3em] text-white/40">Controls Reference</span>
+        <button
+          class="cursor-pointer rounded px-2 py-0.5 text-[11px] text-white/40 hover:text-white/70 transition-colors"
+          onclick={() => { cheatsheetVisible = false; }}
+        >✕  M</button>
+      </div>
+      <div class="grid grid-cols-2 gap-6">
+        <!-- 8BitDo K-Mode column -->
+        <div>
+          <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">8BitDo Micro (K-Mode)</div>
+          <table class="w-full border-collapse text-xs">
+            <tbody>
+              {#each [
+                ["B / Space", "Freeze toggle"],
+                ["A", "Randomize controls"],
+                ["X", "Show HUD"],
+                ["Y", "Hide / show HUD"],
+                ["R", "Screenshot"],
+                ["M", "This reference"],
+                ["← →", "Prev / next pattern"],
+                ["↑ ↓", "Speed +/−"],
+                ["L (hold) + ↑↓", "Select slider"],
+                ["L (hold) + ←→", "Adjust slider"],
+                ["F", "Fullscreen"],
+                ["D", "Demo mode"],
+                ["1–9", "Jump to pattern"],
+                ["Esc", "Overview / preview"],
+              ] as row}
+                <tr class="border-b border-white/5">
+                  <td class="py-1 pr-3 font-mono text-[10px] text-white/60 whitespace-nowrap">{row[0]}</td>
+                  <td class="py-1 text-white/50">{row[1]}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+        <!-- DualShock / DualSense column -->
+        <div>
+          <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">DualShock / DualSense</div>
+          <table class="w-full border-collapse text-xs">
+            <tbody>
+              {#each [
+                ["× South", "Freeze toggle"],
+                ["○ East", "Randomize controls"],
+                ["△ North", "Show HUD"],
+                ["□ West", "Hide / show HUD"],
+                ["R1", "Screenshot"],
+                ["L2", "Camera toggle"],
+                ["D-Pad ← →", "Prev / next pattern"],
+                ["D-Pad ↑ ↓", "Speed +/−"],
+                ["L1 (hold) + ↑↓", "Select slider"],
+                ["L1 (hold) + ←→", "Adjust slider"],
+              ] as row}
+                <tr class="border-b border-white/5">
+                  <td class="py-1 pr-3 font-mono text-[10px] text-white/60 whitespace-nowrap">{row[0]}</td>
+                  <td class="py-1 text-white/50">{row[1]}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
 {/if}
 
 <!-- ─── Controls panel (active + preview) ─────────────────────────────── -->
@@ -575,8 +652,8 @@
     data-no-swipe
     class="pointer-events-auto fixed bottom-4 right-4 z-10 select-none transition-opacity duration-500 min-w-48"
     style="max-height: calc(100dvh - 2rem)"
-    class:opacity-0={!hudVisible}
-    class:opacity-100={hudVisible}
+    class:opacity-0={!hudVisible || overlayHidden}
+    class:opacity-100={hudVisible && !overlayHidden}
   >
     <div class="flex max-h-full flex-col rounded-md border border-white/10 bg-black/60 px-4 py-3 text-white backdrop-blur-sm">
       <!-- Demo section — only visible when demo is active -->
@@ -753,8 +830,8 @@
   <div
     data-no-swipe
     class="pointer-events-none fixed top-4 left-4 z-10 select-none transition-opacity duration-500"
-    class:opacity-0={!hudVisible}
-    class:opacity-100={hudVisible}
+    class:opacity-0={!hudVisible || overlayHidden}
+    class:opacity-100={hudVisible && !overlayHidden}
   >
     <div class="rounded-md border border-white/10 bg-black/60 px-4 py-3 text-white backdrop-blur-sm">
       <div class="flex items-start justify-between gap-4">
@@ -766,9 +843,6 @@
             <div class="mt-1 text-xs font-mono text-amber-400/80">FREEZE</div>
           {:else if Math.abs(timeScaleMirror - 1.0) > 0.05}
             <div class="mt-1 text-xs font-mono text-white/50">{timeScaleMirror.toFixed(1)}×</div>
-          {/if}
-          {#if blackout}
-            <div class="mt-1 text-xs font-mono text-white/50">■ BLACKOUT</div>
           {/if}
           {#if gamepadConnected}
             <div class="mt-1 text-xs text-white/30">⎮ Gamepad</div>
@@ -805,18 +879,18 @@
         {#if isTouch}
           <span>↔</span><span>swipe to change pattern</span>
         {:else}
-          <kbd class="rounded bg-white/10 px-1.5 font-mono">D</kbd>
-          <span>demo mode</span>
-          <kbd class="rounded bg-white/10 px-1.5 font-mono">F</kbd>
-          <span>fullscreen</span>
-          <kbd class="rounded bg-white/10 px-1.5 font-mono">→ ↓</kbd>
-          <span>next</span>
-          <kbd class="rounded bg-white/10 px-1.5 font-mono">← ↑</kbd>
-          <span>previous</span>
-          <kbd class="rounded bg-white/10 px-1.5 font-mono">1–{patterns.length}</kbd>
-          <span>jump</span>
-          <kbd class="rounded bg-white/10 px-1.5 font-mono">Esc</kbd>
-          <span>{appState === "preview" ? "overview" : "preview"}</span>
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">← →</kbd>
+          <span>prev / next</span>
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">↑ ↓</kbd>
+          <span>speed +/−</span>
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">B / Space</kbd>
+          <span>freeze</span>
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">A</kbd>
+          <span>randomize</span>
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">Y / X</kbd>
+          <span>hide / show HUD</span>
+          <kbd class="rounded bg-white/10 px-1.5 font-mono">M</kbd>
+          <span>controls reference</span>
         {/if}
       </div>
     </div>

@@ -5,13 +5,14 @@ export type GamepadAction =
   | { type: "speedDown" }
   | { type: "freeze" }
   | { type: "randomize" }
-  | { type: "blackout" }
   | { type: "screenshot" }
   | { type: "toggleCamera" }
   | { type: "focusUp" }
   | { type: "focusDown" }
   | { type: "sliderLeft" }
-  | { type: "sliderRight" };
+  | { type: "sliderRight" }
+  | { type: "toggleOverlay" }
+  | { type: "showOverlay" };
 
 export interface GamepadController {
   poll(now: number): void;
@@ -21,12 +22,13 @@ export interface GamepadController {
 // Standard HID gamepad button indices
 // Face buttons follow positional layout (South/East/West/North)
 // consistent between 8BitDo (B/A/Y/X) and PlayStation (×/○/□/△)
-const BTN_FREEZE    = 0;  // South: × / B  → Freeze
-const BTN_RANDOMIZE = 1;  // East:  ○ / A  → Randomize
-const BTN_BLACKOUT  = 3;  // North: △ / X  → Blackout
-const BTN_L1        = 4;
-const BTN_R1        = 5;  // Screenshot
-const BTN_L2        = 6;  // Toggle Camera
+const BTN_FREEZE          = 0;  // South: × / B  → Freeze
+const BTN_RANDOMIZE       = 1;  // East:  ○ / A  → Randomize
+const BTN_TOGGLE_OVERLAY  = 2;  // West:  □ / Y  → Toggle Overlay (hide/show HUD)
+const BTN_SHOW_OVERLAY    = 3;  // North: △ / X  → Show Overlay
+const BTN_L1              = 4;
+const BTN_R1              = 5;  // Screenshot
+const BTN_L2              = 6;  // Toggle Camera
 const BTN_DPAD_U    = 12;
 const BTN_DPAD_D    = 13;
 const BTN_DPAD_L    = 14;
@@ -184,11 +186,12 @@ export function createGamepadController(
     }
 
     // Single-fire buttons
-    if (wasJustPressed(gp, BTN_FREEZE))    handler({ type: "freeze" });
-    if (wasJustPressed(gp, BTN_RANDOMIZE)) handler({ type: "randomize" });
-    if (wasJustPressed(gp, BTN_BLACKOUT))  handler({ type: "blackout" });
-    if (wasJustPressed(gp, BTN_R1))        handler({ type: "screenshot" });
-    if (wasJustPressed(gp, BTN_L2))        handler({ type: "toggleCamera" });
+    if (wasJustPressed(gp, BTN_FREEZE))         handler({ type: "freeze" });
+    if (wasJustPressed(gp, BTN_RANDOMIZE))      handler({ type: "randomize" });
+    if (wasJustPressed(gp, BTN_TOGGLE_OVERLAY)) handler({ type: "toggleOverlay" });
+    if (wasJustPressed(gp, BTN_SHOW_OVERLAY))   handler({ type: "showOverlay" });
+    if (wasJustPressed(gp, BTN_R1))             handler({ type: "screenshot" });
+    if (wasJustPressed(gp, BTN_L2))             handler({ type: "toggleCamera" });
 
     for (let i = 0; i < gp.buttons.length; i++) {
       prevButtons[i] = gp.buttons[i]?.pressed ?? false;

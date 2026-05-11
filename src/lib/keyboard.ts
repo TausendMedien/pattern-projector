@@ -7,7 +7,6 @@ export type KeyAction =
   | { type: "enter" }
   | { type: "escape" }
   | { type: "freeze" }
-  | { type: "blackout" }
   | { type: "randomize" }
   | { type: "screenshot" }
   | { type: "speedUp" }
@@ -16,7 +15,9 @@ export type KeyAction =
   | { type: "focusDown" }
   | { type: "sliderLeft" }
   | { type: "sliderRight" }
-  | { type: "toggleCamera" };
+  | { type: "toggleOverlay" }
+  | { type: "showOverlay" }
+  | { type: "toggleCheatsheet" };
 
 export function attachKeyboard(handler: (action: KeyAction) => void): () => void {
   let lHeld = false;
@@ -57,13 +58,16 @@ export function attachKeyboard(handler: (action: KeyAction) => void): () => void
         handler({ type: "randomize" });
         e.preventDefault(); return;
       case "x": case "X":
-        handler({ type: "blackout" });
+        handler({ type: "showOverlay" });
         e.preventDefault(); return;
       case "r": case "R":
         handler({ type: "screenshot" });
         e.preventDefault(); return;
       case "y": case "Y":
-        handler({ type: "toggleCamera" });
+        handler({ type: "toggleOverlay" });
+        e.preventDefault(); return;
+      case "m": case "M":
+        handler({ type: "toggleCheatsheet" });
         e.preventDefault(); return;
       case "ArrowRight":
         handler({ type: "next" });
