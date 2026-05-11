@@ -123,10 +123,10 @@ const asciiVert = /* glsl */ `
 `;
 
 // Color gradient helper: 3-stop ramp from lo→mid→hi via charMask
-// Mode 0 Source: use srcCol directly
-// Mode 1 Neon:   dark purple → cyan → near-white
-// Mode 2 Fire:   black → deep orange → bright yellow
-// Mode 3 Ice:    dark navy → teal → ice white
+// Mode 0 Source:       use srcCol directly
+// Mode 1 Magenta/Rose: deep magenta → rose
+// Mode 2 Cyan/Teal:    teal → bright cyan
+// Mode 3 Amber/Gold:   deep amber → gold
 const asciiFrag = /* glsl */ `
   precision highp float;
   varying vec2 vUv;
@@ -168,23 +168,23 @@ const asciiFrag = /* glsl */ `
 
     vec3 col;
     if (uColorMode == 1) {
-      // Neon: dark purple → cyan → near-white
+      // Magenta/Rose: near-black → deep magenta → rose pink
       col = gradRamp(charMask,
-        vec3(0.12, 0.0, 0.22),
-        vec3(0.0,  0.9, 0.85),
-        vec3(0.85, 1.0, 1.0)) * charMask;
+        vec3(0.05, 0.0,  0.04),
+        vec3(0.85, 0.0,  0.65),
+        vec3(1.0,  0.42, 0.62)) * charMask;
     } else if (uColorMode == 2) {
-      // Fire: near-black → deep orange → bright yellow
+      // Cyan/Teal: near-black → teal → bright cyan
       col = gradRamp(charMask,
-        vec3(0.05, 0.0, 0.0),
-        vec3(0.9,  0.3, 0.0),
-        vec3(1.0,  0.95,0.2)) * charMask;
+        vec3(0.0,  0.04, 0.04),
+        vec3(0.0,  0.62, 0.52),
+        vec3(0.08, 0.95, 0.92)) * charMask;
     } else if (uColorMode == 3) {
-      // Ice: dark navy → teal → ice white
+      // Amber/Gold: near-black → deep amber → bright gold
       col = gradRamp(charMask,
-        vec3(0.0,  0.05, 0.18),
-        vec3(0.1,  0.75, 0.8),
-        vec3(0.85, 0.97, 1.0)) * charMask;
+        vec3(0.04, 0.02, 0.0),
+        vec3(0.88, 0.42, 0.0),
+        vec3(1.0,  0.85, 0.12)) * charMask;
     } else {
       // Source (mode 0)
       col = src.rgb * charMask;
@@ -270,7 +270,7 @@ export const asciiSwirls: Pattern = {
       get: () => charSet,
       set: (v) => { charSet = v; rebuildCharTex(); }
     },
-    { label: "Color Mode",  type: "select", options: ["Source", "Neon", "Fire", "Ice"],
+    { label: "Color Mode",  type: "select", options: ["Source", "Magenta/Rose", "Cyan/Teal", "Amber/Gold"],
       get: () => colorMode, set: (v) => { colorMode = v; }
     },
     { label: "Swirl Speed", type: "range", min: 0.0, max: 0.3,  step: 0.005, default: 0.05, get: () => swirlSpeed, set: (v) => { swirlSpeed = v; } },
