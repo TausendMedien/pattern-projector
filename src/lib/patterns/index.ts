@@ -20,13 +20,20 @@ import { wavySphere } from "./wavySphere";
 import { plasmaSphere } from "./plasmaSphere";
 import { crystalGem } from "./crystalGem";
 import { asciiSwirls } from "./asciiSwirls";
+import { flowDotsColor } from "./flowDotsColor";
+import { baroqueSwilsColor } from "./baroqueSwilsColor";
+import { typography3d } from "./typography3d";
 import { wrapWithPersist } from "../persist";
 import { addMotionCamera } from "../motionCameraWrapper";
+import { addAudioReactivity } from "../audioReactivityWrapper";
 
 // Patterns that must NOT get the generic motion camera wrapper:
 // - lightTrail / lightPaint  (camera-based themselves)
 // - asciiSwirls  (manages its own internal scene + renderer ref)
 const NO_MOTION_CAMERA = new Set(['lightTrail', 'lightPaint', 'asciiSwirls']);
+
+// Patterns that skip audio reactivity wrapping (camera-based patterns)
+const NO_AUDIO = new Set(['lightTrail', 'lightPaint']);
 
 const rawPatterns: Pattern[] = [
   particles,
@@ -48,10 +55,14 @@ const rawPatterns: Pattern[] = [
   plasmaSphere,
   crystalGem,
   asciiSwirls,
+  flowDotsColor,
+  baroqueSwilsColor,
+  typography3d,
   lightTrail,
   lightPaint,
 ];
 
 export const patterns: Pattern[] = rawPatterns
-  .map((p) => NO_MOTION_CAMERA.has(p.id) ? p : addMotionCamera(p))
+  .map(p => NO_MOTION_CAMERA.has(p.id) ? p : addMotionCamera(p))
+  .map(p => NO_AUDIO.has(p.id) ? p : addAudioReactivity(p))
   .map(wrapWithPersist);

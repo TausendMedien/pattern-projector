@@ -14,7 +14,9 @@ export type PatternControl =
   /** Section header with an integrated on/off toggle. Controls below are dimmed while off. */
   | { label: string; type: "section"; get(): boolean; set(v: boolean): void }
   | { label: string; type: "separator" }
-  | { label: string; type: "button"; action(): void };
+  | { label: string; type: "button"; action(): void }
+  | { label: string; type: "color"; get(): string; set(v: string): void }
+  | { label: string; type: "text"; placeholder?: string; get(): string; set(v: string): void };
 
 export interface Pattern {
   id: string;

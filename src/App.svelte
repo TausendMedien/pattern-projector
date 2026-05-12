@@ -12,6 +12,12 @@
   import { loadSettings, saveSettings, loadDemoSettings, saveDemoSettings } from "./lib/settings";
   import type { PatternControl } from "./lib/patterns/types";
   import { restoreFromKeys } from "./lib/persist";
+  import { createMIDIController } from "./lib/midi";
+  import type { MIDIAction } from "./lib/midi";
+  import { popUndo, setUndoing } from "./lib/undo";
+  import { encodeShare, decodeShare } from "./lib/shareUrl";
+  import { getSlots, saveSlot } from "./lib/presets";
+  import type { Snapshot } from "./lib/presets";
 
   type AppState = "overview" | "active" | "preview";
 
@@ -33,6 +39,15 @@
   let demoTimer: ReturnType<typeof setTimeout> | null = null;
   let snapshotUrl = $state<string | null>(null);
   let snapshotFading = $state(false);
+
+  // MIDI / audio / sharing state
+  let midiConnected = $state(false);
+  let favorites = $state(new Set<string>());
+  let showFavoritesOnly = $state(false);
+  let presetSlots = $state<(Snapshot | null)[]>([null, null, null]);
+  let copiedLink = $state(false);
+  let slotPressTimer: ReturnType<typeof setTimeout> | null = null;
+  let slotFlash = $state<number | null>(null);
 
   // Gamepad / controller state
   let gamepadConnected = $state(false);
@@ -63,16 +78,23 @@
   // Reset slider focus when pattern changes
   $effect(() => { const _ = index; sliderFocusIndex = 0; });
 
-  // Reactive mirror of current pattern's control values so the number display
-  // updates live as the user drags a slider.
-  let ctrlVals = $state<Record<string, number>>({});
+  const displayPatterns = $derived(
+    showFavoritesOnly
+      ? patterns.map((p, i) => ({ p, i })).filter(({ p }) => favorites.has(p.id))
+      : patterns.map((p, i) => ({ p, i }))
+  );
+
+  // Reactive mirror of current pattern's control values so the display
+  // updates live as the user drags a slider (or types in a text field).
+  let ctrlVals = $state<Record<string, number | string>>({});
 
   function syncCtrlVals() {
-    const next: Record<string, number> = {};
+    const next: Record<string, number | string> = {};
     for (const c of patterns[index]?.controls ?? []) {
       if (c.type === 'separator') continue;
       if (c.type === 'button') continue;
       if (c.type === 'toggle' || c.type === 'section') next[c.label] = c.get() ? 1 : 0;
+      else if (c.type === 'text' || c.type === 'color') next[c.label] = c.get();
       else next[c.label] = c.get();
     }
     ctrlVals = next;
@@ -80,6 +102,7 @@
 
   // Re-sync whenever the active pattern changes.
   $effect(() => { const _ = index; syncCtrlVals(); });
+  $effect(() => { const _ = index; presetSlots = getSlots(patterns[index]?.id ?? ''); });
 
   function resetCtrl(ctrl: PatternControl & { type: "range" }) {
     if (ctrl.default === undefined) return;
@@ -243,6 +266,7 @@
       case "sliderRight":      poke(); applySliderStep("right"); return;
       case "toggleOverlay":    overlayHidden = !overlayHidden; return;
       case "toggleCheatsheet": cheatsheetVisible = !cheatsheetVisible; return;
+      case "undo":             applyUndo(); return;
     }
 
     if (appState === "active") {
@@ -350,6 +374,22 @@
     else             { startRecording(c); isRecording = true; }
   }
 
+  function applyUndo() {
+    const entry = popUndo();
+    if (!entry || entry.patternId !== patterns[index].id) return;
+    const ctrl = (patterns[index].controls ?? []).find(
+      c => c.type !== 'button' && c.type !== 'separator' && c.label === entry.label
+    );
+    if (!ctrl || ctrl.type === 'button' || ctrl.type === 'separator') return;
+    setUndoing(true);
+    if (ctrl.type === 'toggle' || ctrl.type === 'section') ctrl.set(entry.value as boolean);
+    else if (ctrl.type === 'text' || ctrl.type === 'color') ctrl.set(String(entry.value));
+    else ctrl.set(entry.value as number);
+    ctrlVals[entry.label] = entry.value as number | string;
+    saveSettings(patterns);
+    setUndoing(false);
+  }
+
   function applySliderStep(dir: "left" | "right") {
     const ctrl = rangeControls[sliderFocusIndex];
     if (ctrl && !ctrl.readonly) {
@@ -359,6 +399,103 @@
       ctrlVals[ctrl.label] = next;
       saveSettings(patterns);
     }
+  }
+
+  function handleMIDIAction(action: MIDIAction) {
+    if (action.type === 'setSlider') {
+      const ctrl = rangeControls[action.index];
+      if (!ctrl || ctrl.readonly) return;
+      const v = parseFloat((ctrl.min + action.value * (ctrl.max - ctrl.min)).toFixed(10));
+      const clamped = Math.min(ctrl.max, Math.max(ctrl.min, v));
+      ctrl.set(clamped);
+      ctrlVals[ctrl.label] = clamped;
+      saveSettings(patterns);
+      return;
+    }
+    handleAction(action as import('./lib/keyboard').KeyAction);
+  }
+
+  // ── Preset slots ──────────────────────────────────────────────────────────
+
+  function takeSnapshot(): Snapshot {
+    const snap: Snapshot = {};
+    for (const ctrl of patterns[index].controls ?? []) {
+      if (ctrl.type === 'button' || ctrl.type === 'separator') continue;
+      snap[ctrl.label] = ctrl.get();
+    }
+    return snap;
+  }
+
+  function restorePreset(idx: number) {
+    const snap = presetSlots[idx];
+    if (!snap) return;
+    const anims: Record<string, RandAnim> = {};
+    const now = performance.now();
+    for (const ctrl of patterns[index].controls ?? []) {
+      if (ctrl.type !== 'range' || ctrl.readonly) continue;
+      const target = snap[ctrl.label];
+      if (typeof target === 'number') {
+        anims[ctrl.label] = { from: ctrl.get(), to: target, startMs: now };
+      }
+    }
+    for (const ctrl of patterns[index].controls ?? []) {
+      if (ctrl.type === 'button' || ctrl.type === 'separator' || ctrl.type === 'range') continue;
+      const target = snap[ctrl.label];
+      if (target !== undefined) {
+        if (ctrl.type === 'toggle' || ctrl.type === 'section') ctrl.set(!!target);
+        else if (ctrl.type === 'text' || ctrl.type === 'color') ctrl.set(String(target));
+        else ctrl.set(target as number);
+        ctrlVals[ctrl.label] = ctrl.get() as number | string;
+      }
+    }
+    randomizeAnims = anims;
+    saveSettings(patterns);
+  }
+
+  function saveCurrentToSlot(idx: number) {
+    saveSlot(patterns[index].id, idx, takeSnapshot());
+    presetSlots = getSlots(patterns[index].id);
+    slotFlash = idx;
+    setTimeout(() => { slotFlash = null; }, 400);
+  }
+
+  function onSlotPointerDown(idx: number) {
+    if (presetSlots[idx] === null) { saveCurrentToSlot(idx); return; }
+    slotPressTimer = setTimeout(() => { slotPressTimer = null; saveCurrentToSlot(idx); }, 500);
+  }
+
+  function onSlotPointerUp(idx: number) {
+    if (slotPressTimer !== null) { clearTimeout(slotPressTimer); slotPressTimer = null; restorePreset(idx); }
+  }
+
+  function onSlotPointerCancel() {
+    if (slotPressTimer !== null) { clearTimeout(slotPressTimer); slotPressTimer = null; }
+  }
+
+  // ── Favorites ─────────────────────────────────────────────────────────────
+
+  const FAVORITES_KEY = 'pp:favorites';
+
+  function loadFavorites() {
+    const raw = localStorage.getItem(FAVORITES_KEY);
+    favorites = new Set(raw ? raw.split(',').filter(Boolean) : []);
+  }
+
+  function toggleFavorite(patternId: string) {
+    const next = new Set(favorites);
+    if (next.has(patternId)) next.delete(patternId); else next.add(patternId);
+    favorites = next;
+    localStorage.setItem(FAVORITES_KEY, [...next].join(','));
+  }
+
+  // ── URL sharing ───────────────────────────────────────────────────────────
+
+  function copyShare() {
+    encodeShare(patterns[index]);
+    navigator.clipboard?.writeText(location.href).then(() => {
+      copiedLink = true;
+      setTimeout(() => { copiedLink = false; }, 2000);
+    }).catch(() => {});
   }
 
   function handleGamepadAction(action: GamepadAction) {
@@ -432,6 +569,34 @@
       (held) => { gpL1Held = held; },
     );
 
+    const midiController = createMIDIController(
+      handleMIDIAction,
+      (c) => { midiConnected = c; },
+    );
+
+    // Apply shared URL if present
+    const shared = decodeShare();
+    if (shared) {
+      const pIdx = patterns.findIndex(p => p.id === shared.patternId);
+      if (pIdx >= 0) {
+        index = switchTo(pIdx);
+        focusedIndex = pIdx;
+        for (const ctrl of patterns[pIdx].controls ?? []) {
+          if (ctrl.type === 'button' || ctrl.type === 'separator') continue;
+          const val = shared.controls[ctrl.label];
+          if (val === undefined) continue;
+          if (ctrl.type === 'toggle' || ctrl.type === 'section') ctrl.set(!!val);
+          else if (ctrl.type === 'text' || ctrl.type === 'color') ctrl.set(String(val));
+          else ctrl.set(val as number);
+        }
+        syncCtrlVals();
+        appState = 'active';
+        poke();
+      }
+    }
+
+    loadFavorites();
+
     // Keep ctrlVals in sync every frame so motion-reactive sliders move live.
     let liveRaf: number;
     const liveSync = (now: number) => {
@@ -490,6 +655,9 @@
             // Keep current index in sync; re-reading also lets Svelte re-evaluate ctrl.options()
             const v = c.get();
             if (ctrlVals[c.label] !== v) ctrlVals[c.label] = v;
+          } else if (c.type === 'text' || c.type === 'color') {
+            const v = c.get();
+            if (ctrlVals[c.label] !== v) ctrlVals[c.label] = v;
           }
         }
       }
@@ -525,6 +693,7 @@
     return () => {
       cancelAnimationFrame(liveRaf);
       gpController.dispose();
+      midiController.dispose();
       detach();
       detachTouch();
       document.removeEventListener("fullscreenchange", onFsChange);
@@ -569,30 +738,52 @@
       <p class="text-[10px] tracking-widest text-white/30">by 1000lights</p>
     </div>
 
+    <!-- Favorites filter bar -->
+    <div class="flex gap-1.5 px-3 pb-3">
+      <button
+        class="rounded-full border px-3 py-1 text-[11px] transition-colors cursor-pointer
+          {!showFavoritesOnly ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 text-white/50 hover:border-white/30'}"
+        onclick={() => { showFavoritesOnly = false; }}
+      >All</button>
+      <button
+        class="rounded-full border px-3 py-1 text-[11px] transition-colors cursor-pointer
+          {showFavoritesOnly ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 text-white/50 hover:border-white/30'}"
+        onclick={() => { showFavoritesOnly = true; }}
+      >★ Favorites</button>
+    </div>
+
     <div class="grid grid-cols-3 gap-2 px-3 w-full max-w-lg pb-4">
-      {#each patterns as p, i}
-        {#if i === patterns.length - 2}
-          <div class="col-span-3 mt-2 flex items-center gap-2">
-            <div class="h-px flex-1 bg-white/20"></div>
-            <span class="text-[10px] uppercase tracking-widest text-white/40">Live Light Painting</span>
-            <div class="h-px flex-1 bg-white/20"></div>
-          </div>
-        {/if}
-        <button
-          class="relative flex flex-col gap-1 rounded-xl border px-3 py-3 text-left transition-all duration-150 cursor-pointer
-            {focusedIndex === i
-              ? 'border-white bg-white/10 shadow-[0_0_28px_rgba(255,255,255,0.12)]'
-              : 'border-white/15 bg-white/[0.04] hover:border-white/40 hover:bg-white/[0.07]'}"
-          onclick={() => activatePattern(i)}
-          onmouseenter={() => { focusedIndex = i; switchTo(i); }}
-        >
-          <span class="text-[10px] font-mono text-white/35">{i + 1}</span>
-          <span class="text-[13px] font-semibold leading-snug text-white">{p.name}</span>
-          {#if focusedIndex === i}
-            <span class="absolute right-3.5 top-3.5 h-1.5 w-1.5 rounded-full bg-white"></span>
+      {#if showFavoritesOnly && displayPatterns.length === 0}
+        <div class="col-span-3 py-8 text-center text-sm text-white/35">
+          No favorites yet — star a pattern to add it here
+        </div>
+      {:else}
+        {#each displayPatterns as { p, i }}
+          {#if p.id === 'lightTrail' && !showFavoritesOnly}
+            <div class="col-span-3 mt-2 flex items-center gap-2">
+              <div class="h-px flex-1 bg-white/20"></div>
+              <span class="text-[10px] uppercase tracking-widest text-white/40">Live Light Painting</span>
+              <div class="h-px flex-1 bg-white/20"></div>
+            </div>
           {/if}
-        </button>
-      {/each}
+          <button
+            class="relative flex flex-col gap-1 rounded-xl border px-3 py-3 text-left transition-all duration-150 cursor-pointer
+              {focusedIndex === i
+                ? 'border-white bg-white/10 shadow-[0_0_28px_rgba(255,255,255,0.12)]'
+                : 'border-white/15 bg-white/[0.04] hover:border-white/40 hover:bg-white/[0.07]'}"
+            onclick={() => activatePattern(i)}
+            onmouseenter={() => { focusedIndex = i; switchTo(i); }}
+          >
+            <span class="text-[10px] font-mono text-white/35">{i + 1}</span>
+            <span class="text-[13px] font-semibold leading-snug text-white pr-5">{p.name}</span>
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <span
+              class="absolute right-3 top-2.5 text-sm transition-colors cursor-pointer {favorites.has(p.id) ? 'text-yellow-300/80' : 'text-white/20 hover:text-white/50'}"
+              onclick={(e) => { e.stopPropagation(); toggleFavorite(p.id); }}
+            >{favorites.has(p.id) ? '★' : '☆'}</span>
+          </button>
+        {/each}
+      {/if}
     </div>
 
     <div class="shrink-0 pb-8 flex gap-5 text-[11px] text-white/30 px-4 text-center flex-wrap justify-center">
@@ -799,6 +990,23 @@
             <button onclick={() => { poke(); startRandomize(performance.now()); }} class="rounded px-2 py-0.5 text-[10px] text-white/50 border border-white/15 hover:border-white/40 hover:text-white/80 transition-colors cursor-pointer">Randomize</button>
           </div>
         </div>
+        <!-- Preset slots: empty=click to save, filled=click to restore / long-press to update -->
+        <div class="mb-2.5 flex gap-1 shrink-0">
+          {#each presetSlots as slot, idx}
+            {@const filled = slot !== null}
+            {@const flashing = slotFlash === idx}
+            <button
+              class="flex-1 rounded border py-1 text-[10px] font-mono transition-all duration-150 cursor-pointer select-none
+                {flashing ? 'border-white bg-white/40 text-white' :
+                 filled   ? 'border-white/30 bg-white/10 text-white/70 hover:bg-white/20' :
+                            'border-dashed border-white/20 text-white/25 hover:border-white/35'}"
+              onpointerdown={() => onSlotPointerDown(idx)}
+              onpointerup={() => onSlotPointerUp(idx)}
+              onpointercancel={() => onSlotPointerCancel()}
+              title={filled ? 'Click to restore · Hold to update' : 'Click to save snapshot'}
+            >{filled ? (idx + 1) : '+'}</button>
+          {/each}
+        </div>
         <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">
           {#each controlMeta as { ctrl, groupDisabled }}
             {@const focusedRangeCtrl = sliderModeActive ? rangeControls[sliderFocusIndex] : null}
@@ -849,7 +1057,7 @@
                   >{ctrl.label}</span>
                   {#if ctrl.type === "range"}
                     <span class="font-mono text-white/40">
-                      {(ctrlVals[ctrl.label] ?? ctrl.get()).toFixed(ctrl.step < 0.01 ? 3 : ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}
+                      {Number(ctrlVals[ctrl.label] ?? ctrl.get()).toFixed(ctrl.step < 0.01 ? 3 : ctrl.step < 0.1 ? 2 : ctrl.step < 1 ? 1 : 0)}
                     </span>
                   {/if}
                 </div>
@@ -881,6 +1089,30 @@
                       <option value={i}>{opt}</option>
                     {/each}
                   </select>
+                {:else if ctrl.type === "color"}
+                  <div class="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={String(ctrlVals[ctrl.label] ?? ctrl.get())}
+                      oninput={(e) => {
+                        const v = (e.target as HTMLInputElement).value;
+                        ctrl.set(v); ctrlVals[ctrl.label] = v; saveSettings(patterns);
+                      }}
+                      class="h-7 w-10 cursor-pointer rounded border border-white/20 bg-transparent p-0.5"
+                    />
+                    <span class="font-mono text-xs text-white/40">{String(ctrlVals[ctrl.label] ?? ctrl.get())}</span>
+                  </div>
+                {:else if ctrl.type === "text"}
+                  <input
+                    type="text"
+                    placeholder={ctrl.placeholder ?? ''}
+                    value={String(ctrlVals[ctrl.label] ?? ctrl.get())}
+                    oninput={(e) => {
+                      const v = (e.target as HTMLInputElement).value;
+                      ctrl.set(v); ctrlVals[ctrl.label] = v; saveSettings(patterns);
+                    }}
+                    class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none placeholder-white/30 focus:bg-white/15"
+                  />
                 {:else if ctrl.type === "button"}
                   <button
                     onclick={() => ctrl.action()}
@@ -927,6 +1159,9 @@
           {#if gamepadConnected}
             <div class="mt-1 text-xs text-white/30">⎮ Gamepad</div>
           {/if}
+          {#if midiConnected}
+            <div class="mt-1 text-xs text-white/30">♪ MIDI</div>
+          {/if}
         </div>
         <div class="flex flex-col items-end gap-1.5">
           <button
@@ -949,12 +1184,19 @@
           {/if}
         </div>
       </div>
-      <button
-        class="pointer-events-auto mt-3 w-full rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
-        onclick={() => { if (fs.isFullscreen()) fs.exit(); focusedIndex = index; appState = "overview"; }}
-      >
-        ← Patterns
-      </button>
+      <div class="mt-3 flex gap-1.5">
+        <button
+          class="pointer-events-auto flex-1 rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
+          onclick={() => { if (fs.isFullscreen()) fs.exit(); focusedIndex = index; appState = "overview"; }}
+        >
+          ← Patterns
+        </button>
+        <button
+          class="pointer-events-auto rounded-md border px-3 py-1.5 text-xs transition-colors {copiedLink ? 'border-green-400/50 bg-green-400/10 text-green-300' : 'border-white/15 bg-white/[0.07] text-white/70 hover:border-white/40 hover:bg-white/15'}"
+          onclick={copyShare}
+          title="Copy shareable link"
+        >{copiedLink ? '✓ Copied!' : '⛓'}</button>
+      </div>
       <div class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-white/70">
         {#if isTouch}
           <span>↔</span><span>swipe to change pattern</span>
