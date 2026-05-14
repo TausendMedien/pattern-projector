@@ -74,6 +74,7 @@ export function attachKeyboard(
         handler({ type: "blackout" });
         e.preventDefault(); return;
       case "l": case "L":
+      case "s": case "S":
         handler({ type: "screenshot" });
         e.preventDefault(); return;
       case "y": case "Y":
@@ -83,6 +84,7 @@ export function attachKeyboard(
         handler({ type: "toggleCheatsheet" });
         e.preventDefault(); return;
       case "1":
+      case "v": case "V":
         handler({ type: "toggleRecording" });
         e.preventDefault(); return;
       case "2":

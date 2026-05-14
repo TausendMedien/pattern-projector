@@ -1,6 +1,7 @@
 import type { Pattern } from "./types";
 import { lines3d } from "./lines3d";
 import { particles } from "./particles";
+import { particleLines } from "./particleLines";
 import { tunnel } from "./tunnel";
 import { tunnelEdge } from "./tunnelEdge";
 import { shaderGradient } from "./shaderGradient";
@@ -20,8 +21,6 @@ import { wavySphere } from "./wavySphere";
 import { plasmaSphere } from "./plasmaSphere";
 import { crystalGem } from "./crystalGem";
 import { asciiSwirls } from "./asciiSwirls";
-import { flowDotsColor } from "./flowDotsColor";
-import { baroqueSwilsColor } from "./baroqueSwilsColor";
 import { typography3d } from "./typography3d";
 import { wrapWithPersist } from "../persist";
 import { addMotionCamera } from "../motionCameraWrapper";
@@ -37,26 +36,25 @@ const NO_AUDIO = new Set(['lightTrail', 'lightPaint']);
 
 const rawPatterns: Pattern[] = [
   particles,
+  particleLines,
   parallelLinesStraight,
   parallelLinesWave,
+  flowLines,
+  curlOrbs,
+  tunnel,
+  tunnelEdge,
+  baroqueSwirls,
+  shaderGradient,
+  warpedSurfaces,
+  hyperMix,
+  lines3d,
+  asciiSwirls,
   dotRain,
   pearlFlow,
   flowDots,
-  flowLines,
-  curlOrbs,
-  baroqueSwirls,
-  shaderGradient,
-  hyperMix,
-  tunnel,
-  tunnelEdge,
-  lines3d,
-  warpedSurfaces,
   wavySphere,
   plasmaSphere,
   crystalGem,
-  asciiSwirls,
-  flowDotsColor,
-  baroqueSwilsColor,
   typography3d,
   lightTrail,
   lightPaint,

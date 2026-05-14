@@ -79,7 +79,7 @@ const fragmentShader = /* glsl */ `
 
 export const parallelLinesStraight: Pattern = {
   id: "parallelLinesStraight",
-  name: "Parallel Lines — Straight",
+  name: "Parallel Lines",
   controls: [
     { label: "Line Count",   type: "range", min: 10,  max: 120, step: 1, default: 47,    get: () => lineCount,   set: (v) => { lineCount = v; } },
     { label: "Scroll Speed", type: "range", min: 0.02,max: 1.0, step: 0.01, default: 0.06, get: () => scrollSpeed, set: (v) => { scrollSpeed = v; } },

@@ -32,6 +32,16 @@
   let isIosStandalone = $state(false);
   let isIosBrowser = $state(false);
 
+  // Global CSS color filter applied to canvas
+  let colorHue = $state(0);
+  let colorSat = $state(100);
+  let colorBright = $state(100);
+  const COLOR_FILTER_KEY = 'pp:colorFilter';
+
+  function saveColorFilter() {
+    localStorage.setItem(COLOR_FILTER_KEY, JSON.stringify({ hue: colorHue, sat: colorSat, bright: colorBright }));
+  }
+
   // Demo mode
   let demoActive = $state(false);
   let demoDwell = $state(30);
@@ -63,6 +73,7 @@
   let blackout = $state(false);
   let overlayHidden = $state(false);
   let cheatsheetVisible = $state(false);
+  let collapsedSections = $state(new Set<string>());
 
   type RandAnim  = { from: number; to: number; startMs: number };
   type FreezeAnim = { from: number; to: number; startMs: number };
@@ -251,19 +262,19 @@
 
     // Global actions for active + preview
     switch (action.type) {
-      case "freeze":           poke(); applyFreeze();    return;
-      case "blackout":         poke(); blackout = !blackout; return;
-      case "randomize":        poke(); startRandomize(performance.now()); return;
-      case "resetToDefault":   poke(); resetAllControls(); return;
-      case "screenshot":       poke(); applyScreenshot(); return;
+      case "freeze":           applyFreeze();    return;
+      case "blackout":         blackout = !blackout; return;
+      case "randomize":        startRandomize(performance.now()); return;
+      case "resetToDefault":   resetAllControls(); return;
+      case "screenshot":       applyScreenshot(); return;
       case "toggleRecording":  recorder?.toggle(); return;
-      case "toggleCamera":     poke(); toggleCamera();   return;
-      case "speedUp":          poke(); applySpeedUp();   return;
-      case "speedDown":        poke(); applySpeedDown(); return;
-      case "focusUp":          poke(); sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); return;
-      case "focusDown":        poke(); sliderFocusIndex = Math.min(Math.max(rangeControls.length - 1, 0), sliderFocusIndex + 1); return;
-      case "sliderLeft":       poke(); applySliderStep("left");  return;
-      case "sliderRight":      poke(); applySliderStep("right"); return;
+      case "toggleCamera":     toggleCamera();   return;
+      case "speedUp":          applySpeedUp();   return;
+      case "speedDown":        applySpeedDown(); return;
+      case "focusUp":          sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); return;
+      case "focusDown":        sliderFocusIndex = Math.min(Math.max(rangeControls.length - 1, 0), sliderFocusIndex + 1); return;
+      case "sliderLeft":       applySliderStep("left");  return;
+      case "sliderRight":      applySliderStep("right"); return;
       case "toggleOverlay":    overlayHidden = !overlayHidden; return;
       case "toggleCheatsheet": cheatsheetVisible = !cheatsheetVisible; return;
       case "undo":             applyUndo(); return;
@@ -272,11 +283,11 @@
     if (appState === "active") {
       switch (action.type) {
         case "next":
-          index = switchTo(index + 1); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); poke(); break;
+          index = switchTo(index + 1); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); break;
         case "prev":
-          index = switchTo(index - 1); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); poke(); break;
+          index = switchTo(index - 1); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); break;
         case "jump":
-          if (action.index < patterns.length) { index = switchTo(action.index); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); poke(); }
+          if (action.index < patterns.length) { index = switchTo(action.index); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); }
           break;
         case "fullscreen":
           fs.toggle(document.documentElement); hudVisible = false; break;
@@ -284,17 +295,17 @@
           demoActive ? stopDemo() : startDemo(); break;
         case "escape":
           if (fs.isFullscreen()) fs.exit();
-          appState = "preview"; overlayHidden = false; poke(); break;
+          appState = "preview"; overlayHidden = false; break;
       }
     } else {
       // preview
       switch (action.type) {
         case "next":
-          index = switchTo(index + 1); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); poke(); break;
+          index = switchTo(index + 1); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); break;
         case "prev":
-          index = switchTo(index - 1); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); poke(); break;
+          index = switchTo(index - 1); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); break;
         case "jump":
-          if (action.index < patterns.length) { index = switchTo(action.index); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); poke(); }
+          if (action.index < patterns.length) { index = switchTo(action.index); focusedIndex = index; handle?.activateCurrentPattern(); resetDemoTimer(); }
           break;
         case "fullscreen":
           fs.enter(document.documentElement); appState = "active"; hudVisible = false; break;
@@ -309,6 +320,7 @@
   function startRandomize(now: number) {
     const anims: Record<string, RandAnim> = {};
     for (const ctrl of patterns[index]?.controls ?? []) {
+      if (/camera|microphone/i.test(ctrl.label)) continue;
       if (ctrl.type === 'range' && !ctrl.readonly) {
         anims[ctrl.label] = { from: ctrl.get(), to: ctrl.min + Math.random() * (ctrl.max - ctrl.min), startMs: now };
       } else if (ctrl.type === 'select' && !ctrl.disabled?.()) {
@@ -523,7 +535,6 @@
       return;
     }
 
-    poke();
     switch (action.type) {
       case "next":
         index = switchTo(index + 1); focusedIndex = index; resetDemoTimer(); break;
@@ -596,6 +607,17 @@
     }
 
     loadFavorites();
+
+    const rawCF = localStorage.getItem(COLOR_FILTER_KEY);
+    if (rawCF) {
+      try {
+        const cf = JSON.parse(rawCF);
+        if (typeof cf.hue === 'number') colorHue = cf.hue;
+        if (typeof cf.sat === 'number') colorSat = cf.sat;
+        if (typeof cf.bright === 'number') colorBright = cf.bright;
+      } catch {}
+    }
+
 
     // Keep ctrlVals in sync every frame so motion-reactive sliders move live.
     let liveRaf: number;
@@ -710,7 +732,9 @@
 </script>
 
 <canvas bind:this={canvas} class="block w-full h-full"
-  onclick={() => { if (appState !== "overview") hudVisible = false; }}
+  style="filter: hue-rotate({colorHue}deg) saturate({colorSat}%) brightness({colorBright}%)"
+  onclick={() => { if (appState !== "overview" && !isTouch) hudVisible = false; }}
+  ontouchstart={() => { if (appState !== "overview") poke(); }}
 ></canvas>
 
 <!-- ─── Cross-fade snapshot overlay ──────────────────────────────────── -->
@@ -973,13 +997,58 @@
           </div>
         </div>
       {/if}
+      <!-- ── Global Color Filter ─────────────────────────────────── -->
+      <div class="mb-2 shrink-0">
+        <div class="mb-1.5 flex items-center justify-between gap-2">
+          <span class="text-xs uppercase tracking-widest text-white/50">Color</span>
+          <button
+            onclick={() => { colorHue = 0; colorSat = 100; colorBright = 100; saveColorFilter(); }}
+            class="rounded px-2 py-0.5 text-[10px] text-white/50 border border-white/15 hover:border-white/40 hover:text-white/80 transition-colors cursor-pointer"
+          >Reset</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <div class="flex flex-col gap-0.5">
+            <div class="flex justify-between text-xs text-white/70">
+              <span>Hue Shift</span>
+              <span class="font-mono text-white/40">{colorHue}°</span>
+            </div>
+            <input type="range" min={0} max={360} step={1} value={colorHue}
+              oninput={(e) => { colorHue = parseInt((e.target as HTMLInputElement).value); saveColorFilter(); }}
+              class="w-full accent-white cursor-pointer" />
+          </div>
+          <div class="flex flex-col gap-0.5">
+            <div class="flex justify-between text-xs text-white/70">
+              <span>Saturation</span>
+              <span class="font-mono text-white/40">{colorSat}%</span>
+            </div>
+            <input type="range" min={0} max={200} step={1} value={colorSat}
+              oninput={(e) => { colorSat = parseInt((e.target as HTMLInputElement).value); saveColorFilter(); }}
+              class="w-full accent-white cursor-pointer" />
+          </div>
+          <div class="flex flex-col gap-0.5">
+            <div class="flex justify-between text-xs text-white/70">
+              <span>Brightness</span>
+              <span class="font-mono text-white/40">{colorBright}%</span>
+            </div>
+            <input type="range" min={50} max={150} step={1} value={colorBright}
+              oninput={(e) => { colorBright = parseInt((e.target as HTMLInputElement).value); saveColorFilter(); }}
+              class="w-full accent-white cursor-pointer" />
+          </div>
+        </div>
+      </div>
       {#if patterns[index].controls?.length}
         {@const controlMeta = (() => {
           let sectionOn = true;
+          let currentSection: string | null = null;
           return (patterns[index].controls ?? []).map(ctrl => {
-            if (ctrl.type === 'section') sectionOn = !!(ctrlVals[ctrl.label] ?? 0);
+            if (ctrl.type === 'section') {
+              sectionOn = !!(ctrlVals[ctrl.label] ?? 0);
+              currentSection = ctrl.label;
+            }
             const groupDisabled = !sectionOn && ctrl.type !== 'section' && ctrl.type !== 'separator';
-            return { ctrl, groupDisabled };
+            const inSection = (ctrl.type !== 'section' && ctrl.type !== 'separator') ? currentSection : null;
+            const hidden = inSection !== null && collapsedSections.has(inSection);
+            return { ctrl, groupDisabled, hidden };
           });
         })()}
         <!-- Pattern controls -->
@@ -1007,8 +1076,8 @@
             >{filled ? (idx + 1) : '+'}</button>
           {/each}
         </div>
-        <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain">
-          {#each controlMeta as { ctrl, groupDisabled }}
+        <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain min-h-0">
+          {#each controlMeta as { ctrl, groupDisabled, hidden }}
             {@const focusedRangeCtrl = sliderModeActive ? rangeControls[sliderFocusIndex] : null}
             {#if ctrl.type === "separator"}
               <!-- Plain section divider (no toggle) -->
@@ -1019,10 +1088,15 @@
               </div>
             {:else if ctrl.type === "section"}
               {@const isOn = !!(ctrlVals[ctrl.label] ?? 0)}
-              <!-- Section header with integrated mini toggle -->
+              {@const isCollapsed = collapsedSections.has(ctrl.label)}
+              <!-- Section header with integrated mini toggle + collapse chevron -->
               <div class="mt-1 flex items-center gap-2">
                 <div class="h-px flex-1 bg-white/20"></div>
-                <span class="text-[10px] uppercase tracking-widest text-white/40">{ctrl.label}</span>
+                <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                <span
+                  class="text-[10px] uppercase tracking-widest text-white/40 hover:text-white/60 transition-colors cursor-pointer flex items-center gap-1 select-none"
+                  onclick={() => { const s = new Set(collapsedSections); isCollapsed ? s.delete(ctrl.label) : s.add(ctrl.label); collapsedSections = s; }}
+                >{ctrl.label} <span class="text-[8px] transition-transform duration-200 {isCollapsed ? '' : 'rotate-180 inline-block'}" style="display:inline-block">▼</span></span>
                 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
                 <div
                   class="relative h-[14px] w-[22px] flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 {isOn ? 'bg-white/60' : 'bg-white/20'}"
@@ -1032,7 +1106,7 @@
                 </div>
                 <div class="h-px flex-1 bg-white/20"></div>
               </div>
-            {:else if ctrl.type === "toggle"}
+            {:else if !hidden && ctrl.type === "toggle"}
               {@const isOn = !!(ctrlVals[ctrl.label] ?? 0)}
               <!-- Standalone toggle row -->
               <div class="flex items-center justify-between text-xs text-white/70 transition-opacity duration-200 {groupDisabled ? 'opacity-35 pointer-events-none' : ''}">
@@ -1045,7 +1119,7 @@
                   <div class="absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow transition-transform duration-200 {isOn ? 'translate-x-[11px]' : 'translate-x-[2px]'}"></div>
                 </div>
               </div>
-            {:else}
+            {:else if !hidden}
               <div class="flex flex-col gap-1 transition-all duration-150 {groupDisabled ? 'opacity-35 pointer-events-none' : ''} {ctrl === focusedRangeCtrl ? 'rounded bg-white/10 px-1.5 py-0.5 -mx-1.5' : ''}">
                 {#if ctrl.type !== "button"}
                 <div class="flex justify-between text-xs text-white/70">
@@ -1144,9 +1218,17 @@
     <div class="rounded-md border border-white/10 bg-black/60 px-4 py-3 text-white backdrop-blur-sm">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <div class="text-[10px] font-semibold tracking-[0.3em] text-white/25 mb-1">PATTERN PROJECTOR</div>
+          <div class="text-[10px] font-semibold tracking-[0.3em] text-white/25 mb-1">LICHTSPIEL</div>
           <div class="text-xs uppercase tracking-widest text-white/50">Pattern</div>
-          <div class="text-lg font-semibold">{patterns[index].name}</div>
+          <div class="text-lg font-semibold flex items-center gap-2">
+            <span>{patterns[index].name}</span>
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <span
+              class="pointer-events-auto text-sm transition-colors cursor-pointer {favorites.has(patterns[index].id) ? 'text-yellow-300/80' : 'text-white/20 hover:text-white/50'}"
+              onclick={() => toggleFavorite(patterns[index].id)}
+              title="Toggle favorite"
+            >{favorites.has(patterns[index].id) ? '★' : '☆'}</span>
+          </div>
           <div class="mt-1 text-xs text-white/40">{index + 1} / {patterns.length}</div>
           {#if isFreezing}
             <div class="mt-1 text-xs font-mono text-amber-400/80">FREEZE</div>
@@ -1196,6 +1278,18 @@
           onclick={copyShare}
           title="Copy shareable link"
         >{copiedLink ? '✓ Copied!' : '⛓'}</button>
+        {#if isTouch}
+          <button
+            class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
+            onclick={applyScreenshot}
+            title="Screenshot"
+          >📷</button>
+          <button
+            class="pointer-events-auto rounded-md border px-3 py-1.5 text-xs transition-colors {isRecording ? 'border-red-400/50 bg-red-400/10 text-red-300' : 'border-white/15 bg-white/[0.07] text-white/70 hover:border-white/40 hover:bg-white/15'} active:bg-white/20"
+            onclick={() => recorder?.toggle()}
+            title="Record video"
+          >{isRecording ? '⏹' : '⏺'}</button>
+        {/if}
       </div>
       <div class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-white/70">
         {#if isTouch}

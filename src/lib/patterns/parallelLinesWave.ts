@@ -86,7 +86,7 @@ const fragmentShader = /* glsl */ `
 
 export const parallelLinesWave: Pattern = {
   id: "parallelLinesWave",
-  name: "Parallel Lines — Wave",
+  name: "Parallel Waves",
   controls: [
     { label: "Line Count",      type: "range", min: 10,  max: 120,  step: 1, default: 59,     get: () => lineCount,   set: (v) => { lineCount = v; } },
     { label: "Scroll Speed",    type: "range", min: 0.02,max: 1.0,  step: 0.01, default: 0.02,  get: () => scrollSpeed, set: (v) => { scrollSpeed = v; } },
