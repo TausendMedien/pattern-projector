@@ -1081,7 +1081,7 @@
                 {:else if ctrl.type === "select"}
                   {@const opts = typeof ctrl.options === 'function' ? ctrl.options() : ctrl.options}
                   <select
-                    value={ctrl.get()}
+                    value={ctrlVals[ctrl.label] ?? ctrl.get()}
                     onchange={(e) => { ctrl.set(parseInt((e.target as HTMLSelectElement).value)); saveSettings(patterns); }}
                     class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
                   >

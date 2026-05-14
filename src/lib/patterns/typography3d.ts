@@ -78,15 +78,17 @@ function buildText() {
     outerGeo.scale(1.04, 1.04, 1.04);
     group.add(new THREE.Mesh(outerGeo, matGlow));
   } else {
-    // Solid
-    const mat = new THREE.MeshStandardMaterial({
-      color: hexToColor(primaryColor),
-      emissive: hexToColor(glowColor),
-      emissiveIntensity: 0.3,
-      metalness: 0.4,
-      roughness: 0.5,
-    });
+    // Solid — use MeshBasicMaterial so it's always visible regardless of lighting
+    const mat = new THREE.MeshBasicMaterial({ color: hexToColor(primaryColor) });
     group.add(new THREE.Mesh(geo, mat));
+    // Glow color as a thin edge overlay
+    const edges = new THREE.EdgesGeometry(geo);
+    const edgeMat = new THREE.LineBasicMaterial({
+      color: hexToColor(glowColor),
+      transparent: true,
+      opacity: 0.5,
+    });
+    group.add(new THREE.LineSegments(edges, edgeMat));
   }
 
   scene.add(group);
@@ -134,9 +136,13 @@ export const typography3d: Pattern = {
     dir.position.set(3, 5, 5);
     ctx.scene.add(ambient, dir);
 
-    // Camera pulled back to see the text
+    // Camera pulled back to see the text — reset near/far in case a previous
+    // pattern (e.g. wavySphere) left non-default values.
     ctx.camera.position.set(0, 0, 5);
+    ctx.camera.near = 0.1;
+    ctx.camera.far  = 100;
     ctx.camera.lookAt(0, 0, 0);
+    ctx.camera.updateProjectionMatrix();
 
     if (fontCache) {
       buildText();

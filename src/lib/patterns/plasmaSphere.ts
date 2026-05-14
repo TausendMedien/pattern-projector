@@ -68,16 +68,20 @@ const fragmentShader = /* glsl */ `
   }
 
   // ── Color palettes ─────────────────────────────────────────────────────────
+  // 4-stop ramp: split 0–0.5 and 0.5–0.75 and 0.75–1.0
+  vec3 ramp4(vec3 c0, vec3 c1, vec3 c2, vec3 c3, float v) {
+    if (v < 0.5)  return mix(c0, c1, smoothstep(0.0,  0.5,  v));
+    if (v < 0.75) return mix(c1, c2, smoothstep(0.5,  0.75, v));
+    return              mix(c2, c3, smoothstep(0.75, 1.0,  v));
+  }
+
   vec3 heatPalette(float v) {
-    if (uHeatColor == 0) // Lava: black → deep red → orange → gold
-      return mix(mix(vec3(0.02,0.0,0.0), vec3(0.80,0.10,0.0), smoothstep(0.0,0.5,v)),
-                 mix(vec3(0.80,0.10,0.0), vec3(1.0,0.82,0.1), smoothstep(0.5,1.0,v)), step(0.5,v));
-    if (uHeatColor == 1) // Blue: black → dark blue → cyan-white
-      return mix(mix(vec3(0.0,0.0,0.04), vec3(0.0,0.20,0.90), smoothstep(0.0,0.5,v)),
-                 mix(vec3(0.0,0.20,0.90), vec3(0.1,0.90,1.0), smoothstep(0.5,1.0,v)), step(0.5,v));
-    // Plasma: dark purple → magenta → cyan-white
-    return mix(mix(vec3(0.02,0.0,0.05), vec3(0.60,0.0,0.80), smoothstep(0.0,0.5,v)),
-               mix(vec3(0.60,0.0,0.80), vec3(0.50,1.0,1.0),  smoothstep(0.5,1.0,v)), step(0.5,v));
+    if (uHeatColor == 0) // Lava: black → deep red → orange → bright amber-white
+      return ramp4(vec3(0.02,0.0,0.0), vec3(0.80,0.10,0.0), vec3(1.0,0.55,0.0), vec3(1.0,0.95,0.7), v);
+    if (uHeatColor == 1) // Blue: black → dark blue → cyan → near-white
+      return ramp4(vec3(0.0,0.0,0.04), vec3(0.0,0.20,0.90), vec3(0.1,0.90,1.0), vec3(0.85,0.98,1.0), v);
+    // Plasma: dark purple → magenta → cyan-white → bright neon white
+    return ramp4(vec3(0.02,0.0,0.05), vec3(0.60,0.0,0.80), vec3(0.50,1.0,1.0), vec3(0.9,1.0,1.0), v);
   }
 
   void main() {
@@ -130,7 +134,7 @@ export const plasmaSphere: Pattern = {
     { label: "Heat Color",   type: "select", options: ["Lava", "Blue", "Plasma"],
       get: () => heatColor, set: (v) => { heatColor = v; } },
     { label: "Curvature",    type: "range", min: 0.0, max: 2.0,  step: 0.05,  default: 0.35, get: () => curvature,     set: (v) => { curvature = v; } },
-    { label: "Rotation",     type: "range", min: 0.0, max: 2.0,  step: 0.05,  default: 0.0,  get: () => rotationSpeed, set: (v) => { rotationSpeed = v; } },
+    { label: "Rotation",     type: "range", min: 0.0, max: 0.3,  step: 0.01,  default: 0.0,  get: () => rotationSpeed, set: (v) => { rotationSpeed = v; } },
     { label: "Fly Speed",    type: "range", min: 0.0, max: 2.0,  step: 0.05,  default: 0.0,  get: () => flySpeed,      set: (v) => { flySpeed = v; } },
   ],
 

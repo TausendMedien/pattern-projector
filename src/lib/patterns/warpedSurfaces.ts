@@ -128,7 +128,7 @@ export const warpedSurfaces: Pattern = {
       get: () => warpIterations - 1, set: (v) => { warpIterations = v + 1; } },
     { label: "Noise Scale",  type: "range", min: 0.3, max: 3.0, step: 0.05, default: 1.2, get: () => noiseScale,  set: (v) => { noiseScale = v; } },
     { label: "Warp Amount",  type: "range", min: 0.0, max: 4.0, step: 0.1,  default: 1.6, get: () => warpAmount,  set: (v) => { warpAmount = v; } },
-    { label: "Flow Speed",   type: "range", min: 0.0, max: 0.4, step: 0.005, default: 0.04, get: () => flowSpeed, set: (v) => { flowSpeed = v; } },
+    { label: "Flow Speed",   type: "range", min: 0.0, max: 4.0, step: 0.05, default: 0.04, get: () => flowSpeed, set: (v) => { flowSpeed = v; } },
     { label: "Color Palette", type: "select", options: ["Iridescent", "Fire", "Ocean", "Void"],
       get: () => palette, set: (v) => { palette = v; } },
     { label: "Saturation",   type: "range", min: 0.0, max: 1.0, step: 0.05, default: 0.9,  get: () => saturation, set: (v) => { saturation = v; } },

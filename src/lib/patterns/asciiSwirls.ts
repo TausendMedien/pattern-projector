@@ -168,23 +168,23 @@ const asciiFrag = /* glsl */ `
 
     vec3 col;
     if (uColorMode == 1) {
-      // Magenta/Rose: near-black → deep magenta → rose pink
+      // Magenta/Teal: deep magenta → purple → teal
       col = gradRamp(charMask,
-        vec3(0.05, 0.0,  0.04),
-        vec3(0.85, 0.0,  0.65),
-        vec3(1.0,  0.42, 0.62)) * charMask;
+        vec3(0.70, 0.0,  0.50),
+        vec3(0.40, 0.10, 0.70),
+        vec3(0.0,  0.80, 0.70)) * charMask;
     } else if (uColorMode == 2) {
-      // Cyan/Teal: near-black → teal → bright cyan
+      // Cyan/Amber: cyan → aqua-green → amber
       col = gradRamp(charMask,
-        vec3(0.0,  0.04, 0.04),
-        vec3(0.0,  0.62, 0.52),
-        vec3(0.08, 0.95, 0.92)) * charMask;
+        vec3(0.0,  0.70, 0.90),
+        vec3(0.0,  0.80, 0.50),
+        vec3(0.90, 0.55, 0.0)) * charMask;
     } else if (uColorMode == 3) {
-      // Amber/Gold: near-black → deep amber → bright gold
+      // Amber/Violet: amber → rose → violet
       col = gradRamp(charMask,
-        vec3(0.04, 0.02, 0.0),
-        vec3(0.88, 0.42, 0.0),
-        vec3(1.0,  0.85, 0.12)) * charMask;
+        vec3(0.90, 0.50, 0.0),
+        vec3(0.80, 0.20, 0.50),
+        vec3(0.50, 0.0,  0.90)) * charMask;
     } else {
       // Source (mode 0)
       col = src.rgb * charMask;
@@ -270,7 +270,7 @@ export const asciiSwirls: Pattern = {
       get: () => charSet,
       set: (v) => { charSet = v; rebuildCharTex(); }
     },
-    { label: "Color Mode",  type: "select", options: ["Source", "Magenta/Rose", "Cyan/Teal", "Amber/Gold"],
+    { label: "Color Mode",  type: "select", options: ["Source", "Magenta/Teal", "Cyan/Amber", "Amber/Violet"],
       get: () => colorMode, set: (v) => { colorMode = v; }
     },
     { label: "Swirl Speed", type: "range", min: 0.0, max: 0.3,  step: 0.005, default: 0.05, get: () => swirlSpeed, set: (v) => { swirlSpeed = v; } },

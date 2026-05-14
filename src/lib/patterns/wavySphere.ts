@@ -9,6 +9,7 @@ let waveSpeed     = 0.04;
 let amplitude     = 0.35;
 let rotationSpeed = 0.4;
 let colorShift    = 0.0;
+let palette       = 0;
 
 let accTime = 0;
 let rotX = 0, rotY = 0, rotZ = 0;
@@ -53,23 +54,31 @@ const fragmentShader = /* glsl */ `
   uniform float uTime;
   uniform float uAmplitude;
   uniform float uColorShift;
+  uniform int   uPalette;
+
+  vec3 blendPair(vec3 colA, vec3 colB, float blend) {
+    vec3 dark = vec3(0.02, 0.04, 0.08);
+    if (blend < 0.5) return mix(colA, dark, blend * 2.0);
+    return mix(dark, colB, (blend - 0.5) * 2.0);
+  }
 
   void main() {
-    vec3 gold = vec3(0.95, 0.72, 0.05);
-    vec3 cyan = vec3(0.0,  0.88, 1.0);
-    vec3 dark = vec3(0.02, 0.04, 0.08);
+    vec3 colA, colB;
+    if (uPalette == 1) {
+      colA = vec3(1.0,  0.15, 0.45); // deep pink
+      colB = vec3(0.9,  0.0,  0.80); // magenta
+    } else if (uPalette == 2) {
+      colA = vec3(0.55, 0.0,  1.0);  // violet
+      colB = vec3(0.0,  0.75, 1.0);  // soft cyan
+    } else {
+      colA = vec3(0.95, 0.72, 0.05); // gold
+      colB = vec3(0.0,  0.88, 1.0);  // cyan
+    }
 
-    // Blend gold → dark → cyan to avoid the green midpoint that
-    // a direct gold↔cyan lerp produces.
     float latitude  = clamp(vNorm.y * 0.5 + 0.5, 0.0, 1.0);
     float timeBlend = fract(uTime * 0.018 + uColorShift);
     float blend     = clamp(latitude + timeBlend * 0.6 - 0.3, 0.0, 1.0);
-    vec3 col;
-    if (blend < 0.5) {
-      col = mix(gold, dark, blend * 2.0);
-    } else {
-      col = mix(dark, cyan, (blend - 0.5) * 2.0);
-    }
+    vec3 col = blendPair(colA, colB, blend);
 
     // Wave-depth shadow: valleys dark, crests bright — amplifies visibility
     float normalised = vWave / max(uAmplitude, 0.001);          // -1 .. +1
@@ -78,7 +87,7 @@ const fragmentShader = /* glsl */ `
 
     // Subtle edge darkening (rim)
     float rim = 1.0 - abs(dot(vNorm, vec3(0.0, 0.0, 1.0)));
-    col = mix(col, dark, rim * rim * 0.4);
+    col = mix(col, vec3(0.02, 0.04, 0.08), rim * rim * 0.4);
 
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
   }
@@ -93,6 +102,8 @@ export const wavySphere: Pattern = {
     { label: "Amplitude",    type: "range", min: 0.0, max: 0.80, step: 0.01,  default: 0.35, get: () => amplitude,     set: (v) => { amplitude = v; } },
     { label: "Rotation",     type: "range", min: 0.0, max: 2.0,  step: 0.05,  default: 0.4,  get: () => rotationSpeed, set: (v) => { rotationSpeed = v; } },
     { label: "Color Shift",  type: "range", min: 0.0, max: 1.0,  step: 0.01,  default: 0.0,  get: () => colorShift,    set: (v) => { colorShift = v; } },
+    { label: "Palette",      type: "select", options: ["Gold/Cyan", "Pink/Magenta", "Violet/Cyan"],
+      get: () => palette, set: (v) => { palette = v; } },
   ],
 
   init(ctx: PatternContext) {
@@ -102,6 +113,7 @@ export const wavySphere: Pattern = {
         uTime:       { value: 0 },
         uAmplitude:  { value: amplitude },
         uColorShift: { value: colorShift },
+        uPalette:    { value: palette },
       },
       vertexShader, fragmentShader,
       side: THREE.FrontSide,
@@ -124,6 +136,7 @@ export const wavySphere: Pattern = {
     material.uniforms.uTime.value       = accTime;
     material.uniforms.uAmplitude.value  = amplitude;
     material.uniforms.uColorShift.value = colorShift;
+    material.uniforms.uPalette.value    = palette;
     mesh.rotation.set(rotX, rotY, rotZ);
   },
 
@@ -133,5 +146,6 @@ export const wavySphere: Pattern = {
     geometry?.dispose(); material?.dispose();
     mesh = null; geometry = null; material = null;
     accTime = 0; rotX = 0; rotY = 0; rotZ = 0;
+    palette = 0;
   },
 };
