@@ -763,7 +763,7 @@
 
     <div class="shrink-0 pt-10 pb-4 text-center">
       <p class="text-sm uppercase tracking-[0.35em] text-white/60">Lichtspiel</p>
-      <p class="text-[10px] tracking-widest text-white/30">by 1000lights</p>
+      <p class="text-[10px] tracking-widest text-white/30">by <a href="https://1000lights.de" target="_blank" rel="noopener noreferrer" class="hover:text-white/60 transition-colors">1000lights</a></p>
     </div>
 
     <!-- Favorites filter bar -->
