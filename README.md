@@ -1,6 +1,6 @@
-# Pattern Projector
+# Lichtspiel
 
-A browser-based, keyboard-operated abstract pattern projector built with Svelte 5, Three.js, and Tailwind CSS. Drop it on a projector PC, go fullscreen, and cycle through animated visuals entirely from the keyboard.
+A browser-based, keyboard-operated abstract visual instrument built with Svelte 5, Three.js, and Tailwind CSS. Drop it on a projector PC, go fullscreen, and cycle through animated visuals entirely from the keyboard.
 
 ## Controls
 

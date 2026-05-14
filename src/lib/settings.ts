@@ -1,7 +1,18 @@
 import { z } from "zod";
 import type { Pattern } from "./patterns/types";
 
-const STORAGE_KEY = "pattern-projector-settings";
+// migrate from old key on first load
+(function migrate() {
+  try {
+    const old = localStorage.getItem("pattern-projector-settings");
+    if (old && !localStorage.getItem("lichtspiel-settings")) {
+      localStorage.setItem("lichtspiel-settings", old);
+      localStorage.removeItem("pattern-projector-settings");
+    }
+  } catch {}
+})();
+
+const STORAGE_KEY = "lichtspiel-settings";
 const SETTINGS_VERSION = 1;
 
 const SettingsSchema = z.object({
@@ -43,7 +54,7 @@ export function loadSettings(patterns: Pattern[]): void {
   }
 }
 
-const DEMO_KEY = "pattern-projector-demo";
+const DEMO_KEY = "lichtspiel-demo";
 
 const DemoSchema = z.object({
   demoActive: z.boolean(),

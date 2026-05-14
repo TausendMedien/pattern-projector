@@ -1,4 +1,4 @@
-# Pattern Projector — Claude Code Guidelines
+# Lichtspiel — Claude Code Guidelines
 
 ## Stack (do not deviate)
 - **Runtime/package manager:** Bun only. Never use npm, npx, yarn, or pnpm.
@@ -41,6 +41,11 @@ No other wiring needed — the keyboard `1`–`9` jump and arrow cycle pick it u
 
 ## Deployment
 GitHub Pages via `.github/workflows/pages.yml`. Builds `dist/` on push to `main`. Enable Pages in repo settings (source: **GitHub Actions**).
+
+## Autonomy
+- Make technical decisions independently
+- No questions about libraries, file structure, or configuration
+- If multiple options exist: implement all of them so I can test visually
 
 ## Git workflow
 Push directly to `main`. Do not open pull requests.
