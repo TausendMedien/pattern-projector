@@ -14,7 +14,9 @@ export type GamepadAction =
   | { type: "sliderRight" }
   | { type: "blackout" }
   | { type: "resetToDefault" }
-  | { type: "toggleOverlay" };
+  | { type: "toggleOverlay" }
+  | { type: "toggleCheatsheet" }
+  | { type: "escape" };
 
 export interface GamepadController {
   poll(now: number): void;
@@ -23,20 +25,25 @@ export interface GamepadController {
 
 // Standard HID gamepad button indices
 // Face buttons follow positional layout (South/East/West/North)
-// consistent between 8BitDo (B/A/Y/X) and PlayStation (×/○/□/△)
-const BTN_SOUTH           = 0;  // South: × / B  → Reset to default
-const BTN_RANDOMIZE       = 1;  // East:  ○ / A  → Randomize
-const BTN_TOGGLE_OVERLAY  = 2;  // West:  □ / Y  → Toggle Overlay (hide/show HUD)
-const BTN_BLACKOUT        = 3;  // North: △ / X  → Blackout toggle
-const BTN_L1              = 4;
-const BTN_R1              = 5;  // Screenshot
-const BTN_START           = 9;  // Options/Start → Freeze
-const BTN_L2              = 6;  // Toggle Recording
-const BTN_R2              = 7;  // Toggle Camera
+// consistent between DualShock/DualSense (×/○/□/△) and Xbox (A/B/X/Y)
+const BTN_SOUTH           = 0;  // South: × / A   → Reset to default
+const BTN_RANDOMIZE       = 1;  // East:  ○ / B   → Randomize
+const BTN_TOGGLE_OVERLAY  = 2;  // West:  □ / X   → Toggle Overlay (hide/show HUD)
+const BTN_BLACKOUT        = 3;  // North: △ / Y   → Blackout toggle
+const BTN_L1              = 4;  // L1 / LB         → Controls Reference
+const BTN_R1              = 5;  // R1 / RB         → Screenshot
+const BTN_L2              = 6;  // L2 / LT         → Toggle Recording
+const BTN_R2              = 7;  // R2 / RT         → Toggle Camera
+const BTN_SHARE           = 8;  // Share / Back    → Overview / back
+const BTN_START           = 9;  // Options / Start → Freeze
 const BTN_DPAD_U    = 12;
 const BTN_DPAD_D    = 13;
 const BTN_DPAD_L    = 14;
 const BTN_DPAD_R    = 15;
+
+// Right analog stick axes (standard HID mapping, works on DS4/DualSense/Xbox)
+const AXIS_RIGHT_H = 2;  // horizontal: left < 0, right > 0
+const AXIS_RIGHT_V = 3;  // vertical:   up < 0,   down > 0
 
 const INITIAL_DELAY_MS   = 400;
 const REPEAT_INTERVAL_MS = 100;
@@ -52,7 +59,8 @@ function readDPad(gp: Gamepad): DPad {
   const bR = gp.buttons[BTN_DPAD_R]?.pressed ?? false;
   if (bU || bD || bL || bR) return { up: bU, down: bD, left: bL, right: bR };
 
-  // Axis-based D-Pad fallback (controllers without analog sticks, e.g. 8BitDo Micro in D-mode)
+  // Axis-based D-Pad fallback (controllers without separate D-Pad buttons, e.g. 8BitDo Micro in D-mode)
+  // Try axis pairs in order: [6,7], [4,5], [0,1]
   const pairs: [number, number][] = [[6, 7], [4, 5], [0, 1]];
   for (const [hAxis, vAxis] of pairs) {
     if (gp.axes.length > vAxis) {
@@ -74,13 +82,11 @@ function readDPad(gp: Gamepad): DPad {
 export function createGamepadController(
   handler: (action: GamepadAction) => void,
   onConnectionChange: (connected: boolean) => void,
-  onL1Change: (held: boolean) => void,
 ): GamepadController {
   let gamepadIndex: number | null = null;
   let prevButtons: Record<number, boolean> = {};
   let prevAxes: Record<number, number> = {};
   let prevDPad: DPad = { up: false, down: false, left: false, right: false };
-  let prevL1 = false;
   const repeating = new Map<string, RepeatEntry>();
 
   function logGamepad(gp: Gamepad) {
@@ -108,10 +114,8 @@ export function createGamepadController(
       prevButtons = {};
       prevAxes = {};
       prevDPad = { up: false, down: false, left: false, right: false };
-      prevL1 = false;
       repeating.clear();
       onConnectionChange(false);
-      onL1Change(false);
     }
   }
 
@@ -166,23 +170,23 @@ export function createGamepadController(
       }
     }
 
-    const l1 = isPressed(gp, BTN_L1);
-    const dp  = readDPad(gp);
-
-    if (l1 !== prevL1) onL1Change(l1);
-
+    const dp = readDPad(gp);
     const activeRepeatKeys = new Set<string>();
 
-    if (l1) {
-      if (dp.up)    { fireRepeatable({ type: "focusUp" },    now); activeRepeatKeys.add("focusUp"); }
-      if (dp.down)  { fireRepeatable({ type: "focusDown" },  now); activeRepeatKeys.add("focusDown"); }
-      if (dp.left)  { fireRepeatable({ type: "sliderLeft" }, now); activeRepeatKeys.add("sliderLeft"); }
-      if (dp.right) { fireRepeatable({ type: "sliderRight" },now); activeRepeatKeys.add("sliderRight"); }
-    } else {
-      if (dp.up)   { fireRepeatable({ type: "speedUp" },   now); activeRepeatKeys.add("speedUp"); }
-      if (dp.down) { fireRepeatable({ type: "speedDown" }, now); activeRepeatKeys.add("speedDown"); }
-      if (dp.left  && !prevDPad.left)  handler({ type: "prev" });
-      if (dp.right && !prevDPad.right) handler({ type: "next" });
+    // D-Pad: speed up/down and prev/next (no modifier needed)
+    if (dp.up)   { fireRepeatable({ type: "speedUp" },   now); activeRepeatKeys.add("speedUp"); }
+    if (dp.down) { fireRepeatable({ type: "speedDown" }, now); activeRepeatKeys.add("speedDown"); }
+    if (dp.left  && !prevDPad.left)  handler({ type: "prev" });
+    if (dp.right && !prevDPad.right) handler({ type: "next" });
+
+    // Right analog stick → switch slider (↑↓) / adjust slider (←→)
+    if (gp.axes.length > AXIS_RIGHT_V) {
+      const rh = gp.axes[AXIS_RIGHT_H] ?? 0;
+      const rv = gp.axes[AXIS_RIGHT_V] ?? 0;
+      if (rv < -AXIS_THRESHOLD) { fireRepeatable({ type: "focusUp" },    now); activeRepeatKeys.add("focusUp"); }
+      if (rv >  AXIS_THRESHOLD) { fireRepeatable({ type: "focusDown" },  now); activeRepeatKeys.add("focusDown"); }
+      if (rh < -AXIS_THRESHOLD) { fireRepeatable({ type: "sliderLeft" }, now); activeRepeatKeys.add("sliderLeft"); }
+      if (rh >  AXIS_THRESHOLD) { fireRepeatable({ type: "sliderRight" },now); activeRepeatKeys.add("sliderRight"); }
     }
 
     for (const key of repeating.keys()) {
@@ -192,12 +196,14 @@ export function createGamepadController(
     // Single-fire buttons
     if (wasJustPressed(gp, BTN_SOUTH))           handler({ type: "resetToDefault" });
     if (wasJustPressed(gp, BTN_START))           handler({ type: "freeze" });
-    if (wasJustPressed(gp, BTN_RANDOMIZE))      handler({ type: "randomize" });
-    if (wasJustPressed(gp, BTN_TOGGLE_OVERLAY)) handler({ type: "toggleOverlay" });
-    if (wasJustPressed(gp, BTN_BLACKOUT))       handler({ type: "blackout" });
-    if (wasJustPressed(gp, BTN_R1))             handler({ type: "screenshot" });
-    if (wasJustPressed(gp, BTN_L2))             handler({ type: "toggleRecording" });
-    if (wasJustPressed(gp, BTN_R2))             handler({ type: "toggleCamera" });
+    if (wasJustPressed(gp, BTN_RANDOMIZE))       handler({ type: "randomize" });
+    if (wasJustPressed(gp, BTN_TOGGLE_OVERLAY))  handler({ type: "toggleOverlay" });
+    if (wasJustPressed(gp, BTN_BLACKOUT))        handler({ type: "blackout" });
+    if (wasJustPressed(gp, BTN_R1))              handler({ type: "screenshot" });
+    if (wasJustPressed(gp, BTN_L1))              handler({ type: "toggleCheatsheet" });
+    if (wasJustPressed(gp, BTN_L2))              handler({ type: "toggleRecording" });
+    if (wasJustPressed(gp, BTN_R2))              handler({ type: "toggleCamera" });
+    if (wasJustPressed(gp, BTN_SHARE))           handler({ type: "escape" });
 
     for (let i = 0; i < gp.buttons.length; i++) {
       prevButtons[i] = gp.buttons[i]?.pressed ?? false;
@@ -206,7 +212,6 @@ export function createGamepadController(
       prevAxes[i] = gp.axes[i] ?? 0;
     }
     prevDPad = { ...dp };
-    prevL1 = l1;
   }
 
   function dispose() {

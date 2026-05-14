@@ -61,9 +61,8 @@
 
   // Gamepad / controller state
   let gamepadConnected = $state(false);
-  let gpL1Held = $state(false);   // gamepad L1
   let kbRHeld  = $state(false);   // keyboard R hold
-  const sliderModeActive = $derived(gpL1Held || kbRHeld);
+  const sliderModeActive = $derived(kbRHeld);
   let screenshotFlash = $state(false);
   let isRecording = $state(false);
   let recorder: RecorderHandle | null = null;
@@ -549,7 +548,13 @@
       case "toggleRecording":  recorder?.toggle(); break;
       case "randomize":        startRandomize(performance.now()); break;
       case "toggleCamera":     toggleCamera(); break;
-      case "toggleOverlay":    overlayHidden = !overlayHidden; break;
+      case "toggleOverlay":     overlayHidden = !overlayHidden; break;
+      case "toggleCheatsheet":  cheatsheetVisible = !cheatsheetVisible; return;
+      case "escape":
+        overlayHidden = false;
+        if (appState === "active") { focusedIndex = index; appState = "overview"; }
+        else if (appState === "preview") activatePattern(focusedIndex);
+        return;
       case "focusUp":
         sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); break;
       case "focusDown":
@@ -577,7 +582,6 @@
     const gpController = createGamepadController(
       handleGamepadAction,
       (c) => { gamepadConnected = c; },
-      (held) => { gpL1Held = held; },
     );
 
     const midiController = createMIDIController(
@@ -899,18 +903,20 @@
           <table class="w-full border-collapse">
             <tbody>
               {#each [
-                ["× South", "Reset controls"],
-                ["Start (btn 9)", "Freeze toggle"],
-                ["○ East", "Randomize controls"],
-                ["△ North", "Blackout toggle"],
-                ["□ West", "Hide / show HUD"],
-                ["R1", "Screenshot"],
-                ["L2", "Record video"],
-                ["R2", "Camera toggle"],
+                ["× South  /  A", "Reset controls"],
+                ["Start / Options", "Freeze toggle"],
+                ["○ East  /  B", "Randomize controls"],
+                ["△ North  /  Y", "Blackout toggle"],
+                ["□ West  /  X", "Hide / show HUD"],
+                ["R1 / RB", "Screenshot"],
+                ["L1 / LB", "Controls Reference"],
+                ["L2 / LT", "Record video"],
+                ["R2 / RT", "Camera toggle"],
+                ["Share / Back", "Overview / back"],
                 ["D-Pad ← →", "Prev / next pattern"],
                 ["D-Pad ↑ ↓", "Speed +/−"],
-                ["L1 (hold) + ↑↓", "Switch slider"],
-                ["L1 (hold) + ←→", "Adjust slider"],
+                ["R-Stick ↑↓", "Switch slider"],
+                ["R-Stick ←→", "Adjust slider"],
               ] as row}
                 <tr class="border-b border-white/[0.06]">
                   <td class="py-1.5 pr-3 font-mono text-xs text-white/80 whitespace-nowrap">{row[0]}</td>
