@@ -28,7 +28,7 @@ export default defineConfig({
       manifest: false,
     }),
   ],
-  base: "./",
+  base: "/lichtspiel/",
   define: {
     __COMMIT__: JSON.stringify(commitHash),
   },
