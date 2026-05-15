@@ -48,19 +48,22 @@ const AXIS_THRESHOLD     = 0.5;
 interface RepeatEntry { nextFire: number; }
 interface DPad { up: boolean; down: boolean; left: boolean; right: boolean; }
 
-// Try axes [2,3] then [4,5]; on DualShock without "standard" mapping,
-// axes 2,3 are L2/R2 analog and the right stick lives at 4,5.
+// Locate the right analog stick regardless of controller mapping.
+// With "standard" mapping axes 2,3 are guaranteed. Without it (DualShock
+// via Bluetooth / raw HID), scan all consecutive axis pairs from index 2
+// and pick the pair with the greatest combined deflection.
 function readRightStick(gp: Gamepad): { rh: number; rv: number } {
-  const candidates: [number, number][] = [[2, 3], [4, 5]];
-  for (const [hi, vi] of candidates) {
-    if (gp.axes.length > vi) {
-      const rh = gp.axes[hi] ?? 0;
-      const rv = gp.axes[vi] ?? 0;
-      if (Math.abs(rh) > AXIS_THRESHOLD || Math.abs(rv) > AXIS_THRESHOLD)
-        return { rh, rv };
-    }
+  if (gp.mapping === 'standard') {
+    return { rh: gp.axes[2] ?? 0, rv: gp.axes[3] ?? 0 };
   }
-  return { rh: 0, rv: 0 };
+  let bestMag = 0, rh = 0, rv = 0;
+  for (let i = 2; i + 1 < gp.axes.length; i++) {
+    const a = gp.axes[i] ?? 0;
+    const b = gp.axes[i + 1] ?? 0;
+    const mag = Math.abs(a) + Math.abs(b);
+    if (mag > bestMag) { bestMag = mag; rh = a; rv = b; }
+  }
+  return { rh, rv };
 }
 
 function readDPad(gp: Gamepad): DPad {
@@ -71,8 +74,8 @@ function readDPad(gp: Gamepad): DPad {
   if (bU || bD || bL || bR) return { up: bU, down: bD, left: bL, right: bR };
 
   // Axis-based D-Pad fallback (controllers without separate D-Pad buttons, e.g. 8BitDo Micro in D-mode)
-  // Try axis pairs in order: [6,7], [4,5], [0,1]
-  const pairs: [number, number][] = [[6, 7], [4, 5], [0, 1]];
+  // [4,5] intentionally excluded — those axes may be the right stick on DualShock without standard mapping.
+  const pairs: [number, number][] = [[6, 7], [0, 1]];
   for (const [hAxis, vAxis] of pairs) {
     if (gp.axes.length > vAxis) {
       const h = gp.axes[hAxis] ?? 0;
