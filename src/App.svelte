@@ -33,14 +33,26 @@
   let isIosStandalone = $state(false);
   let isIosBrowser = $state(false);
 
-  // Global CSS color filter applied to canvas
-  let colorHue = $state(0);
-  let colorSat = $state(100);
-  let colorBright = $state(100);
-  const COLOR_FILTER_KEY = 'pp:colorFilter';
+  // Standard color palette
+  const PALETTE_DEFAULTS = {
+    cyan:    '#00ffff',
+    magenta: '#ff00ff',
+    purple:  '#9900ff',
+    gold:    '#ffd700',
+    white:   '#ffffff',
+    black:   '#000000',
+  } as const;
+  type PaletteKey = keyof typeof PALETTE_DEFAULTS;
+  const PALETTE_KEY = 'pp:palette';
 
-  function saveColorFilter() {
-    localStorage.setItem(COLOR_FILTER_KEY, JSON.stringify({ hue: colorHue, sat: colorSat, bright: colorBright }));
+  let palette = $state({ ...PALETTE_DEFAULTS });
+
+  function savePalette() {
+    localStorage.setItem(PALETTE_KEY, JSON.stringify(palette));
+  }
+  function resetPaletteColor(key: PaletteKey) {
+    palette[key] = PALETTE_DEFAULTS[key];
+    savePalette();
   }
 
   // Demo mode
@@ -366,11 +378,6 @@
         ctrlVals[ctrl.label] = idx;
       }
     }
-    // Also randomize global color theme
-    colorHue   = Math.floor(Math.random() * 360);
-    colorSat   = 60 + Math.floor(Math.random() * 80);   // 60–140%
-    colorBright = 85 + Math.floor(Math.random() * 30);  // 85–115%
-    saveColorFilter();
     randomizeAnims = anims;
   }
 
@@ -659,13 +666,13 @@
 
     loadFavorites();
 
-    const rawCF = localStorage.getItem(COLOR_FILTER_KEY);
-    if (rawCF) {
+    const rawP = localStorage.getItem(PALETTE_KEY);
+    if (rawP) {
       try {
-        const cf = JSON.parse(rawCF);
-        if (typeof cf.hue === 'number') colorHue = cf.hue;
-        if (typeof cf.sat === 'number') colorSat = cf.sat;
-        if (typeof cf.bright === 'number') colorBright = cf.bright;
+        const p = JSON.parse(rawP);
+        for (const k of Object.keys(PALETTE_DEFAULTS) as PaletteKey[]) {
+          if (typeof p[k] === 'string' && /^#[0-9a-fA-F]{6}$/.test(p[k])) palette[k] = p[k];
+        }
       } catch {}
     }
 
@@ -836,7 +843,6 @@
 <canvas bind:this={debugCanvas} class="pointer-events-none fixed inset-0 z-30 w-full h-full"></canvas>
 
 <canvas bind:this={canvas} class="block w-full h-full"
-  style="filter: hue-rotate({colorHue}deg) saturate({colorSat}%) brightness({colorBright}%)"
   onclick={() => { if (appState !== "overview" && !isTouch) hudVisible = false; }}
   ontouchstart={() => { if (appState !== "overview") poke(); }}
 ></canvas>
@@ -945,62 +951,36 @@
       {/if}
     </div>
 
-    <!-- Global Color Theme -->
+    <!-- Custom Palette -->
     <div class="w-full max-w-lg px-3 pb-5">
       <div class="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
         <div class="mb-3 flex items-center justify-between gap-2">
-          <span class="text-xs uppercase tracking-widest text-white/50">Global Color Theme</span>
+          <span class="text-xs uppercase tracking-widest text-white/50">Custom</span>
           <button
-            onclick={() => { colorHue = 0; colorSat = 100; colorBright = 100; saveColorFilter(); }}
+            onclick={() => { palette = { ...PALETTE_DEFAULTS }; savePalette(); }}
             class="rounded px-2 py-0.5 text-[10px] text-white/50 border border-white/15 hover:border-white/40 hover:text-white/80 transition-colors cursor-pointer"
-          >Reset</button>
+          >Reset All</button>
         </div>
-        <!-- Presets -->
-        <div class="mb-3 flex flex-wrap gap-1.5">
-          {#each [
-            { label: 'Default',     hue: 0,   sat: 100, bright: 100 },
-            { label: 'Warm',        hue: 30,  sat: 120, bright: 105 },
-            { label: 'Cool Blue',   hue: 200, sat: 110, bright:  95 },
-            { label: 'Monochrome',  hue: 0,   sat:   0, bright: 100 },
-          ] as preset}
-            <button
-              onclick={() => { colorHue = preset.hue; colorSat = preset.sat; colorBright = preset.bright; saveColorFilter(); }}
-              class="rounded-full border px-3 py-1 text-[11px] transition-colors cursor-pointer
-                {colorHue === preset.hue && colorSat === preset.sat && colorBright === preset.bright
-                  ? 'border-white/40 bg-white/15 text-white'
-                  : 'border-white/15 text-white/50 hover:border-white/30'}"
-            >{preset.label}</button>
-          {/each}
-        </div>
-        <!-- Sliders -->
         <div class="flex flex-col gap-2">
-          <div class="flex flex-col gap-0.5">
-            <div class="flex justify-between text-xs text-white/70">
-              <span>Hue Shift</span>
-              <span class="font-mono text-white/40">{colorHue}°</span>
+          {#each Object.entries(PALETTE_DEFAULTS) as [key]}
+            {@const k = key as PaletteKey}
+            <div class="flex items-center gap-2">
+              <input
+                type="color"
+                value={palette[k]}
+                oninput={(e) => { palette[k] = (e.target as HTMLInputElement).value; savePalette(); }}
+                class="h-7 w-10 cursor-pointer rounded border border-white/20 bg-transparent p-0.5 shrink-0"
+              />
+              <span class="text-xs text-white/70 capitalize w-16 shrink-0">{key}</span>
+              <span class="font-mono text-xs text-white/40 flex-1">{palette[k]}</span>
+              {#if palette[k] !== PALETTE_DEFAULTS[k]}
+                <button
+                  onclick={() => resetPaletteColor(k)}
+                  class="text-[10px] text-white/40 hover:text-white/70 border border-white/15 hover:border-white/40 rounded px-1.5 py-0.5 transition-colors cursor-pointer shrink-0"
+                >↺</button>
+              {/if}
             </div>
-            <input type="range" min={0} max={360} step={1} value={colorHue}
-              oninput={(e) => { colorHue = parseInt((e.target as HTMLInputElement).value); saveColorFilter(); }}
-              class="w-full accent-white cursor-pointer" />
-          </div>
-          <div class="flex flex-col gap-0.5">
-            <div class="flex justify-between text-xs text-white/70">
-              <span>Saturation</span>
-              <span class="font-mono text-white/40">{colorSat}%</span>
-            </div>
-            <input type="range" min={0} max={200} step={1} value={colorSat}
-              oninput={(e) => { colorSat = parseInt((e.target as HTMLInputElement).value); saveColorFilter(); }}
-              class="w-full accent-white cursor-pointer" />
-          </div>
-          <div class="flex flex-col gap-0.5">
-            <div class="flex justify-between text-xs text-white/70">
-              <span>Brightness</span>
-              <span class="font-mono text-white/40">{colorBright}%</span>
-            </div>
-            <input type="range" min={50} max={150} step={1} value={colorBright}
-              oninput={(e) => { colorBright = parseInt((e.target as HTMLInputElement).value); saveColorFilter(); }}
-              class="w-full accent-white cursor-pointer" />
-          </div>
+          {/each}
         </div>
       </div>
     </div>

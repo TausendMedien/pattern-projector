@@ -25,6 +25,8 @@ import { wavySphere } from "./wavySphere";
 import { plasmaSphere } from "./plasmaSphere";
 import { crystalGem } from "./crystalGem";
 import { asciiSwirls } from "./asciiSwirls";
+import { particlesPalette } from "./particlesPalette";
+import { tunnelEdgePalette } from "./tunnelEdgePalette";
 import { typography3d } from "./typography3d";
 import { wrapWithPersist } from "../persist";
 import { addMotionCamera } from "../motionCameraWrapper";
@@ -63,6 +65,8 @@ const rawPatterns: Pattern[] = [
   wavySphere,
   plasmaSphere,
   crystalGem,
+  particlesPalette,
+  tunnelEdgePalette,
   typography3d,
   lightTrail,
   lightPaint,
