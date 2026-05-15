@@ -52,6 +52,9 @@ export async function startPoseTracking(): Promise<void> {
   poseState.active = true;
 
   let lastVideoTime = -1;
+  // EMA smoothing: lower = smoother but more lag, higher = more responsive
+  const ALPHA = 0.18;
+  let smoothed: PersonPoints[][] = [];
 
   function detect() {
     if (!landmarker || !video || !poseState.active) return;
@@ -59,18 +62,29 @@ export async function startPoseTracking(): Promise<void> {
     if (video.currentTime !== lastVideoTime) {
       lastVideoTime = video.currentTime;
       const results = landmarker.detectForVideo(video, performance.now());
-      poseState.persons = results.landmarks.map((lms) => {
+      const raw = results.landmarks.map((lms) => {
         const lw = lms[15]; // left wrist
         const rw = lms[16]; // right wrist
         const lh = lms[23]; // left hip
         const rh = lms[24]; // right hip
-        // Mirror x so user sees themselves naturally (left wrist → left side of screen)
         return [
           { x: 1 - lw.x, y: lw.y },
           { x: 1 - rw.x, y: rw.y },
           { x: 1 - (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 },
         ];
       });
+
+      // Reset smoothing buffer when person count changes
+      if (raw.length !== smoothed.length) smoothed = raw.map(p => p.map(pt => ({ ...pt })));
+
+      // EMA per landmark
+      smoothed = raw.map((person, pi) =>
+        person.map((pt, ji) => ({
+          x: ALPHA * pt.x + (1 - ALPHA) * (smoothed[pi]?.[ji]?.x ?? pt.x),
+          y: ALPHA * pt.y + (1 - ALPHA) * (smoothed[pi]?.[ji]?.y ?? pt.y),
+        }))
+      );
+      poseState.persons = smoothed;
     }
     rafId = requestAnimationFrame(detect);
   }

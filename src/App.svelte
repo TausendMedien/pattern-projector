@@ -80,6 +80,8 @@
   let poseActive = $state(false);
   let poseError = $state<string | null>(null);
   let poseLoading = $state(false);
+  let poseDebug = $state(false);
+  let debugCanvas: HTMLCanvasElement | undefined = $state();
 
   async function togglePoseTracking() {
     if (poseLoading) return;
@@ -250,6 +252,9 @@
     // Any action dismisses the cheatsheet
     if (cheatsheetVisible) { cheatsheetVisible = false; return; }
 
+    // Global regardless of state
+    if (action.type === "togglePose") { togglePoseTracking(); return; }
+
     // Overview: navigation + activate only; all other actions suppressed
     if (appState === "overview") {
       switch (action.type) {
@@ -296,7 +301,6 @@
       case "screenshot":       applyScreenshot(); return;
       case "toggleRecording":  recorder?.toggle(); return;
       case "toggleCamera":     toggleCamera();        return;
-      case "togglePose":       togglePoseTracking();  return;
       case "speedUp":          applySpeedUp();   return;
       case "speedDown":        applySpeedDown(); return;
       case "focusUp":          sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); return;
@@ -725,6 +729,51 @@
       const pc = poseState.persons.length;
       if (posePersonCount !== pc) posePersonCount = pc;
 
+      // Debug overlay: draw landmarks on canvas
+      if (poseDebug && debugCanvas) {
+        const dw = window.innerWidth, dh = window.innerHeight;
+        if (debugCanvas.width !== dw) debugCanvas.width = dw;
+        if (debugCanvas.height !== dh) debugCanvas.height = dh;
+        const dCtx = debugCanvas.getContext('2d');
+        if (dCtx) {
+          dCtx.clearRect(0, 0, dw, dh);
+          // Point labels and colors: [leftWrist, rightWrist, hipCenter]
+          const COLORS = ['#00ff88', '#4499ff', '#ffcc00'];
+          const LABELS = ['LW', 'RW', 'HIP'];
+          poseState.persons.forEach((person, pi) => {
+            person.forEach((pt, ji) => {
+              const cx = pt.x * dw, cy = pt.y * dh;
+              dCtx.beginPath();
+              dCtx.arc(cx, cy, 14, 0, Math.PI * 2);
+              dCtx.fillStyle = COLORS[ji] + '44';
+              dCtx.fill();
+              dCtx.strokeStyle = COLORS[ji];
+              dCtx.lineWidth = 2.5;
+              dCtx.stroke();
+              dCtx.fillStyle = COLORS[ji];
+              dCtx.font = 'bold 11px monospace';
+              dCtx.textAlign = 'center';
+              dCtx.textBaseline = 'middle';
+              dCtx.fillText(`P${pi + 1} ${LABELS[ji]}`, cx, cy);
+            });
+          });
+          // Legend
+          dCtx.font = '11px monospace';
+          dCtx.textAlign = 'left';
+          COLORS.forEach((c, i) => {
+            dCtx.fillStyle = c;
+            dCtx.fillRect(12, 12 + i * 18, 10, 10);
+            dCtx.fillStyle = 'rgba(255,255,255,0.8)';
+            dCtx.fillText(LABELS[i], 26, 18 + i * 18);
+          });
+          dCtx.fillStyle = 'rgba(255,255,255,0.5)';
+          dCtx.fillText(`${poseState.persons.length} person(s)`, 12, 68);
+        }
+      } else if (debugCanvas) {
+        const dCtx = debugCanvas.getContext('2d');
+        dCtx?.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
+      }
+
       liveRaf = requestAnimationFrame(liveSync);
     };
     liveRaf = requestAnimationFrame(liveSync);
@@ -773,6 +822,8 @@
   });
 </script>
 
+<canvas bind:this={debugCanvas} class="pointer-events-none fixed inset-0 z-30 w-full h-full"></canvas>
+
 <canvas bind:this={canvas} class="block w-full h-full"
   style="filter: hue-rotate({colorHue}deg) saturate({colorSat}%) brightness({colorBright}%)"
   onclick={() => { if (appState !== "overview" && !isTouch) hudVisible = false; }}
@@ -805,7 +856,7 @@
     </div>
 
     <!-- Favorites filter bar -->
-    <div class="flex gap-1.5 px-3 pb-3">
+    <div class="flex gap-1.5 px-3 pb-3 flex-wrap justify-center">
       <button
         class="rounded-full border px-3 py-1 text-[11px] transition-colors cursor-pointer
           {!showFavoritesOnly ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 text-white/50 hover:border-white/30'}"
@@ -816,6 +867,25 @@
           {showFavoritesOnly ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 text-white/50 hover:border-white/30'}"
         onclick={() => { showFavoritesOnly = true; }}
       >★ Favorites</button>
+      <div class="flex gap-1">
+        <button
+          class="rounded-full border px-3 py-1 text-[11px] transition-colors cursor-pointer
+            {poseActive ? 'border-green-400/50 bg-green-400/15 text-green-300' : poseError ? 'border-red-400/40 text-red-300/70' : 'border-white/15 text-white/50 hover:border-white/30'}"
+          onclick={togglePoseTracking}
+          disabled={poseLoading}
+          title={poseError ?? (poseActive ? "Stop body tracking (T)" : "Start body tracking (T)")}
+        >
+          {#if poseLoading}⟳ Pose…{:else if poseActive}◉ Pose{posePersonCount > 0 ? ` (${posePersonCount})` : ''}{:else if poseError}✕ Pose{:else}◎ Pose{/if}
+        </button>
+        {#if poseActive}
+          <button
+            class="rounded-full border px-2.5 py-1 text-[11px] transition-colors cursor-pointer
+              {poseDebug ? 'border-yellow-400/50 bg-yellow-400/15 text-yellow-300' : 'border-white/15 text-white/40 hover:border-white/30'}"
+            onclick={() => { poseDebug = !poseDebug; }}
+            title="Toggle landmark debug overlay"
+          >⊹</button>
+        {/if}
+      </div>
     </div>
 
     <div class="grid grid-cols-3 gap-2 px-3 w-full max-w-lg pb-4">
@@ -1317,23 +1387,33 @@
           >
             {demoActive ? "● Demo" : "Demo"}
           </button>
-          <button
-            class="pointer-events-auto rounded-md border px-3 py-1.5 text-xs transition-colors active:bg-white/20
-              {poseActive ? 'border-green-400/50 bg-green-400/10 text-green-300' : poseError ? 'border-red-400/40 bg-red-400/10 text-red-300' : 'border-white/15 bg-white/[0.07] text-white/70 hover:border-white/40 hover:bg-white/15'}"
-            onclick={togglePoseTracking}
-            title={poseError ?? (poseActive ? "Stop body tracking (T)" : "Start body tracking (T)")}
-            disabled={poseLoading}
-          >
-            {#if poseLoading}
-              ⟳ Pose…
-            {:else if poseActive}
-              ◉ Pose {posePersonCount > 0 ? `(${posePersonCount})` : ''}
-            {:else if poseError}
-              ✕ Pose
-            {:else}
-              ◎ Pose
+          <div class="flex gap-1">
+            <button
+              class="pointer-events-auto flex-1 rounded-md border px-3 py-1.5 text-xs transition-colors active:bg-white/20
+                {poseActive ? 'border-green-400/50 bg-green-400/10 text-green-300' : poseError ? 'border-red-400/40 bg-red-400/10 text-red-300' : 'border-white/15 bg-white/[0.07] text-white/70 hover:border-white/40 hover:bg-white/15'}"
+              onclick={togglePoseTracking}
+              title={poseError ?? (poseActive ? "Stop body tracking (T)" : "Start body tracking (T)")}
+              disabled={poseLoading}
+            >
+              {#if poseLoading}
+                ⟳ Pose…
+              {:else if poseActive}
+                ◉ Pose {posePersonCount > 0 ? `(${posePersonCount})` : ''}
+              {:else if poseError}
+                ✕ Pose
+              {:else}
+                ◎ Pose
+              {/if}
+            </button>
+            {#if poseActive}
+              <button
+                class="pointer-events-auto rounded-md border px-2 py-1.5 text-xs transition-colors active:bg-white/20
+                  {poseDebug ? 'border-yellow-400/50 bg-yellow-400/10 text-yellow-300' : 'border-white/15 bg-white/[0.07] text-white/50 hover:border-white/40'}"
+                onclick={() => { poseDebug = !poseDebug; }}
+                title="Toggle landmark debug overlay"
+              >⊹</button>
             {/if}
-          </button>
+          </div>
           {#if isIosBrowser}
             <div class="mt-0.5 max-w-[140px] text-right text-[10px] leading-snug text-white/40">
               Tap <span class="text-white/60">Share ↑</span> → Add to Home Screen for fullscreen
