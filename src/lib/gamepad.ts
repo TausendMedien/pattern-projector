@@ -30,10 +30,10 @@ const BTN_SOUTH           = 0;  // South: × / A   → Reset to default
 const BTN_RANDOMIZE       = 1;  // East:  ○ / B   → Randomize
 const BTN_TOGGLE_OVERLAY  = 2;  // West:  □ / X   → Toggle Overlay (hide/show HUD)
 const BTN_BLACKOUT        = 3;  // North: △ / Y   → Blackout toggle
-const BTN_L1              = 4;  // L1 / LB         → Controls Reference
-const BTN_R1              = 5;  // R1 / RB         → Screenshot
+const BTN_L1              = 4;  // L1 / LB         → Toggle Camera
+const BTN_R1              = 5;  // R1 / RB         → Controls Reference
 const BTN_L2              = 6;  // L2 / LT         → Toggle Recording
-const BTN_R2              = 7;  // R2 / RT         → Toggle Camera
+const BTN_R2              = 7;  // R2 / RT         → Screenshot
 const BTN_SHARE           = 8;  // Share / Back    → Overview / back
 const BTN_START           = 9;  // Options / Start → Freeze
 const BTN_DPAD_U    = 12;
@@ -41,16 +41,27 @@ const BTN_DPAD_D    = 13;
 const BTN_DPAD_L    = 14;
 const BTN_DPAD_R    = 15;
 
-// Right analog stick axes (standard HID mapping, works on DS4/DualSense/Xbox)
-const AXIS_RIGHT_H = 2;  // horizontal: left < 0, right > 0
-const AXIS_RIGHT_V = 3;  // vertical:   up < 0,   down > 0
-
 const INITIAL_DELAY_MS   = 400;
 const REPEAT_INTERVAL_MS = 100;
 const AXIS_THRESHOLD     = 0.5;
 
 interface RepeatEntry { nextFire: number; }
 interface DPad { up: boolean; down: boolean; left: boolean; right: boolean; }
+
+// Try axes [2,3] then [4,5]; on DualShock without "standard" mapping,
+// axes 2,3 are L2/R2 analog and the right stick lives at 4,5.
+function readRightStick(gp: Gamepad): { rh: number; rv: number } {
+  const candidates: [number, number][] = [[2, 3], [4, 5]];
+  for (const [hi, vi] of candidates) {
+    if (gp.axes.length > vi) {
+      const rh = gp.axes[hi] ?? 0;
+      const rv = gp.axes[vi] ?? 0;
+      if (Math.abs(rh) > AXIS_THRESHOLD || Math.abs(rv) > AXIS_THRESHOLD)
+        return { rh, rv };
+    }
+  }
+  return { rh: 0, rv: 0 };
+}
 
 function readDPad(gp: Gamepad): DPad {
   const bU = gp.buttons[BTN_DPAD_U]?.pressed ?? false;
@@ -180,9 +191,8 @@ export function createGamepadController(
     if (dp.right && !prevDPad.right) handler({ type: "next" });
 
     // Right analog stick → switch slider (↑↓) / adjust slider (←→)
-    if (gp.axes.length > AXIS_RIGHT_V) {
-      const rh = gp.axes[AXIS_RIGHT_H] ?? 0;
-      const rv = gp.axes[AXIS_RIGHT_V] ?? 0;
+    {
+      const { rh, rv } = readRightStick(gp);
       if (rv < -AXIS_THRESHOLD) { fireRepeatable({ type: "focusUp" },    now); activeRepeatKeys.add("focusUp"); }
       if (rv >  AXIS_THRESHOLD) { fireRepeatable({ type: "focusDown" },  now); activeRepeatKeys.add("focusDown"); }
       if (rh < -AXIS_THRESHOLD) { fireRepeatable({ type: "sliderLeft" }, now); activeRepeatKeys.add("sliderLeft"); }
@@ -199,10 +209,10 @@ export function createGamepadController(
     if (wasJustPressed(gp, BTN_RANDOMIZE))       handler({ type: "randomize" });
     if (wasJustPressed(gp, BTN_TOGGLE_OVERLAY))  handler({ type: "toggleOverlay" });
     if (wasJustPressed(gp, BTN_BLACKOUT))        handler({ type: "blackout" });
-    if (wasJustPressed(gp, BTN_R1))              handler({ type: "screenshot" });
-    if (wasJustPressed(gp, BTN_L1))              handler({ type: "toggleCheatsheet" });
+    if (wasJustPressed(gp, BTN_R1))              handler({ type: "toggleCheatsheet" });
+    if (wasJustPressed(gp, BTN_L1))              handler({ type: "toggleCamera" });
     if (wasJustPressed(gp, BTN_L2))              handler({ type: "toggleRecording" });
-    if (wasJustPressed(gp, BTN_R2))              handler({ type: "toggleCamera" });
+    if (wasJustPressed(gp, BTN_R2))              handler({ type: "screenshot" });
     if (wasJustPressed(gp, BTN_SHARE))           handler({ type: "escape" });
 
     for (let i = 0; i < gp.buttons.length; i++) {

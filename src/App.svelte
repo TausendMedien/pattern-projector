@@ -1030,7 +1030,7 @@
   >
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
     <div
-      class="mx-4 w-full max-w-2xl rounded-xl border border-white/10 bg-black/90 p-5 text-white"
+      class="mx-4 w-full max-w-3xl rounded-xl border border-white/10 bg-black/90 p-5 text-white"
       onclick={(e) => e.stopPropagation()}
     >
       <div class="mb-4 flex items-center justify-between">
@@ -1040,69 +1040,42 @@
           onclick={() => { cheatsheetVisible = false; }}
         >✕  any key</button>
       </div>
-      <div class="grid grid-cols-2 gap-6">
-        <!-- 8BitDo K-Mode column -->
-        <div>
-          <div class="mb-2 text-xs font-semibold uppercase tracking-wider text-white/50">8BitDo Micro (K-Mode)</div>
-          <table class="w-full border-collapse">
-            <tbody>
-              {#each [
-                ["B  (South)", "Reset controls"],
-                ["Space / Start", "Freeze toggle"],
-                ["A", "Randomize controls"],
-                ["X", "Blackout toggle"],
-                ["Y", "Hide / show HUD"],
-                ["L", "Screenshot"],
-                ["M", "This reference"],
-                ["1  (L2)", "Record video"],
-                ["2  (R2)", "Camera toggle"],
-                ["← →", "Prev / next pattern"],
-                ["↑ ↓", "Speed +/−"],
-                ["R (hold) + ↑↓", "Switch slider"],
-                ["R (hold) + ←→", "Adjust slider"],
-                ["F", "Fullscreen"],
-                ["D", "Demo mode"],
-                ["3–9", "Jump to pattern"],
-                ["Esc", "Overview / preview"],
-              ] as row}
-                <tr class="border-b border-white/[0.06]">
-                  <td class="py-1.5 pr-3 font-mono text-xs text-white/80 whitespace-nowrap">{row[0]}</td>
-                  <td class="py-1.5 text-sm text-white/70">{row[1]}</td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-        <!-- DualShock / DualSense column -->
-        <div>
-          <div class="mb-2 text-xs font-semibold uppercase tracking-wider text-white/50">DualShock / DualSense</div>
-          <table class="w-full border-collapse">
-            <tbody>
-              {#each [
-                ["× South  /  A", "Reset controls"],
-                ["Start / Options", "Freeze toggle"],
-                ["○ East  /  B", "Randomize controls"],
-                ["△ North  /  Y", "Blackout toggle"],
-                ["□ West  /  X", "Hide / show HUD"],
-                ["R1 / RB", "Screenshot"],
-                ["L1 / LB", "Controls Reference"],
-                ["L2 / LT", "Record video"],
-                ["R2 / RT", "Camera toggle"],
-                ["Share / Back", "Overview / back"],
-                ["D-Pad ← →", "Prev / next pattern"],
-                ["D-Pad ↑ ↓", "Speed +/−"],
-                ["R-Stick ↑↓", "Switch slider"],
-                ["R-Stick ←→", "Adjust slider"],
-              ] as row}
-                <tr class="border-b border-white/[0.06]">
-                  <td class="py-1.5 pr-3 font-mono text-xs text-white/80 whitespace-nowrap">{row[0]}</td>
-                  <td class="py-1.5 text-sm text-white/70">{row[1]}</td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <table class="w-full border-collapse">
+        <thead>
+          <tr class="border-b border-white/20">
+            <th class="pb-2 text-left text-xs font-semibold uppercase tracking-wider text-white/50">Controls</th>
+            <th class="pb-2 pl-4 text-left text-xs font-semibold uppercase tracking-wider text-white/50">Keyboard and 8BitDo Micro</th>
+            <th class="pb-2 pl-4 text-left text-xs font-semibold uppercase tracking-wider text-white/50">Dual Shock</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each [
+            ["Prev / next pattern",  "← →",               "D-Pad ← →"],
+            ["Speed +/−",            "↑ ↓",               "D-Pad ↑ ↓"],
+            ["Switch slider",        "R (hold) + ↑↓",     "R-Stick ↑↓"],
+            ["Adjust slider",        "R (hold) + ←→",     "R-Stick ←→"],
+            ["Reset controls",       "B  (South)",        "× / A"],
+            ["Freeze toggle",        "Space / Start",     "Options / Start"],
+            ["Randomize",            "A",                 "○ / B"],
+            ["Blackout toggle",      "X",                 "△ / Y"],
+            ["Hide / show HUD",      "Y",                 "□ / X"],
+            ["Screenshot",           "L  ·  2 (R2)",      "R2 / RT"],
+            ["Camera toggle",        "2  ·  L1",          "L1 / LB"],
+            ["Record video",         "1  ·  L2",          "L2 / LT"],
+            ["Controls reference",   "M",                 "R1 / RB"],
+            ["Fullscreen",           "F",                 "—"],
+            ["Demo mode",            "D",                 "—"],
+            ["Jump to pattern",      "3 – 9",             "—"],
+            ["Overview / back",      "Esc",               "Share / Back"],
+          ] as row}
+            <tr class="border-b border-white/[0.06]">
+              <td class="py-1.5 pr-4 text-sm text-white/70 whitespace-nowrap">{row[0]}</td>
+              <td class="py-1.5 pl-4 pr-4 font-mono text-xs text-white/80 whitespace-nowrap">{row[1]}</td>
+              <td class="py-1.5 pl-4 font-mono text-xs text-white/80 whitespace-nowrap">{row[2]}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
     </div>
   </div>
 {/if}
