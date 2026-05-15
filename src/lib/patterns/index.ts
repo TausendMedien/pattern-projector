@@ -33,7 +33,7 @@ import { addAudioReactivity } from "../audioReactivityWrapper";
 // Patterns that must NOT get the generic motion camera wrapper:
 // - lightTrail / lightPaint  (camera-based themselves)
 // - asciiSwirls  (manages its own internal scene + renderer ref)
-const NO_MOTION_CAMERA = new Set(['lightTrail', 'lightPaint', 'asciiSwirls']);
+const NO_MOTION_CAMERA = new Set(['lightTrail', 'lightPaint', 'asciiSwirls', 'typography3d']);
 
 // Patterns that skip audio reactivity wrapping (camera-based patterns)
 const NO_AUDIO = new Set(['lightTrail', 'lightPaint']);

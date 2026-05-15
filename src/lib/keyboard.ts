@@ -30,6 +30,10 @@ export function attachKeyboard(
   let rHeld = false;
 
   function onKeyDown(e: KeyboardEvent) {
+    // Don't fire shortcuts when typing in a text or textarea field
+    const tag = (document.activeElement as HTMLElement)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
     // Ctrl/Cmd+Z — undo (before the general modifier guard)
     if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === 'z') {
       handler({ type: 'undo' });

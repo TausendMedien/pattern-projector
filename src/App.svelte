@@ -358,6 +358,11 @@
         ctrlVals[ctrl.label] = idx;
       }
     }
+    // Also randomize global color theme
+    colorHue   = Math.floor(Math.random() * 360);
+    colorSat   = 60 + Math.floor(Math.random() * 80);   // 60–140%
+    colorBright = 85 + Math.floor(Math.random() * 30);  // 85–115%
+    saveColorFilter();
     randomizeAnims = anims;
   }
 
@@ -847,6 +852,66 @@
       {/if}
     </div>
 
+    <!-- Global Color Theme -->
+    <div class="w-full max-w-lg px-3 pb-5">
+      <div class="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+        <div class="mb-3 flex items-center justify-between gap-2">
+          <span class="text-xs uppercase tracking-widest text-white/50">Global Color Theme</span>
+          <button
+            onclick={() => { colorHue = 0; colorSat = 100; colorBright = 100; saveColorFilter(); }}
+            class="rounded px-2 py-0.5 text-[10px] text-white/50 border border-white/15 hover:border-white/40 hover:text-white/80 transition-colors cursor-pointer"
+          >Reset</button>
+        </div>
+        <!-- Presets -->
+        <div class="mb-3 flex flex-wrap gap-1.5">
+          {#each [
+            { label: 'Default',     hue: 0,   sat: 100, bright: 100 },
+            { label: 'Warm',        hue: 30,  sat: 120, bright: 105 },
+            { label: 'Cool Blue',   hue: 200, sat: 110, bright:  95 },
+            { label: 'Monochrome',  hue: 0,   sat:   0, bright: 100 },
+          ] as preset}
+            <button
+              onclick={() => { colorHue = preset.hue; colorSat = preset.sat; colorBright = preset.bright; saveColorFilter(); }}
+              class="rounded-full border px-3 py-1 text-[11px] transition-colors cursor-pointer
+                {colorHue === preset.hue && colorSat === preset.sat && colorBright === preset.bright
+                  ? 'border-white/40 bg-white/15 text-white'
+                  : 'border-white/15 text-white/50 hover:border-white/30'}"
+            >{preset.label}</button>
+          {/each}
+        </div>
+        <!-- Sliders -->
+        <div class="flex flex-col gap-2">
+          <div class="flex flex-col gap-0.5">
+            <div class="flex justify-between text-xs text-white/70">
+              <span>Hue Shift</span>
+              <span class="font-mono text-white/40">{colorHue}°</span>
+            </div>
+            <input type="range" min={0} max={360} step={1} value={colorHue}
+              oninput={(e) => { colorHue = parseInt((e.target as HTMLInputElement).value); saveColorFilter(); }}
+              class="w-full accent-white cursor-pointer" />
+          </div>
+          <div class="flex flex-col gap-0.5">
+            <div class="flex justify-between text-xs text-white/70">
+              <span>Saturation</span>
+              <span class="font-mono text-white/40">{colorSat}%</span>
+            </div>
+            <input type="range" min={0} max={200} step={1} value={colorSat}
+              oninput={(e) => { colorSat = parseInt((e.target as HTMLInputElement).value); saveColorFilter(); }}
+              class="w-full accent-white cursor-pointer" />
+          </div>
+          <div class="flex flex-col gap-0.5">
+            <div class="flex justify-between text-xs text-white/70">
+              <span>Brightness</span>
+              <span class="font-mono text-white/40">{colorBright}%</span>
+            </div>
+            <input type="range" min={50} max={150} step={1} value={colorBright}
+              oninput={(e) => { colorBright = parseInt((e.target as HTMLInputElement).value); saveColorFilter(); }}
+              class="w-full accent-white cursor-pointer" />
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="shrink-0 pb-8 flex gap-5 text-[11px] text-white/30 px-4 text-center flex-wrap justify-center">
       {#if isIosBrowser}
         <span>tap to select · swipe to browse · <span class="text-white/50">Share ↑ → Add to Home Screen</span> for fullscreen</span>
@@ -1036,45 +1101,6 @@
           </div>
         </div>
       {/if}
-      <!-- ── Global Color Filter ─────────────────────────────────── -->
-      <div class="mb-2 shrink-0">
-        <div class="mb-1.5 flex items-center justify-between gap-2">
-          <span class="text-xs uppercase tracking-widest text-white/50">Color</span>
-          <button
-            onclick={() => { colorHue = 0; colorSat = 100; colorBright = 100; saveColorFilter(); }}
-            class="rounded px-2 py-0.5 text-[10px] text-white/50 border border-white/15 hover:border-white/40 hover:text-white/80 transition-colors cursor-pointer"
-          >Reset</button>
-        </div>
-        <div class="flex flex-col gap-2">
-          <div class="flex flex-col gap-0.5">
-            <div class="flex justify-between text-xs text-white/70">
-              <span>Hue Shift</span>
-              <span class="font-mono text-white/40">{colorHue}°</span>
-            </div>
-            <input type="range" min={0} max={360} step={1} value={colorHue}
-              oninput={(e) => { colorHue = parseInt((e.target as HTMLInputElement).value); saveColorFilter(); }}
-              class="w-full accent-white cursor-pointer" />
-          </div>
-          <div class="flex flex-col gap-0.5">
-            <div class="flex justify-between text-xs text-white/70">
-              <span>Saturation</span>
-              <span class="font-mono text-white/40">{colorSat}%</span>
-            </div>
-            <input type="range" min={0} max={200} step={1} value={colorSat}
-              oninput={(e) => { colorSat = parseInt((e.target as HTMLInputElement).value); saveColorFilter(); }}
-              class="w-full accent-white cursor-pointer" />
-          </div>
-          <div class="flex flex-col gap-0.5">
-            <div class="flex justify-between text-xs text-white/70">
-              <span>Brightness</span>
-              <span class="font-mono text-white/40">{colorBright}%</span>
-            </div>
-            <input type="range" min={50} max={150} step={1} value={colorBright}
-              oninput={(e) => { colorBright = parseInt((e.target as HTMLInputElement).value); saveColorFilter(); }}
-              class="w-full accent-white cursor-pointer" />
-          </div>
-        </div>
-      </div>
       {#if patterns[index].controls?.length}
         {@const controlMeta = (() => {
           let sectionOn = true;
