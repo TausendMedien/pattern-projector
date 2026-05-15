@@ -1,6 +1,7 @@
 import type { Pattern } from "./types";
 import { lines3d } from "./lines3d";
 import { particles } from "./particles";
+import { particlesBody } from "./particlesBody";
 import { particleLines } from "./particleLines";
 import { tunnel } from "./tunnel";
 import { tunnelEdge } from "./tunnelEdge";
@@ -9,11 +10,14 @@ import { parallelLinesStraight } from "./parallelLinesStraight";
 import { parallelLinesWave } from "./parallelLinesWave";
 import { hyperMix } from "./hyperMix";
 import { dotRain } from "./dotRain";
+import { dotRainBody } from "./dotRainBody";
 import { flowLines } from "./flowLines";
 import { pearlFlow } from "./pearlFlow";
 import { curlOrbs } from "./curlOrbs";
+import { curlOrbsBody } from "./curlOrbsBody";
 import { flowDots } from "./flowDots";
 import { baroqueSwirls } from "./baroqueSwirls";
+import { baroqueSwirlsBody } from "./baroqueSwirlsBody";
 import { lightTrail } from "./light-trail";
 import { lightPaint } from "./light-paint";
 import { warpedSurfaces } from "./warpedSurfaces";
@@ -36,20 +40,24 @@ const NO_AUDIO = new Set(['lightTrail', 'lightPaint']);
 
 const rawPatterns: Pattern[] = [
   particles,
+  particlesBody,
   particleLines,
   parallelLinesStraight,
   parallelLinesWave,
   flowLines,
   curlOrbs,
+  curlOrbsBody,
   tunnel,
   tunnelEdge,
   baroqueSwirls,
+  baroqueSwirlsBody,
   shaderGradient,
   warpedSurfaces,
   hyperMix,
   lines3d,
   asciiSwirls,
   dotRain,
+  dotRainBody,
   pearlFlow,
   flowDots,
   wavySphere,

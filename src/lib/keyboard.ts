@@ -20,7 +20,8 @@ export type KeyAction =
   | { type: "sliderRight" }
   | { type: "toggleOverlay" }
   | { type: "toggleCheatsheet" }
-  | { type: "undo" };
+  | { type: "undo" }
+  | { type: "togglePose" };
 
 export function attachKeyboard(
   handler: (action: KeyAction) => void,
@@ -89,6 +90,9 @@ export function attachKeyboard(
         e.preventDefault(); return;
       case "2":
         handler({ type: "toggleCamera" });
+        e.preventDefault(); return;
+      case "t": case "T":
+        handler({ type: "togglePose" });
         e.preventDefault(); return;
       case "ArrowRight":
         handler({ type: "next" });

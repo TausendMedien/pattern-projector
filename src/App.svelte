@@ -18,6 +18,7 @@
   import { encodeShare, decodeShare } from "./lib/shareUrl";
   import { getSlots, saveSlot } from "./lib/presets";
   import type { Snapshot } from "./lib/presets";
+  import { poseState, startPoseTracking, stopPoseTracking } from "./lib/pose";
 
   type AppState = "overview" | "active" | "preview";
 
@@ -73,6 +74,33 @@
   let overlayHidden = $state(false);
   let cheatsheetVisible = $state(false);
   let collapsedSections = $state(new Set<string>());
+
+  // Body pose tracking
+  let posePersonCount = $state(0);
+  let poseActive = $state(false);
+  let poseError = $state<string | null>(null);
+  let poseLoading = $state(false);
+
+  async function togglePoseTracking() {
+    if (poseLoading) return;
+    if (poseState.active) {
+      stopPoseTracking();
+      poseActive = false;
+      poseError = null;
+    } else {
+      poseLoading = true;
+      poseError = null;
+      try {
+        await startPoseTracking();
+        poseActive = true;
+      } catch (e) {
+        poseError = e instanceof Error ? e.message : "Camera access denied";
+        poseActive = false;
+      } finally {
+        poseLoading = false;
+      }
+    }
+  }
 
   type RandAnim  = { from: number; to: number; startMs: number };
   type FreezeAnim = { from: number; to: number; startMs: number };
@@ -267,7 +295,8 @@
       case "resetToDefault":   resetAllControls(); return;
       case "screenshot":       applyScreenshot(); return;
       case "toggleRecording":  recorder?.toggle(); return;
-      case "toggleCamera":     toggleCamera();   return;
+      case "toggleCamera":     toggleCamera();        return;
+      case "togglePose":       togglePoseTracking();  return;
       case "speedUp":          applySpeedUp();   return;
       case "speedDown":        applySpeedDown(); return;
       case "focusUp":          sliderFocusIndex = Math.max(0, sliderFocusIndex - 1); return;
@@ -687,6 +716,10 @@
           }
         }
       }
+      // Sync pose person count for HUD reactivity
+      const pc = poseState.persons.length;
+      if (posePersonCount !== pc) posePersonCount = pc;
+
       liveRaf = requestAnimationFrame(liveSync);
     };
     liveRaf = requestAnimationFrame(liveSync);
@@ -1257,6 +1290,23 @@
             onclick={() => { demoActive ? stopDemo() : startDemo(); }}
           >
             {demoActive ? "● Demo" : "Demo"}
+          </button>
+          <button
+            class="pointer-events-auto rounded-md border px-3 py-1.5 text-xs transition-colors active:bg-white/20
+              {poseActive ? 'border-green-400/50 bg-green-400/10 text-green-300' : poseError ? 'border-red-400/40 bg-red-400/10 text-red-300' : 'border-white/15 bg-white/[0.07] text-white/70 hover:border-white/40 hover:bg-white/15'}"
+            onclick={togglePoseTracking}
+            title={poseError ?? (poseActive ? "Stop body tracking (T)" : "Start body tracking (T)")}
+            disabled={poseLoading}
+          >
+            {#if poseLoading}
+              ⟳ Pose…
+            {:else if poseActive}
+              ◉ Pose {posePersonCount > 0 ? `(${posePersonCount})` : ''}
+            {:else if poseError}
+              ✕ Pose
+            {:else}
+              ◎ Pose
+            {/if}
           </button>
           {#if isIosBrowser}
             <div class="mt-0.5 max-w-[140px] text-right text-[10px] leading-snug text-white/40">

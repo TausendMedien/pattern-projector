@@ -10,6 +10,7 @@
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.35",
     "three": "^0.169.0",
     "zod": "^4.3.6"
   },
