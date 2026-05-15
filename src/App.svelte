@@ -1196,6 +1196,7 @@
         <div class="flex flex-col gap-2.5 overflow-y-auto overscroll-contain min-h-0">
           {#each controlMeta as { ctrl, groupDisabled, hidden }}
             {@const focusedRangeCtrl = sliderModeActive ? rangeControls[sliderFocusIndex] : null}
+            {@const activeFocusedCtrl = rangeControls[sliderFocusIndex]}
             {#if ctrl.type === "separator"}
               <!-- Plain section divider (no toggle) -->
               <div class="mt-1 flex items-center gap-2">
@@ -1254,21 +1255,26 @@
                 </div>
                 {/if}
                 {#if ctrl.type === "range"}
-                  <input
-                    type="range"
-                    min={ctrl.min}
-                    max={ctrl.max}
-                    step={ctrl.step}
-                    value={ctrlVals[ctrl.label] ?? ctrl.get()}
-                    oninput={ctrl.readonly ? undefined : (e) => {
-                      const v = parseFloat((e.target as HTMLInputElement).value);
-                      ctrl.set(v);
-                      ctrlVals[ctrl.label] = v;
-                      saveSettings(patterns);
-                    }}
-                    ondblclick={() => { if (!ctrl.readonly) resetCtrl(ctrl); }}
-                    class="w-full accent-white {ctrl.readonly ? 'pointer-events-none' : 'cursor-pointer'}"
-                  />
+                  {@const focused = ctrl === activeFocusedCtrl && !ctrl.readonly}
+                  <div class="flex items-center gap-1">
+                    <span class="select-none text-[10px] text-white/50 transition-opacity duration-150 {focused ? 'opacity-100' : 'opacity-0'}">◄</span>
+                    <input
+                      type="range"
+                      min={ctrl.min}
+                      max={ctrl.max}
+                      step={ctrl.step}
+                      value={ctrlVals[ctrl.label] ?? ctrl.get()}
+                      oninput={ctrl.readonly ? undefined : (e) => {
+                        const v = parseFloat((e.target as HTMLInputElement).value);
+                        ctrl.set(v);
+                        ctrlVals[ctrl.label] = v;
+                        saveSettings(patterns);
+                      }}
+                      ondblclick={() => { if (!ctrl.readonly) resetCtrl(ctrl); }}
+                      class="min-w-0 flex-1 accent-white {ctrl.readonly ? 'pointer-events-none' : 'cursor-pointer'}"
+                    />
+                    <span class="select-none text-[10px] text-white/50 transition-opacity duration-150 {focused ? 'opacity-100' : 'opacity-0'}">►</span>
+                  </div>
                 {:else if ctrl.type === "select"}
                   {@const opts = typeof ctrl.options === 'function' ? ctrl.options() : ctrl.options}
                   <select
