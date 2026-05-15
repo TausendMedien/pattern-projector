@@ -157,7 +157,7 @@ export const particlesBody: Pattern = {
           attractors[count].set(
             (pt.x - 0.5) * scaleX,
             (0.5 - pt.y) * scaleY,
-            0,
+            -pt.z * 3,
           );
           count++;
         }

@@ -18,6 +18,7 @@ import { curlOrbsBody } from "./curlOrbsBody";
 import { flowDots } from "./flowDots";
 import { baroqueSwirls } from "./baroqueSwirls";
 import { baroqueSwirlsBody } from "./baroqueSwirlsBody";
+import { poseDepth3d } from "./poseDepth3d";
 import { lightTrail } from "./light-trail";
 import { lightPaint } from "./light-paint";
 import { warpedSurfaces } from "./warpedSurfaces";
@@ -29,11 +30,16 @@ import { typography3d } from "./typography3d";
 import { wrapWithPersist } from "../persist";
 import { addMotionCamera } from "../motionCameraWrapper";
 import { addAudioReactivity } from "../audioReactivityWrapper";
+import { addPoseCamera } from "../poseCameraWrapper";
 
-// Patterns that must NOT get the generic motion camera wrapper:
-// - lightTrail / lightPaint  (camera-based themselves)
-// - asciiSwirls  (manages its own internal scene + renderer ref)
-const NO_MOTION_CAMERA = new Set(['lightTrail', 'lightPaint', 'asciiSwirls', 'typography3d']);
+// Body-tracking patterns use the pose camera wrapper instead of the motion camera wrapper.
+const POSE_CAMERA = new Set(['particlesBody', 'dotRainBody', 'baroqueSwirlsBody', 'curlOrbsBody', 'poseDepth3d']);
+
+// Patterns that must NOT get the generic motion camera wrapper.
+const NO_MOTION_CAMERA = new Set([
+  ...POSE_CAMERA,
+  'lightTrail', 'lightPaint', 'asciiSwirls', 'typography3d',
+]);
 
 // Patterns that skip audio reactivity wrapping (camera-based patterns)
 const NO_AUDIO = new Set(['lightTrail', 'lightPaint']);
@@ -51,6 +57,7 @@ const rawPatterns: Pattern[] = [
   tunnelEdge,
   baroqueSwirls,
   baroqueSwirlsBody,
+  poseDepth3d,
   shaderGradient,
   warpedSurfaces,
   hyperMix,
@@ -69,6 +76,7 @@ const rawPatterns: Pattern[] = [
 ];
 
 export const patterns: Pattern[] = rawPatterns
+  .map(p => POSE_CAMERA.has(p.id) ? addPoseCamera(p) : p)
   .map(p => NO_MOTION_CAMERA.has(p.id) ? p : addMotionCamera(p))
   .map(p => NO_AUDIO.has(p.id) ? p : addAudioReactivity(p))
   .map(wrapWithPersist);
