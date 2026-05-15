@@ -811,6 +811,7 @@
       }
     });
     window.addEventListener("mousemove", poke);
+    window.addEventListener("keydown", poke);
 
     return () => {
       cancelAnimationFrame(liveRaf);
@@ -821,6 +822,7 @@
       document.removeEventListener("fullscreenchange", onFsChange);
       document.removeEventListener("webkitfullscreenchange", onFsChange);
       window.removeEventListener("mousemove", poke);
+      window.removeEventListener("keydown", poke);
       if (hudTimer) clearTimeout(hudTimer);
       if (demoTimer) clearTimeout(demoTimer);
       recorder?.dispose();
@@ -862,6 +864,18 @@
     <div class="shrink-0 pt-10 pb-4 text-center">
       <p class="text-sm uppercase tracking-[0.35em] text-white/60">Lichtspiel</p>
       <p class="text-[10px] tracking-widest text-white/30">by <a href="https://1000lights.de" target="_blank" rel="noopener noreferrer" class="hover:text-white/60 transition-colors">1000lights</a></p>
+      <div class="mt-3 flex justify-center gap-2">
+        <button
+          class="rounded-md border px-3 py-1.5 text-xs transition-colors cursor-pointer {demoActive ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 bg-white/[0.07] text-white/60 hover:border-white/40 hover:bg-white/15'}"
+          onclick={() => { demoActive ? stopDemo() : startDemo(); }}
+        >{demoActive ? "● Demo" : "Demo"}</button>
+        {#if !isIosBrowser && !isIosStandalone}
+          <button
+            class="rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/60 transition-colors cursor-pointer hover:border-white/40 hover:bg-white/15"
+            onclick={() => { handleAction({ type: "fullscreen" }); }}
+          >{fs.isFullscreen() ? "Exit ⛶" : "⛶ Fullscreen"}</button>
+        {/if}
+      </div>
     </div>
 
     <!-- Favorites filter bar -->

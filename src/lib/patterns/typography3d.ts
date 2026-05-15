@@ -147,7 +147,7 @@ export const typography3d: Pattern = {
     if (fontCache) {
       buildText();
     } else {
-      fetch('/helvetiker_bold.typeface.json')
+      fetch(import.meta.env.BASE_URL + 'helvetiker_bold.typeface.json')
         .then(r => r.json())
         .then(data => { fontCache = loader.parse(data); buildText(); })
         .catch(err => console.error('[typo] font load failed:', err));
