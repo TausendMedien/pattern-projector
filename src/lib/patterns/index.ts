@@ -36,7 +36,7 @@ import { addAudioReactivity } from "../audioReactivityWrapper";
 const NO_MOTION_CAMERA = new Set(['lightTrail', 'lightPaint', 'asciiSwirls', 'typography3d']);
 
 // Patterns that skip audio reactivity wrapping (camera-based patterns)
-const NO_AUDIO = new Set(['lightTrail', 'lightPaint']);
+const NO_AUDIO = new Set(['lightTrail', 'lightPaint', 'typography3d']);
 
 const rawPatterns: Pattern[] = [
   particles,

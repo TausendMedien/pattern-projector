@@ -1326,7 +1326,7 @@
                   />
                 {:else if ctrl.type === "button"}
                   <button
-                    onclick={() => ctrl.action()}
+                    onclick={() => { ctrl.action(); syncCtrlVals(); }}
                     class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white cursor-pointer hover:bg-white/20 active:bg-white/30 transition-colors"
                   >{ctrl.label}</button>
                 {/if}

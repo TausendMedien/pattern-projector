@@ -114,6 +114,7 @@ export const typography3d: Pattern = {
       get: () => textDepth,  set: v => { textDepth = v; scheduleRebuild(); } },
     { label: "Rotate Speed",  type: "range", min: 0.0, max: 1.0, step: 0.01, default: 0.3,
       get: () => rotSpeed,   set: v => { rotSpeed = v; } },
+    { label: "⊙ Face Camera", type: "button", action: () => { rotSpeed = 0; rotX = 0; rotY = 0; rotZ = 0; } },
     { label: "Float Speed",   type: "range", min: 0.0, max: 1.0, step: 0.01, default: 0.2,
       get: () => floatSpeed, set: v => { floatSpeed = v; } },
     { label: "Style",         type: "select", options: ["Solid", "Wireframe", "Neon"],
