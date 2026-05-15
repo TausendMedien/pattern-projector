@@ -4,13 +4,13 @@ import type { Pattern, PatternContext } from "./types";
 // Each line rendered as a screen-space quad (2 triangles) for real pixel-width control.
 // A second glow-points pass adds per-particle blur and size variation like Particle Field.
 
-let lineCount  = 6000;
-let brightness = 0.6;
-let flowSpeed  = 0.2;
+let lineCount  = 1000;
+let brightness = 0.55;
+let flowSpeed  = 0.1;
 let colorRange = 1.0;
-let saturation = 0.60;
-let tailLength = 0.18;
-let lineWidth  = 2.0;  // pixels
+let saturation = 1.0;
+let tailLength = 4.0;
+let lineWidth  = 4.0;  // pixels
 
 let lineMesh:   THREE.Mesh   | null = null;
 let glowPoints: THREE.Points | null = null;
@@ -240,13 +240,13 @@ export const particleLines: Pattern = {
   id: "particleLines",
   name: "Particle Lines",
   controls: [
-    { label: "Brightness",  type: "range", min: 0.05, max: 1.0,   step: 0.05, default: 0.6,  get: () => brightness, set: (v) => { brightness = v; } },
-    { label: "Flow Speed",  type: "range", min: 0.0,  max: 3.0,   step: 0.1,  default: 0.2,  get: () => flowSpeed,  set: (v) => { flowSpeed  = v; } },
-    { label: "Line Count",  type: "range", min: 500,  max: 15000, step: 500,  default: 6000, get: () => lineCount,  set: (v) => { lineCount  = v; needsRebuild = true; } },
-    { label: "Line Width",  type: "range", min: 0.5,  max: 8.0,   step: 0.5,  default: 2.0,  get: () => lineWidth,  set: (v) => { lineWidth  = v; } },
-    { label: "Tail Length", type: "range", min: 0.02, max: 4.0,   step: 0.02, default: 0.18, get: () => tailLength, set: (v) => { tailLength = v; needsRebuild = true; } },
-    { label: "Colors",      type: "range", min: 0.0,  max: 1.0,   step: 0.05, default: 1.0,  get: () => colorRange, set: (v) => { colorRange = v; } },
-    { label: "Saturation",  type: "range", min: 0.0,  max: 1.0,   step: 0.05, default: 0.6,  get: () => saturation, set: (v) => { saturation = v; } },
+    { label: "Brightness",  type: "range", min: 0.05, max: 1.0,  step: 0.05, default: 0.55, get: () => brightness, set: (v) => { brightness = v; } },
+    { label: "Flow Speed",  type: "range", min: 0.0,  max: 3.0,  step: 0.05, default: 0.1,  get: () => flowSpeed,  set: (v) => { flowSpeed  = v; } },
+    { label: "Line Count",  type: "range", min: 50,   max: 2000, step: 50,   default: 1000, get: () => lineCount,  set: (v) => { lineCount  = v; needsRebuild = true; } },
+    { label: "Line Width",  type: "range", min: 0.5,  max: 6.0,  step: 0.5,  default: 4.0,  get: () => lineWidth,  set: (v) => { lineWidth  = v; } },
+    { label: "Tail Length", type: "range", min: 0.1,  max: 12.0, step: 0.1,  default: 4.0,  get: () => tailLength, set: (v) => { tailLength = v; needsRebuild = true; } },
+    { label: "Colors",      type: "range", min: 0.0,  max: 1.0,  step: 0.05, default: 1.0,  get: () => colorRange, set: (v) => { colorRange = v; } },
+    { label: "Saturation",  type: "range", min: 0.0,  max: 1.0,  step: 0.05, default: 1.0,  get: () => saturation, set: (v) => { saturation = v; } },
   ],
 
   init(ctx: PatternContext) {

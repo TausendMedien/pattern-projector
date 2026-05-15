@@ -307,7 +307,10 @@
       case "focusDown":        sliderFocusIndex = Math.min(Math.max(rangeControls.length - 1, 0), sliderFocusIndex + 1); return;
       case "sliderLeft":       applySliderStep("left");  return;
       case "sliderRight":      applySliderStep("right"); return;
-      case "toggleOverlay":    overlayHidden = !overlayHidden; return;
+      case "toggleOverlay":
+        if (hudVisible && !overlayHidden) { overlayHidden = true; }
+        else { overlayHidden = false; poke(); }
+        return;
       case "toggleCheatsheet": cheatsheetVisible = !cheatsheetVisible; return;
       case "undo":             applyUndo(); return;
     }
@@ -567,7 +570,9 @@
         case "randomize":
           activatePattern(focusedIndex); break;
         case "toggleOverlay":
-          overlayHidden = !overlayHidden; break;
+          if (hudVisible && !overlayHidden) { overlayHidden = true; }
+          else { overlayHidden = false; poke(); }
+          break;
       }
       return;
     }
@@ -586,7 +591,10 @@
       case "toggleRecording":  recorder?.toggle(); break;
       case "randomize":        startRandomize(performance.now()); break;
       case "toggleCamera":     toggleCamera(); break;
-      case "toggleOverlay":     overlayHidden = !overlayHidden; break;
+      case "toggleOverlay":
+        if (hudVisible && !overlayHidden) { overlayHidden = true; }
+        else { overlayHidden = false; poke(); }
+        break;
       case "toggleCheatsheet":  cheatsheetVisible = !cheatsheetVisible; return;
       case "escape":
         overlayHidden = false;
