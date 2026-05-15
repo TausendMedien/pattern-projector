@@ -176,6 +176,7 @@
 
   function poke() {
     hudVisible = true;
+    overlayHidden = false;
     if (hudTimer) clearTimeout(hudTimer);
     hudTimer = setTimeout(() => (hudVisible = false), 5000);
   }
