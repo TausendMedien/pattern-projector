@@ -895,7 +895,7 @@
   >
 
     <div class="shrink-0 pt-10 pb-4 text-center">
-      <p class="text-sm uppercase tracking-[0.35em] text-white/60">Lichtspiel</p>
+      <p class="text-sm uppercase tracking-[0.35em] text-white/60 inline-flex items-center gap-2">Lichtspiel<span class="text-[9px] font-semibold tracking-widest text-white/40 border border-white/25 rounded px-1.5 py-0.5 normal-case">beta</span></p>
       <p class="text-[10px] tracking-widest text-white/30">by <a href="https://1000lights.de" target="_blank" rel="noopener noreferrer" class="hover:text-white/60 transition-colors">1000lights</a></p>
       <div class="mt-3 flex justify-center gap-2 flex-wrap">
         {#if !isIosBrowser && !isIosStandalone}
