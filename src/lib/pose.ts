@@ -54,7 +54,15 @@ export async function startPoseTracking(): Promise<void> {
   let lastVideoTime = -1;
   // EMA smoothing: lower = smoother but more lag, higher = more responsive
   const ALPHA = 0.18;
-  let smoothed: PersonPoints[][] = [];
+  // Max hip-center distance (normalized) to consider two detections the same person
+  const MATCH_THRESHOLD = 0.25;
+  // Stable identity slots — each slot persists across frames and is matched by proximity
+  let slots: PersonPoints[][] = [];
+
+  function dist2(a: PersonPoints, b: PersonPoints) {
+    const dx = a.x - b.x, dy = a.y - b.y;
+    return dx * dx + dy * dy;
+  }
 
   function detect() {
     if (!landmarker || !video || !poseState.active) return;
@@ -74,17 +82,35 @@ export async function startPoseTracking(): Promise<void> {
         ];
       });
 
-      // Reset smoothing buffer when person count changes
-      if (raw.length !== smoothed.length) smoothed = raw.map(p => p.map(pt => ({ ...pt })));
+      // Greedy nearest-neighbor matching by hip center (index 2)
+      // Each raw detection is matched to the nearest unmatched slot within threshold.
+      // Unmatched slots are dropped; unmatched detections become new slots.
+      const matched = new Array<boolean>(slots.length).fill(false);
+      const nextSlots: PersonPoints[][] = [];
 
-      // EMA per landmark
-      smoothed = raw.map((person, pi) =>
-        person.map((pt, ji) => ({
-          x: ALPHA * pt.x + (1 - ALPHA) * (smoothed[pi]?.[ji]?.x ?? pt.x),
-          y: ALPHA * pt.y + (1 - ALPHA) * (smoothed[pi]?.[ji]?.y ?? pt.y),
-        }))
-      );
-      poseState.persons = smoothed;
+      for (const person of raw) {
+        const hip = person[2];
+        let bestIdx = -1, bestD = MATCH_THRESHOLD * MATCH_THRESHOLD;
+        for (let s = 0; s < slots.length; s++) {
+          if (matched[s]) continue;
+          const d = dist2(hip, slots[s][2]);
+          if (d < bestD) { bestD = d; bestIdx = s; }
+        }
+        if (bestIdx >= 0) {
+          // Match found — apply EMA to the existing slot
+          matched[bestIdx] = true;
+          nextSlots.push(person.map((pt, ji) => ({
+            x: ALPHA * pt.x + (1 - ALPHA) * slots[bestIdx][ji].x,
+            y: ALPHA * pt.y + (1 - ALPHA) * slots[bestIdx][ji].y,
+          })));
+        } else {
+          // New person — initialise slot with raw position (no smoothing lag on entry)
+          nextSlots.push(person.map(pt => ({ ...pt })));
+        }
+      }
+
+      slots = nextSlots;
+      poseState.persons = slots;
     }
     rafId = requestAnimationFrame(detect);
   }
