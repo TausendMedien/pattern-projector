@@ -130,6 +130,7 @@ const fragmentShader = /* glsl */ `
 
 export const dotRainBody: Pattern = {
   id: "dotRainBody",
+  usesPose: true,
   name: "Dot Rain Body",
   controls: [
     { label: "Body Tracking",  type: "toggle", get: () => bodyTracking, set: (v) => { bodyTracking = v; } },

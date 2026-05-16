@@ -88,6 +88,7 @@ const fragmentShader = /* glsl */ `
 
 export const particlesBody: Pattern = {
   id: "particlesBody",
+  usesPose: true,
   name: "Particle Field Body",
   controls: [
     { label: "Body Tracking",    type: "toggle", get: () => bodyTracking,    set: (v) => { bodyTracking = v; } },

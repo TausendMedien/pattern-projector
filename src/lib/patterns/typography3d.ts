@@ -13,6 +13,7 @@ let textSize   = 1.0;
 let textDepth  = 0.2;
 let rotSpeed   = 0.3;
 let floatSpeed = 0.2;
+let rotLocked  = false;
 let styleIndex = 0;  // 0=Solid 1=Wireframe 2=Neon
 let primaryColor = "#00ffff";
 let glowColor    = "#ff00ff";
@@ -113,8 +114,11 @@ export const typography3d: Pattern = {
     { label: "Depth",         type: "range", min: 0.0, max: 1.0, step: 0.05, default: 0.2,
       get: () => textDepth,  set: v => { textDepth = v; scheduleRebuild(); } },
     { label: "Rotate Speed",  type: "range", min: 0.0, max: 1.0, step: 0.01, default: 0.3,
-      get: () => rotSpeed,   set: v => { rotSpeed = v; } },
-    { label: "⊙ Face Camera", type: "button", action: () => { rotSpeed = 0; rotX = 0; rotY = 0; rotZ = 0; } },
+      get: () => rotSpeed,   set: v => { rotSpeed = v; rotLocked = false; } },
+    { label: "⊙ Face Camera", type: "button", action: () => {
+        rotSpeed = 0; rotLocked = true;
+        if (textGroup) textGroup.rotation.set(0, 0, 0);
+      } },
     { label: "Float Speed",   type: "range", min: 0.0, max: 1.0, step: 0.01, default: 0.2,
       get: () => floatSpeed, set: v => { floatSpeed = v; } },
     { label: "Style",         type: "select", options: ["Solid", "Wireframe", "Neon"],
@@ -159,7 +163,7 @@ export const typography3d: Pattern = {
     if (!textGroup) return;
     animTime += dt;
     textGroup.rotation.y += dt * rotSpeed * 0.8;
-    textGroup.rotation.x = Math.sin(animTime * 0.3) * 0.15;
+    if (!rotLocked) textGroup.rotation.x = Math.sin(animTime * 0.3) * 0.15;
     textGroup.position.y = Math.sin(animTime * floatSpeed) * 0.3;
   },
 
@@ -189,5 +193,6 @@ export const typography3d: Pattern = {
     textGroup = null;
     scene = null;
     animTime = 0;
+    rotLocked = false;
   },
 };

@@ -5,6 +5,7 @@ const COUNT = 50000;
 
 let pointSize = 7.0;
 let flowSpeed = 0.2;
+let brightness = 1.0;
 let saturation = 0.80;
 
 let points: THREE.Points | null = null;
@@ -43,6 +44,7 @@ const vertexShader = /* glsl */ `
 
 const fragmentShader = /* glsl */ `
   uniform float uSaturation;
+  uniform float uBrightness;
   varying float vSeed;
 
   void main() {
@@ -66,6 +68,7 @@ const fragmentShader = /* glsl */ `
     // Saturation (0 = B&W, 1 = full color)
     float gray = dot(col, vec3(0.299, 0.587, 0.114));
     col = mix(vec3(gray), col, uSaturation);
+    col = clamp(col * uBrightness, 0.0, 1.0);
 
     gl_FragColor = vec4(col, alpha);
   }
@@ -75,8 +78,9 @@ export const particlesPalette: Pattern = {
   id: "particlesPalette",
   name: "Particle Field — Palette",
   controls: [
-    { label: "Point Size",  type: "range", min: 0.3, max: 10.0, step: 0.1, default: 7,   get: () => pointSize,  set: (v) => { pointSize = v; } },
-    { label: "Flow Speed",  type: "range", min: 0.0, max: 3.0,  step: 0.1, default: 0.2, get: () => flowSpeed,  set: (v) => { flowSpeed = v; } },
+    { label: "Point Size",  type: "range", min: 0.3, max: 10.0, step: 0.1,  default: 7,   get: () => pointSize,  set: (v) => { pointSize = v; } },
+    { label: "Flow Speed",  type: "range", min: 0.0, max: 3.0,  step: 0.1,  default: 0.2, get: () => flowSpeed,  set: (v) => { flowSpeed = v; } },
+    { label: "Brightness",  type: "range", min: 0.0, max: 1.0,  step: 0.05, default: 1.0, get: () => brightness, set: (v) => { brightness = v; } },
     { label: "Saturation",  type: "range", min: 0.0, max: 1.0,  step: 0.05, default: 0.8, get: () => saturation, set: (v) => { saturation = v; } },
   ],
 
@@ -105,6 +109,7 @@ export const particlesPalette: Pattern = {
       uniforms: {
         uTime:       { value: 0 },
         uSize:       { value: pointSize },
+        uBrightness: { value: brightness },
         uSaturation: { value: saturation },
       },
       vertexShader,
@@ -123,6 +128,7 @@ export const particlesPalette: Pattern = {
     accTime += dt * flowSpeed;
     material.uniforms.uTime.value       = accTime;
     material.uniforms.uSize.value       = pointSize;
+    material.uniforms.uBrightness.value = brightness;
     material.uniforms.uSaturation.value = saturation;
   },
 
@@ -136,5 +142,7 @@ export const particlesPalette: Pattern = {
     material = null;
     camera = null;
     accTime = 0;
+    brightness = 1.0;
+    saturation = 0.80;
   },
 };

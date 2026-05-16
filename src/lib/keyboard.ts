@@ -20,6 +20,7 @@ export type KeyAction =
   | { type: "sliderRight" }
   | { type: "toggleOverlay" }
   | { type: "toggleCheatsheet" }
+  | { type: "toggleOptions" }
   | { type: "undo" }
   | { type: "togglePose" };
 
@@ -87,6 +88,9 @@ export function attachKeyboard(
         e.preventDefault(); return;
       case "m": case "M":
         handler({ type: "toggleCheatsheet" });
+        e.preventDefault(); return;
+      case "o": case "O":
+        handler({ type: "toggleOptions" });
         e.preventDefault(); return;
       case "1":
       case "v": case "V":

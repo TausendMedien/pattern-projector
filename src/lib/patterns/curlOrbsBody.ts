@@ -149,6 +149,7 @@ const fragmentShader = /* glsl */ `
 
 export const curlOrbsBody: Pattern = {
   id: "curlOrbsBody",
+  usesPose: true,
   name: "Curl Orbs Body",
   controls: [
     { label: "Body Tracking", type: "toggle", get: () => bodyTracking, set: (v) => { bodyTracking = v; } },

@@ -123,6 +123,7 @@ const fragmentShader = /* glsl */ `
 
 export const baroqueSwirlsBody: Pattern = {
   id: "baroqueSwirlsBody",
+  usesPose: true,
   name: "Baroque Swirls Body",
   controls: [
     { label: "Body Tracking",  type: "toggle", get: () => bodyTracking, set: (v) => { bodyTracking = v; } },

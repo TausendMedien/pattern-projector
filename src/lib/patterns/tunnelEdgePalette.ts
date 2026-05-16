@@ -12,6 +12,7 @@ let edges       = 4;
 let ringOffset  = 0.0;
 let wobble      = 0.0;
 let shadowWidth = 0.35;
+let brightness  = 1.0;
 let saturation  = 1.0;
 let colorSet    = 0;
 
@@ -50,6 +51,7 @@ const fragmentShader = /* glsl */ `
   uniform float uRingOffset;
   uniform float uWobble;
   uniform float uShadowWidth;
+  uniform float uBrightness;
   uniform float uSaturation;
   uniform vec3  uColorCenter;
   uniform vec3  uColorMid;
@@ -114,6 +116,7 @@ const fragmentShader = /* glsl */ `
 
     float lum = dot(col, vec3(0.299, 0.587, 0.114));
     col = mix(vec3(lum), col, uSaturation);
+    col = clamp(col * uBrightness, 0.0, 1.0);
 
     float rawFw = length(vec2(dFdx(stripeRaw), dFdy(stripeRaw)));
     float fade  = 1.0 - smoothstep(0.8, 1.8, rawFw);
@@ -137,6 +140,7 @@ export const tunnelEdgePalette: Pattern = {
     { label: "Ring Offset",  type: "range", min: -3.14, max: 3.14, step: 0.05, default: 0,    get: () => ringOffset,  set: (v) => { ringOffset = v; } },
     { label: "Wobble",       type: "range", min: 0.0,   max: 1.0,  step: 0.05, default: 0,    get: () => wobble,      set: (v) => { wobble = v; } },
     { label: "Shadow Width", type: "range", min: 0.05,  max: 0.8,  step: 0.01, default: 0.35, get: () => shadowWidth, set: (v) => { shadowWidth = v; } },
+    { label: "Brightness",   type: "range", min: 0.0,   max: 1.0,  step: 0.05, default: 1,    get: () => brightness,  set: (v) => { brightness = v; } },
     { label: "Saturation",   type: "range", min: 0.0,   max: 1.0,  step: 0.05, default: 1,    get: () => saturation,  set: (v) => { saturation = v; } },
   ],
 
@@ -153,6 +157,7 @@ export const tunnelEdgePalette: Pattern = {
         uRingOffset:  { value: ringOffset },
         uWobble:      { value: wobble },
         uShadowWidth: { value: shadowWidth },
+        uBrightness:  { value: brightness },
         uSaturation:  { value: saturation },
         uColorCenter: { value: new THREE.Vector3(...cs.center as [number, number, number]) },
         uColorMid:    { value: new THREE.Vector3(...cs.mid as [number, number, number]) },
@@ -178,6 +183,7 @@ export const tunnelEdgePalette: Pattern = {
     material.uniforms.uRingOffset.value  = ringOffset;
     material.uniforms.uWobble.value      = wobble;
     material.uniforms.uShadowWidth.value = shadowWidth;
+    material.uniforms.uBrightness.value  = brightness;
     material.uniforms.uSaturation.value  = saturation;
   },
 
@@ -192,5 +198,7 @@ export const tunnelEdgePalette: Pattern = {
     geometry = null;
     material = null;
     accTime = 0;
+    brightness = 1.0;
+    saturation = 1.0;
   },
 };

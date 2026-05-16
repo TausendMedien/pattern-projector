@@ -25,6 +25,8 @@ export interface Pattern {
   controls?: PatternControl[];
   /** Labels of range controls that motion detection should boost. Defaults to first two range controls. */
   motionControlLabels?: string[];
+  /** True if this pattern actively uses body pose tracking data. */
+  usesPose?: boolean;
   init(ctx: PatternContext): void;
   /** Called only on real activation (not on overview hover preview). Start cameras here. */
   activate?(): void;

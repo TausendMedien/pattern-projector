@@ -19,6 +19,10 @@
   import { getSlots, saveSlot } from "./lib/presets";
   import type { Snapshot } from "./lib/presets";
   import { poseState, startPoseTracking, stopPoseTracking } from "./lib/pose";
+  import { cameraState, enumerateCameras } from "./lib/globalCameraSettings.svelte";
+  import { audioState, enumerateMicrophones } from "./lib/globalAudioSettings.svelte";
+
+  const AUDIO_BAND_OPTIONS = ['Bass', 'Mid', 'High', 'Full'] as const;
 
   type AppState = "overview" | "active" | "preview";
 
@@ -85,6 +89,10 @@
   let blackout = $state(false);
   let overlayHidden = $state(false);
   let cheatsheetVisible = $state(false);
+  let optionsVisible    = $state(false);
+  let demoVisible       = $state(false);
+  let demoRandomize     = $state(false);
+  let demoFavoritesOnly = $state(false);
   let collapsedSections = $state(new Set<string>());
 
   // Body pose tracking
@@ -126,6 +134,8 @@
     (patterns[index]?.controls ?? []).filter(c => c.type === 'range') as
       (import('./lib/patterns/types').PatternControl & { type: 'range' })[]
   );
+
+  const patternUsesPose = $derived(!!patterns[index]?.usesPose);
 
   // Reset slider focus when pattern changes
   $effect(() => { const _ = index; sliderFocusIndex = 0; });
@@ -223,10 +233,14 @@
   }
 
   function crossFadeTo(n: number) {
+    // Capture current frame BEFORE switching so snapshot covers the transition
     snapshotUrl = canvas.toDataURL();
     snapshotFading = false;
+    // Switch pattern while snapshot covers the canvas
     index = switchTo(n);
     focusedIndex = index;
+    if (demoRandomize) randomizeControls();
+    // Let new pattern render a couple frames, then fade out snapshot
     requestAnimationFrame(() => requestAnimationFrame(() => { snapshotFading = true; }));
   }
 
@@ -262,8 +276,10 @@
   }
 
   function handleAction(action: KeyAction) {
-    // Any action dismisses the cheatsheet
+    // Any action dismisses modals first
     if (cheatsheetVisible) { cheatsheetVisible = false; return; }
+    if (optionsVisible)    { optionsVisible = false; return; }
+    if (demoVisible && action.type !== 'demo') { demoVisible = false; return; }
 
     // Global regardless of state
     if (action.type === "togglePose") { togglePoseTracking(); return; }
@@ -301,6 +317,12 @@
         case "toggleCheatsheet":
           cheatsheetVisible = !cheatsheetVisible;
           break;
+        case "toggleOptions":
+          optionsVisible = !optionsVisible;
+          break;
+        case "demo":
+          demoVisible = !demoVisible;
+          break;
       }
       return;
     }
@@ -325,6 +347,7 @@
         else { overlayHidden = false; poke(); }
         return;
       case "toggleCheatsheet": cheatsheetVisible = !cheatsheetVisible; return;
+      case "toggleOptions":    optionsVisible = !optionsVisible; return;
       case "undo":             applyUndo(); return;
     }
 
@@ -340,7 +363,7 @@
         case "fullscreen":
           fs.toggle(document.documentElement); hudVisible = false; break;
         case "demo":
-          demoActive ? stopDemo() : startDemo(); break;
+          demoVisible = !demoVisible; break;
         case "escape":
           if (fs.isFullscreen()) fs.exit();
           appState = "preview"; overlayHidden = false; break;
@@ -358,7 +381,7 @@
         case "fullscreen":
           fs.enter(document.documentElement); appState = "active"; hudVisible = false; break;
         case "demo":
-          demoActive ? stopDemo() : startDemo(); break;
+          demoVisible = !demoVisible; break;
         case "escape":
           focusedIndex = index; appState = "overview"; overlayHidden = false; break;
       }
@@ -382,10 +405,7 @@
   }
 
   function toggleCamera() {
-    const ctrl = (patterns[index]?.controls ?? []).find(
-      c => c.type === 'section' && c.label === 'Motion Detection Camera'
-    );
-    if (ctrl && ctrl.type === 'section') { ctrl.set(!ctrl.get()); syncCtrlVals(); }
+    cameraState.enabled = !cameraState.enabled;
   }
 
   function applyFreeze() {
@@ -666,6 +686,11 @@
 
     loadFavorites();
 
+    // Pre-enumerate camera/mic devices (labels only available after permission grant,
+    // but even unlabelled list lets us show device count in Options)
+    enumerateCameras();
+    enumerateMicrophones();
+
     const rawP = localStorage.getItem(PALETTE_KEY);
     if (rawP) {
       try {
@@ -870,11 +895,19 @@
     <div class="shrink-0 pt-10 pb-4 text-center">
       <p class="text-sm uppercase tracking-[0.35em] text-white/60">Lichtspiel</p>
       <p class="text-[10px] tracking-widest text-white/30">by <a href="https://1000lights.de" target="_blank" rel="noopener noreferrer" class="hover:text-white/60 transition-colors">1000lights</a></p>
-      <div class="mt-3 flex justify-center gap-2">
+      <div class="mt-3 flex justify-center gap-2 flex-wrap">
         <button
           class="rounded-md border px-3 py-1.5 text-xs transition-colors cursor-pointer {demoActive ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 bg-white/[0.07] text-white/60 hover:border-white/40 hover:bg-white/15'}"
-          onclick={() => { demoActive ? stopDemo() : startDemo(); }}
+          onclick={() => { demoVisible = true; }}
         >{demoActive ? "● Demo" : "Demo"}</button>
+        <button
+          class="rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/60 transition-colors cursor-pointer hover:border-white/40 hover:bg-white/15"
+          onclick={() => { optionsVisible = true; }}
+        >⚙ Options</button>
+        <button
+          class="rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/60 transition-colors cursor-pointer hover:border-white/40 hover:bg-white/15"
+          onclick={() => { cheatsheetVisible = true; }}
+        >?</button>
         {#if !isIosBrowser && !isIosStandalone}
           <button
             class="rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/60 transition-colors cursor-pointer hover:border-white/40 hover:bg-white/15"
@@ -896,25 +929,6 @@
           {showFavoritesOnly ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 text-white/50 hover:border-white/30'}"
         onclick={() => { showFavoritesOnly = true; }}
       >★ Favorites</button>
-      <div class="flex gap-1">
-        <button
-          class="rounded-full border px-3 py-1 text-[11px] transition-colors cursor-pointer
-            {poseActive ? 'border-green-400/50 bg-green-400/15 text-green-300' : poseError ? 'border-red-400/40 text-red-300/70' : 'border-white/15 text-white/50 hover:border-white/30'}"
-          onclick={togglePoseTracking}
-          disabled={poseLoading}
-          title={poseError ?? (poseActive ? "Stop body tracking (T)" : "Start body tracking (T)")}
-        >
-          {#if poseLoading}⟳ Pose…{:else if poseActive}◉ Pose{posePersonCount > 0 ? ` (${posePersonCount})` : ''}{:else if poseError}✕ Pose{:else}◎ Pose{/if}
-        </button>
-        {#if poseActive}
-          <button
-            class="rounded-full border px-2.5 py-1 text-[11px] transition-colors cursor-pointer
-              {poseDebug ? 'border-yellow-400/50 bg-yellow-400/15 text-yellow-300' : 'border-white/15 text-white/40 hover:border-white/30'}"
-            onclick={() => { poseDebug = !poseDebug; }}
-            title="Toggle landmark debug overlay"
-          >⊹</button>
-        {/if}
-      </div>
     </div>
 
     <div class="grid grid-cols-3 gap-2 px-3 w-full max-w-lg pb-4">
@@ -949,40 +963,6 @@
           </button>
         {/each}
       {/if}
-    </div>
-
-    <!-- Custom Palette -->
-    <div class="w-full max-w-lg px-3 pb-5">
-      <div class="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
-        <div class="mb-3 flex items-center justify-between gap-2">
-          <span class="text-xs uppercase tracking-widest text-white/50">Custom</span>
-          <button
-            onclick={() => { palette = { ...PALETTE_DEFAULTS }; savePalette(); }}
-            class="rounded px-2 py-0.5 text-[10px] text-white/50 border border-white/15 hover:border-white/40 hover:text-white/80 transition-colors cursor-pointer"
-          >Reset All</button>
-        </div>
-        <div class="flex flex-col gap-2">
-          {#each Object.entries(PALETTE_DEFAULTS) as [key]}
-            {@const k = key as PaletteKey}
-            <div class="flex items-center gap-2">
-              <input
-                type="color"
-                value={palette[k]}
-                oninput={(e) => { palette[k] = (e.target as HTMLInputElement).value; savePalette(); }}
-                class="h-7 w-10 cursor-pointer rounded border border-white/20 bg-transparent p-0.5 shrink-0"
-              />
-              <span class="text-xs text-white/70 capitalize w-16 shrink-0">{key}</span>
-              <span class="font-mono text-xs text-white/40 flex-1">{palette[k]}</span>
-              {#if palette[k] !== PALETTE_DEFAULTS[k]}
-                <button
-                  onclick={() => resetPaletteColor(k)}
-                  class="text-[10px] text-white/40 hover:text-white/70 border border-white/15 hover:border-white/40 rounded px-1.5 py-0.5 transition-colors cursor-pointer shrink-0"
-                >↺</button>
-              {/if}
-            </div>
-          {/each}
-        </div>
-      </div>
     </div>
 
     <div class="shrink-0 pb-8 flex gap-5 text-[11px] text-white/30 px-4 text-center flex-wrap justify-center">
@@ -1029,12 +1009,18 @@
       onclick={(e) => e.stopPropagation()}
     >
       <div class="mb-4 flex items-center justify-between">
-        <span class="text-xs font-semibold uppercase tracking-[0.3em] text-white/60">Controls Reference</span>
+        <span class="text-xs font-semibold uppercase tracking-[0.3em] text-white/60">About</span>
         <button
           class="cursor-pointer rounded px-2 py-0.5 text-xs text-white/50 hover:text-white/80 transition-colors"
           onclick={() => { cheatsheetVisible = false; }}
         >✕  any key</button>
       </div>
+      <p class="mb-4 text-sm text-white/70 leading-relaxed">
+        Lichtspiel is being created by light artist Ulrich Tausend
+        <a href="https://1000lights.de" target="_blank" rel="noopener noreferrer"
+           class="text-white/90 underline hover:text-white transition-colors">1000lights.de</a>
+      </p>
+      <div class="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-white/50">Controls</div>
       <table class="w-full border-collapse">
         <thead>
           <tr class="border-b border-white/20">
@@ -1057,7 +1043,8 @@
             ["Screenshot",           "L  ·  2 (R2)",      "R2 / RT"],
             ["Camera toggle",        "2  ·  L1",          "L1 / LB"],
             ["Record video",         "1  ·  L2",          "L2 / LT"],
-            ["Controls reference",   "M",                 "R1 / RB"],
+            ["About / Controls",     "M  ·  ?",           "R1 / RB"],
+            ["Options",              "O",                 "—"],
             ["Fullscreen",           "F",                 "—"],
             ["Demo mode",            "D",                 "—"],
             ["Jump to pattern",      "3 – 9",             "—"],
@@ -1071,6 +1058,278 @@
           {/each}
         </tbody>
       </table>
+    </div>
+  </div>
+{/if}
+
+<!-- ─── Options modal ────────────────────────────────────────────────────── -->
+{#if optionsVisible}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div
+    class="fixed inset-0 z-[60] flex items-start justify-center bg-black/75 backdrop-blur-sm overflow-y-auto py-8"
+    onclick={() => { optionsVisible = false; }}
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div
+      class="mx-4 w-full max-w-sm rounded-xl border border-white/10 bg-black/90 p-5 text-white"
+      onclick={(e) => e.stopPropagation()}
+    >
+      <div class="mb-4 flex items-center justify-between">
+        <span class="text-xs font-semibold uppercase tracking-[0.3em] text-white/60">Options</span>
+        <button
+          class="cursor-pointer rounded px-2 py-0.5 text-xs text-white/50 hover:text-white/80 transition-colors"
+          onclick={() => { optionsVisible = false; }}
+        >✕</button>
+      </div>
+
+      <!-- Camera section -->
+      <div class="mb-5">
+        <div class="mb-2 flex items-center gap-2">
+          <div class="h-px flex-1 bg-white/15"></div>
+          <span class="text-[10px] uppercase tracking-widest text-white/40">Motion Detection Camera</span>
+          <div
+            class="relative h-[14px] w-[22px] flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 {cameraState.enabled ? 'bg-white/60' : 'bg-white/20'}"
+            onclick={() => { cameraState.enabled = !cameraState.enabled; if (cameraState.enabled) enumerateCameras(); }}
+            role="switch"
+            aria-checked={cameraState.enabled}
+            tabindex="0"
+          >
+            <div class="absolute top-[2px] h-[10px] w-[10px] rounded-full bg-white shadow transition-transform duration-200 {cameraState.enabled ? 'translate-x-[10px]' : 'translate-x-[2px]'}"></div>
+          </div>
+          <div class="h-px flex-1 bg-white/15"></div>
+        </div>
+        <div class="flex flex-col gap-2.5 {cameraState.enabled ? '' : 'opacity-40 pointer-events-none'}">
+          <div>
+            <div class="mb-1 text-xs text-white/70">Camera</div>
+            {#if cameraState.devices.length > 0}
+              <select
+                value={cameraState.devices.findIndex(d => d.deviceId === cameraState.deviceId)}
+                onchange={(e) => { const i = parseInt((e.target as HTMLSelectElement).value); cameraState.deviceId = cameraState.devices[i]?.deviceId ?? ''; }}
+                class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
+              >
+                {#each cameraState.devices as d, i}
+                  <option value={i}>{d.label}</option>
+                {/each}
+              </select>
+            {:else}
+              <div class="text-xs text-white/30">No cameras found</div>
+            {/if}
+          </div>
+          <div>
+            <div class="flex justify-between mb-1 text-xs text-white/70">
+              <span>Motion Sensitivity</span>
+              <span class="font-mono text-white/40">{cameraState.sensitivity}</span>
+            </div>
+            <input type="range" min={0} max={100} step={1} bind:value={cameraState.sensitivity}
+              class="w-full accent-white cursor-pointer" />
+          </div>
+          <div>
+            <div class="flex justify-between mb-1 text-xs text-white/70">
+              <span>Motion Level</span>
+              <span class="font-mono text-white/40">{cameraState.level}</span>
+            </div>
+            <input type="range" min={0} max={100} step={1} value={cameraState.level}
+              class="w-full accent-white pointer-events-none" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Audio section -->
+      <div class="mb-5">
+        <div class="mb-2 flex items-center gap-2">
+          <div class="h-px flex-1 bg-white/15"></div>
+          <span class="text-[10px] uppercase tracking-widest text-white/40">Audio Reactivity</span>
+          <span class="text-[9px] text-white/30 border border-white/20 rounded px-1 py-0.5">experimental</span>
+          <div
+            class="relative h-[14px] w-[22px] flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 {audioState.enabled ? 'bg-white/60' : 'bg-white/20'}"
+            onclick={() => { audioState.enabled = !audioState.enabled; if (audioState.enabled) enumerateMicrophones(); }}
+            role="switch"
+            aria-checked={audioState.enabled}
+            tabindex="0"
+          >
+            <div class="absolute top-[2px] h-[10px] w-[10px] rounded-full bg-white shadow transition-transform duration-200 {audioState.enabled ? 'translate-x-[10px]' : 'translate-x-[2px]'}"></div>
+          </div>
+          <div class="h-px flex-1 bg-white/15"></div>
+        </div>
+        <div class="flex flex-col gap-2.5 {audioState.enabled ? '' : 'opacity-40 pointer-events-none'}">
+          <div>
+            <div class="mb-1 text-xs text-white/70">Microphone</div>
+            {#if audioState.devices.length > 0}
+              <select
+                value={audioState.devices.findIndex(d => d.deviceId === audioState.deviceId)}
+                onchange={(e) => { const i = parseInt((e.target as HTMLSelectElement).value); audioState.deviceId = audioState.devices[i]?.deviceId ?? ''; }}
+                class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
+              >
+                {#each audioState.devices as d, i}
+                  <option value={i}>{d.label}</option>
+                {/each}
+              </select>
+            {:else}
+              <div class="text-xs text-white/30">No microphones found</div>
+            {/if}
+          </div>
+          <div>
+            <div class="flex justify-between mb-1 text-xs text-white/70">
+              <span>Audio Sensitivity</span>
+              <span class="font-mono text-white/40">{audioState.sensitivity}</span>
+            </div>
+            <input type="range" min={0} max={100} step={1} bind:value={audioState.sensitivity}
+              class="w-full accent-white cursor-pointer" />
+          </div>
+          <div>
+            <div class="mb-1 text-xs text-white/70">Frequency Band</div>
+            <select
+              value={audioState.bandIndex}
+              onchange={(e) => { audioState.bandIndex = parseInt((e.target as HTMLSelectElement).value); }}
+              class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
+            >
+              {#each AUDIO_BAND_OPTIONS as band, i}
+                <option value={i}>{band}</option>
+              {/each}
+            </select>
+          </div>
+          <div>
+            <div class="flex justify-between mb-1 text-xs text-white/70">
+              <span>Audio Level</span>
+              <span class="font-mono text-white/40">{audioState.level}</span>
+            </div>
+            <input type="range" min={0} max={100} step={1} value={audioState.level}
+              class="w-full accent-white pointer-events-none" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Colours section -->
+      <div>
+        <div class="mb-2 flex items-center gap-2">
+          <div class="h-px flex-1 bg-white/15"></div>
+          <span class="text-[10px] uppercase tracking-widest text-white/40">Custom Colours</span>
+          <div class="h-px flex-1 bg-white/15"></div>
+        </div>
+        <div class="mb-2 flex justify-end">
+          <button
+            onclick={() => { palette = { ...PALETTE_DEFAULTS }; savePalette(); }}
+            class="rounded px-2 py-0.5 text-[10px] text-white/50 border border-white/15 hover:border-white/40 hover:text-white/80 transition-colors cursor-pointer"
+          >Reset All</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          {#each Object.entries(PALETTE_DEFAULTS) as [key]}
+            {@const k = key as PaletteKey}
+            <div class="flex items-center gap-2">
+              <input
+                type="color"
+                value={palette[k]}
+                oninput={(e) => { palette[k] = (e.target as HTMLInputElement).value; savePalette(); }}
+                class="h-7 w-10 cursor-pointer rounded border border-white/20 bg-transparent p-0.5 shrink-0"
+              />
+              <span class="text-xs text-white/70 capitalize w-16 shrink-0">{key}</span>
+              <span class="font-mono text-xs text-white/40 flex-1">{palette[k]}</span>
+              {#if palette[k] !== PALETTE_DEFAULTS[k]}
+                <button
+                  onclick={() => resetPaletteColor(k)}
+                  class="text-[10px] text-white/40 hover:text-white/70 border border-white/15 hover:border-white/40 rounded px-1.5 py-0.5 transition-colors cursor-pointer shrink-0"
+                >↺</button>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- ─── Demo modal ────────────────────────────────────────────────────────── -->
+{#if demoVisible}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div
+    class="fixed inset-0 z-[60] flex items-start justify-center bg-black/75 backdrop-blur-sm overflow-y-auto py-8"
+    onclick={() => { demoVisible = false; }}
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div
+      class="mx-4 w-full max-w-lg rounded-xl border border-white/10 bg-black/90 p-5 text-white"
+      onclick={(e) => e.stopPropagation()}
+    >
+      <div class="mb-4 flex items-center justify-between">
+        <span class="text-xs font-semibold uppercase tracking-[0.3em] text-white/60">Demo</span>
+        <div class="flex gap-2 items-center">
+          <button
+            class="rounded-md border px-3 py-1 text-xs transition-colors cursor-pointer {demoActive ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 bg-white/[0.07] text-white/60 hover:border-white/40'}"
+            onclick={() => { demoActive ? stopDemo() : startDemo(); }}
+          >{demoActive ? "● Stop Demo" : "▶ Start Demo"}</button>
+          <button
+            class="cursor-pointer rounded px-2 py-0.5 text-xs text-white/50 hover:text-white/80 transition-colors"
+            onclick={() => { demoVisible = false; }}
+          >✕</button>
+        </div>
+      </div>
+
+      <!-- Dwell time -->
+      <div class="mb-3">
+        <div class="flex justify-between mb-1 text-xs text-white/70">
+          <span>Dwell time</span>
+          <span class="font-mono text-white/40">{demoDwell < 60 ? demoDwell + ' s' : Math.floor(demoDwell / 60) + 'm' + (demoDwell % 60 ? ' ' + (demoDwell % 60) + 's' : '')}</span>
+        </div>
+        <input
+          type="range" min={5} max={240} step={5} value={demoDwell}
+          oninput={(e) => { demoDwell = parseInt((e.target as HTMLInputElement).value); saveDemoSettings(demoActive, demoDwell, [...demoPatternIds]); if (demoActive) resetDemoTimer(); }}
+          class="w-full accent-white cursor-pointer"
+        />
+      </div>
+
+      <!-- Randomize toggle -->
+      <div class="mb-4 flex items-center justify-between text-xs text-white/70">
+        <span>Randomize settings on pattern change</span>
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+        <div
+          class="relative h-[18px] w-7 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 {demoRandomize ? 'bg-white/70' : 'bg-white/20'}"
+          onclick={() => { demoRandomize = !demoRandomize; }}
+        >
+          <div class="absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow transition-transform duration-200 {demoRandomize ? 'translate-x-[11px]' : 'translate-x-[2px]'}"></div>
+        </div>
+      </div>
+
+      <!-- Favorites filter -->
+      <div class="mb-3 flex gap-2">
+        <button
+          class="rounded-full border px-3 py-1 text-[11px] transition-colors cursor-pointer {!demoFavoritesOnly ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 text-white/50 hover:border-white/30'}"
+          onclick={() => { demoFavoritesOnly = false; }}
+        >All</button>
+        <button
+          class="rounded-full border px-3 py-1 text-[11px] transition-colors cursor-pointer {demoFavoritesOnly ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 text-white/50 hover:border-white/30'}"
+          onclick={() => { demoFavoritesOnly = true; }}
+        >★ Favorites</button>
+      </div>
+
+      <!-- Pattern list — 2-col on sm+, 1-col on mobile -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-0.5 max-h-[60vh] overflow-y-auto overscroll-contain pr-1">
+        {#each (demoFavoritesOnly ? patterns.filter(p => favorites.has(p.id)) : patterns) as p, i}
+          {#if p.id === 'lightTrail'}
+            <div class="col-span-1 sm:col-span-2 mt-2 mb-0.5 flex items-center gap-2">
+              <div class="h-px flex-1 bg-white/20"></div>
+              <span class="text-[10px] uppercase tracking-widest text-white/40">Live Light Painting</span>
+              <div class="h-px flex-1 bg-white/20"></div>
+            </div>
+          {/if}
+          {@const enabled = demoPatternIds.has(p.id)}
+          <button
+            class="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors cursor-pointer
+              {enabled ? 'text-white/80 hover:bg-white/10' : 'text-white/25 hover:bg-white/5'}"
+            onclick={() => {
+              const next = new Set(demoPatternIds);
+              if (enabled) { next.delete(p.id); } else { next.add(p.id); }
+              demoPatternIds = next;
+              saveDemoSettings(demoActive, demoDwell, [...demoPatternIds]);
+            }}
+          >
+            <span class="shrink-0 font-mono text-[10px] {enabled ? 'text-white/30' : 'text-white/15'}">{patterns.indexOf(p) + 1}</span>
+            <span class="flex-1 leading-snug">{p.name}</span>
+            {#if enabled}
+              <span class="shrink-0 h-1.5 w-1.5 rounded-full bg-white/50"></span>
+            {/if}
+          </button>
+        {/each}
+      </div>
     </div>
   </div>
 {/if}
@@ -1090,63 +1349,6 @@
     class:opacity-100={hudVisible && !overlayHidden}
   >
     <div class="flex max-h-full flex-col rounded-md border border-white/10 bg-black/60 px-4 py-3 text-white backdrop-blur-sm">
-      <!-- Demo section — only visible when demo is active -->
-      {#if demoActive}
-        <div class="mb-2 shrink-0 text-xs uppercase tracking-widest text-white/50">Demo</div>
-        <div class="mb-3 flex flex-col gap-2.5">
-          <div class="flex flex-col gap-1">
-            <div class="flex justify-between text-xs text-white/70">
-              <span>Dwell time</span>
-              <span class="font-mono text-white/40">{demoDwell < 60 ? demoDwell + ' s' : Math.floor(demoDwell / 60) + 'm' + (demoDwell % 60 ? ' ' + (demoDwell % 60) + 's' : '')}</span>
-            </div>
-            <input
-              type="range"
-              min={5}
-              max={240}
-              step={5}
-              value={demoDwell}
-              oninput={(e) => {
-                demoDwell = parseInt((e.target as HTMLInputElement).value);
-                saveDemoSettings(demoActive, demoDwell, [...demoPatternIds]);
-                if (demoActive) resetDemoTimer();
-              }}
-              class="w-full accent-white cursor-pointer"
-            />
-          </div>
-          <!-- Pattern selection -->
-          <div class="flex flex-col gap-1">
-            <div class="text-xs text-white/70">Patterns in cycle</div>
-            <div class="flex flex-col gap-0.5">
-              {#each patterns as p, i}
-                {#if i === patterns.length - 2}
-                  <div class="mt-1 mb-0.5 flex items-center gap-2">
-                    <div class="h-px flex-1 bg-white/20"></div>
-                    <span class="text-[10px] uppercase tracking-widest text-white/40">Live Light Painting</span>
-                    <div class="h-px flex-1 bg-white/20"></div>
-                  </div>
-                {/if}
-                {@const enabled = demoPatternIds.has(p.id)}
-                <button
-                  class="flex items-center gap-2 rounded px-1.5 py-1 text-left text-xs transition-colors cursor-pointer
-                    {enabled ? 'text-white/80 hover:bg-white/10' : 'text-white/25 hover:bg-white/5'}"
-                  onclick={() => {
-                    const next = new Set(demoPatternIds);
-                    if (enabled) { next.delete(p.id); } else { next.add(p.id); }
-                    demoPatternIds = next;
-                    saveDemoSettings(demoActive, demoDwell, [...demoPatternIds]);
-                  }}
-                >
-                  <span class="shrink-0 font-mono text-[10px] {enabled ? 'text-white/30' : 'text-white/15'}">{i + 1}</span>
-                  <span class="leading-snug">{p.name}</span>
-                  {#if enabled}
-                    <span class="ml-auto shrink-0 h-1.5 w-1.5 rounded-full bg-white/50"></span>
-                  {/if}
-                </button>
-              {/each}
-            </div>
-          </div>
-        </div>
-      {/if}
       {#if patterns[index].controls?.length}
         {@const controlMeta = (() => {
           let sectionOn = true;
@@ -1372,9 +1574,9 @@
           <div class="flex gap-1">
             <button
               class="pointer-events-auto flex-1 rounded-md border px-3 py-1.5 text-xs transition-colors active:bg-white/20
-                {poseActive ? 'border-green-400/50 bg-green-400/10 text-green-300' : poseError ? 'border-red-400/40 bg-red-400/10 text-red-300' : 'border-white/15 bg-white/[0.07] text-white/70 hover:border-white/40 hover:bg-white/15'}"
+                {poseActive ? 'border-green-400/50 bg-green-400/10 text-green-300' : poseError ? 'border-red-400/40 bg-red-400/10 text-red-300' : patternUsesPose ? 'border-white/15 bg-white/[0.07] text-white/70 hover:border-white/40 hover:bg-white/15' : 'border-white/10 bg-white/[0.03] text-white/30 hover:border-white/20 hover:bg-white/[0.06]'}"
               onclick={togglePoseTracking}
-              title={poseError ?? (poseActive ? "Stop body tracking (T)" : "Start body tracking (T)")}
+              title={poseError ?? (poseActive ? "Stop body tracking (T)" : patternUsesPose ? "Start body tracking (T)" : "This pattern doesn't use pose tracking")}
               disabled={poseLoading}
             >
               {#if poseLoading}
@@ -1417,6 +1619,16 @@
         >
           ← Patterns
         </button>
+        <button
+          class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
+          onclick={() => { optionsVisible = true; }}
+          title="Options (O)"
+        >⚙</button>
+        <button
+          class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
+          onclick={() => { cheatsheetVisible = true; }}
+          title="About / Controls (M)"
+        >?</button>
         <button
           class="pointer-events-auto rounded-md border px-3 py-1.5 text-xs transition-colors {copiedLink ? 'border-green-400/50 bg-green-400/10 text-green-300' : 'border-white/15 bg-white/[0.07] text-white/70 hover:border-white/40 hover:bg-white/15'}"
           onclick={copyShare}

@@ -1,8 +1,11 @@
-// Audio reactivity wrapper — mirrors motionCameraWrapper.ts.
-// Wraps any Pattern, appends Audio Reactivity controls, and boosts the
-// first two range controls in proportion to detected audio level.
+// Audio reactivity wrapper.
+// Wraps any Pattern and boosts the first two range controls in proportion to
+// detected audio level. Audio settings (enable, microphone, sensitivity, band)
+// come from the global Options menu via globalAudioSettings.svelte.ts — no
+// controls are added to the pattern's own controls list.
 
 import type { Pattern, PatternControl, PatternContext } from './patterns/types';
+import { audioState, enumerateMicrophones } from './globalAudioSettings.svelte';
 
 const BAND_OPTIONS = ['Bass', 'Mid', 'High', 'Full'] as const;
 
@@ -19,12 +22,12 @@ function getLevel(dataArray: Uint8Array, band: number): number {
   return sum / ((end - start + 1) * 255);
 }
 
+export { BAND_OPTIONS };
+
 export function addAudioReactivity(pattern: Pattern): Pattern {
-  let sensitivity   = 10;
-  let audioEnabled  = false;
-  let bandIndex     = 0;  // 0=Bass 1=Mid 2=High 3=Full
-  let audioDisplay  = 0;
-  let smoothed      = 0;
+  let smoothed     = 0;
+  let prevEnabled  = false;
+  let prevDeviceId = '';
 
   let audioCtx: AudioContext | null = null;
   let analyser: AnalyserNode | null = null;
@@ -44,7 +47,12 @@ export function addAudioReactivity(pattern: Pattern): Pattern {
   async function startAudio() {
     stopAudio();
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const deviceId = audioState.deviceId;
+      const constraints: MediaStreamConstraints = {
+        audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+        video: false,
+      };
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
       audioCtx = new AudioContext();
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
@@ -52,9 +60,10 @@ export function addAudioReactivity(pattern: Pattern): Pattern {
       dataArray = new Uint8Array(analyser.frequencyBinCount);
       source = audioCtx.createMediaStreamSource(stream);
       source.connect(analyser);
+      await enumerateMicrophones();
     } catch (e) {
       console.warn('[audio] microphone access denied:', e);
-      audioEnabled = false;
+      audioState.enabled = false;
     }
   }
 
@@ -64,84 +73,56 @@ export function addAudioReactivity(pattern: Pattern): Pattern {
     audioCtx?.close();
     stream?.getTracks().forEach(t => t.stop());
     source = null; analyser = null; audioCtx = null; stream = null; dataArray = null;
-    smoothed = 0; audioDisplay = 0;
+    smoothed = 0;
+    audioState.level = 0;
     for (let i = 0; i < firstTwoRange.length; i++) {
       effectiveVals[i] = baseVals[i];
       firstTwoRange[i].set(baseVals[i]);
     }
   }
 
-  function enableAudio(on: boolean) {
-    audioEnabled = on;
-    if (on) startAudio();
-    else stopAudio();
-  }
-
-  const wrappedPatternControls: PatternControl[] = (pattern.controls ?? []).map(ctrl => {
-    const idx = firstTwoRange.indexOf(ctrl as RangeCtrl);
-    if (idx === -1) return ctrl;
-    baseVals[idx] = (ctrl as RangeCtrl).get();
-    effectiveVals[idx] = baseVals[idx];
-    return {
-      ...ctrl,
-      get: () => effectiveVals[idx],
-      set: (v: number) => { baseVals[idx] = v; },
-    } as RangeCtrl;
-  });
-
-  const audioControls: PatternControl[] = [
-    {
-      label: 'Audio Reactivity',
-      type: 'section',
-      get: () => audioEnabled,
-      set: v => enableAudio(v),
-    },
-    {
-      label: 'Audio Sensitivity',
-      type: 'range', min: 0, max: 100, step: 1,
-      get: () => sensitivity,
-      set: v => { sensitivity = v; },
-    },
-    {
-      label: 'Frequency Band',
-      type: 'select',
-      options: [...BAND_OPTIONS],
-      get: () => bandIndex,
-      set: v => { bandIndex = v; },
-    },
-    {
-      label: 'Audio Level',
-      type: 'range', min: 0, max: 100, step: 1,
-      readonly: true,
-      get: () => audioDisplay,
-      set: () => {},
-    },
-  ];
-
   return {
     ...pattern,
-    controls: [...wrappedPatternControls, ...audioControls],
+    // Pass through the pattern's own controls unchanged — no audio controls added
+    controls: pattern.controls,
 
     init(ctx: PatternContext) {
       for (let i = 0; i < firstTwoRange.length; i++) {
         baseVals[i] = firstTwoRange[i].get();
         effectiveVals[i] = baseVals[i];
       }
+      prevEnabled  = audioState.enabled;
+      prevDeviceId = audioState.deviceId;
       pattern.init(ctx);
-      if (audioEnabled) startAudio();
+      if (audioState.enabled) startAudio();
     },
 
     update(dt: number, elapsed: number) {
+      // React to global enable/device changes
+      const nowEnabled  = audioState.enabled;
+      const nowDeviceId = audioState.deviceId;
+      if (nowEnabled !== prevEnabled) {
+        prevEnabled = nowEnabled;
+        if (nowEnabled) startAudio();
+        else stopAudio();
+      } else if (nowEnabled && nowDeviceId !== prevDeviceId) {
+        prevDeviceId = nowDeviceId;
+        startAudio();
+      }
+      prevDeviceId = nowDeviceId;
+
+      // Read audio level
       if (analyser && dataArray) {
         analyser.getByteFrequencyData(dataArray);
-        const raw = getLevel(dataArray, bandIndex);
+        const raw = getLevel(dataArray, audioState.bandIndex);
         smoothed = raw > smoothed
           ? 0.85 * smoothed + 0.15 * raw
           : 0.97 * smoothed + 0.03 * raw;
       }
-      audioDisplay = Math.round(smoothed * 100);
+      audioState.level = Math.round(smoothed * 100);
 
-      const scaled = smoothed * (sensitivity / 10) * (8 / 7);
+      // Boost first two controls
+      const scaled = smoothed * (audioState.sensitivity / 10) * (8 / 7);
       for (let i = 0; i < firstTwoRange.length; i++) {
         const ctrl = firstTwoRange[i];
         const range = ctrl.max - ctrl.min;
