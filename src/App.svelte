@@ -94,6 +94,8 @@
   let demoRandomize     = $state(false);
   let demoFavoritesOnly = $state(false);
   let collapsedSections = $state(new Set<string>());
+  // Reactive fullscreen flag — updated by fullscreenchange event so template re-renders
+  let isFullscreenState = $state(false);
 
   // Body pose tracking
   let posePersonCount = $state(0);
@@ -324,7 +326,7 @@
           demoVisible = !demoVisible;
           break;
         case "escape":
-          if (fs.isFullscreen()) fs.exit();
+          if (isFullscreenState) fs.exit();
           break;
       }
       return;
@@ -825,10 +827,8 @@
     const detachTouch = attachTouch(handleAction);
 
     function onFsChange() {
-      if (!fs.isFullscreen() && appState === "active") {
-        appState = "preview";
-        poke();
-      }
+      isFullscreenState = fs.isFullscreen();
+      poke();
     }
     document.addEventListener("fullscreenchange", onFsChange);
     document.addEventListener("webkitfullscreenchange", onFsChange);
@@ -902,7 +902,7 @@
           <button
             class="rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/60 transition-colors cursor-pointer hover:border-white/40 hover:bg-white/15"
             onclick={() => { fs.enter(document.documentElement); }}
-          >{fs.isFullscreen() ? "Exit ⛶" : "⛶ Fullscreen"}</button>
+          >{isFullscreenState ? "Exit ⛶" : "⛶ Fullscreen"}</button>
         {/if}
         <button
           class="rounded-md border px-3 py-1.5 text-xs transition-colors cursor-pointer {demoActive ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 bg-white/[0.07] text-white/60 hover:border-white/40 hover:bg-white/15'}"
@@ -1613,7 +1613,7 @@
               class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
               onclick={() => { fs.enter(document.documentElement); }}
             >
-              {fs.isFullscreen() ? "Exit ⛶" : "⛶ Fullscreen"}
+              {isFullscreenState ? "Exit ⛶" : "⛶ Fullscreen"}
             </button>
           {/if}
           <button
