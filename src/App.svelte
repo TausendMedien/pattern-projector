@@ -312,7 +312,7 @@
           activatePattern(focusedIndex);
           break;
         case "fullscreen":
-          activateFullscreen(focusedIndex);
+          fs.enter(document.documentElement);
           break;
         case "toggleCheatsheet":
           cheatsheetVisible = !cheatsheetVisible;
@@ -322,6 +322,9 @@
           break;
         case "demo":
           demoVisible = !demoVisible;
+          break;
+        case "escape":
+          if (fs.isFullscreen()) fs.exit();
           break;
       }
       return;
@@ -365,8 +368,7 @@
         case "demo":
           demoVisible = !demoVisible; break;
         case "escape":
-          if (fs.isFullscreen()) fs.exit();
-          appState = "preview"; overlayHidden = false; break;
+          focusedIndex = index; appState = "overview"; overlayHidden = false; break;
       }
     } else {
       // preview
@@ -896,6 +898,12 @@
       <p class="text-sm uppercase tracking-[0.35em] text-white/60">Lichtspiel</p>
       <p class="text-[10px] tracking-widest text-white/30">by <a href="https://1000lights.de" target="_blank" rel="noopener noreferrer" class="hover:text-white/60 transition-colors">1000lights</a></p>
       <div class="mt-3 flex justify-center gap-2 flex-wrap">
+        {#if !isIosBrowser && !isIosStandalone}
+          <button
+            class="rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/60 transition-colors cursor-pointer hover:border-white/40 hover:bg-white/15"
+            onclick={() => { fs.enter(document.documentElement); }}
+          >{fs.isFullscreen() ? "Exit ⛶" : "⛶ Fullscreen"}</button>
+        {/if}
         <button
           class="rounded-md border px-3 py-1.5 text-xs transition-colors cursor-pointer {demoActive ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 bg-white/[0.07] text-white/60 hover:border-white/40 hover:bg-white/15'}"
           onclick={() => { demoVisible = true; }}
@@ -908,12 +916,6 @@
           class="rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/60 transition-colors cursor-pointer hover:border-white/40 hover:bg-white/15"
           onclick={() => { cheatsheetVisible = true; }}
         >?</button>
-        {#if !isIosBrowser && !isIosStandalone}
-          <button
-            class="rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/60 transition-colors cursor-pointer hover:border-white/40 hover:bg-white/15"
-            onclick={() => { handleAction({ type: "fullscreen" }); }}
-          >{fs.isFullscreen() ? "Exit ⛶" : "⛶ Fullscreen"}</button>
-        {/if}
       </div>
     </div>
 
@@ -1232,8 +1234,13 @@
           {#each Object.entries(PALETTE_DEFAULTS) as [key]}
             {@const k = key as PaletteKey}
             <div class="flex items-center gap-2">
-              <div class="h-5 w-5 rounded shrink-0 border border-white/20" style="background:{palette[k]}"></div>
-              <span class="text-xs text-white/70 capitalize w-16 shrink-0">{key}</span>
+              <input
+                type="color"
+                value={palette[k]}
+                oninput={(e) => { palette[k] = (e.target as HTMLInputElement).value; savePalette(); }}
+                class="h-7 w-10 shrink-0 cursor-pointer rounded border border-white/20 bg-transparent p-0.5"
+              />
+              <span class="text-xs text-white/70 capitalize w-14 shrink-0">{key}</span>
               <input
                 type="text"
                 value={palette[k]}
