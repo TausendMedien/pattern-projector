@@ -59,10 +59,18 @@ function buildText() {
   const group = new THREE.Group();
 
   if (styleIndex === 1) {
-    // Wireframe
+    // Wireframe — primary color lines + glow color additive overlay
     const edges = new THREE.EdgesGeometry(geo);
     const mat = new THREE.LineBasicMaterial({ color: hexToColor(primaryColor) });
     group.add(new THREE.LineSegments(edges, mat));
+    const glowEdges = new THREE.EdgesGeometry(geo);
+    const glowMat = new THREE.LineBasicMaterial({
+      color: hexToColor(glowColor),
+      transparent: true,
+      opacity: 0.5,
+      blending: THREE.AdditiveBlending,
+    });
+    group.add(new THREE.LineSegments(glowEdges, glowMat));
     geo.dispose();
   } else if (styleIndex === 2) {
     // Neon — two meshes: inner solid + outer emissive glow

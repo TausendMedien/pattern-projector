@@ -1047,7 +1047,6 @@
             ["Options",              "O",                 "—"],
             ["Fullscreen",           "F",                 "—"],
             ["Demo mode",            "D",                 "—"],
-            ["Jump to pattern",      "3 – 9",             "—"],
             ["Overview / back",      "Esc",               "Share / Back"],
           ] as row}
             <tr class="border-b border-white/[0.06]">
@@ -1082,11 +1081,39 @@
         >✕</button>
       </div>
 
-      <!-- Camera section -->
+      <!-- Camera Controls section -->
       <div class="mb-5">
         <div class="mb-2 flex items-center gap-2">
           <div class="h-px flex-1 bg-white/15"></div>
-          <span class="text-[10px] uppercase tracking-widest text-white/40">Motion Detection Camera</span>
+          <span class="text-[10px] uppercase tracking-widest text-white/40">Camera Controls</span>
+          <div class="h-px flex-1 bg-white/15"></div>
+        </div>
+        <div>
+          <div class="mb-1 text-xs text-white/70">Camera</div>
+          {#if cameraState.devices.length > 0}
+            <select
+              value={cameraState.devices.findIndex(d => d.deviceId === cameraState.deviceId)}
+              onchange={(e) => { const i = parseInt((e.target as HTMLSelectElement).value); cameraState.deviceId = cameraState.devices[i]?.deviceId ?? ''; }}
+              class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
+            >
+              {#each cameraState.devices as d, i}
+                <option value={i}>{d.label}</option>
+              {/each}
+            </select>
+          {:else}
+            <button
+              onclick={() => enumerateCameras()}
+              class="text-xs text-white/40 hover:text-white/70 transition-colors cursor-pointer"
+            >Detect cameras</button>
+          {/if}
+        </div>
+      </div>
+
+      <!-- Motion Detection section -->
+      <div class="mb-5">
+        <div class="mb-2 flex items-center gap-2">
+          <div class="h-px flex-1 bg-white/15"></div>
+          <span class="text-[10px] uppercase tracking-widest text-white/40">Motion Detection</span>
           <div
             class="relative h-[14px] w-[22px] flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 {cameraState.enabled ? 'bg-white/60' : 'bg-white/20'}"
             onclick={() => { cameraState.enabled = !cameraState.enabled; if (cameraState.enabled) enumerateCameras(); }}
@@ -1100,24 +1127,8 @@
         </div>
         <div class="flex flex-col gap-2.5 {cameraState.enabled ? '' : 'opacity-40 pointer-events-none'}">
           <div>
-            <div class="mb-1 text-xs text-white/70">Camera</div>
-            {#if cameraState.devices.length > 0}
-              <select
-                value={cameraState.devices.findIndex(d => d.deviceId === cameraState.deviceId)}
-                onchange={(e) => { const i = parseInt((e.target as HTMLSelectElement).value); cameraState.deviceId = cameraState.devices[i]?.deviceId ?? ''; }}
-                class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
-              >
-                {#each cameraState.devices as d, i}
-                  <option value={i}>{d.label}</option>
-                {/each}
-              </select>
-            {:else}
-              <div class="text-xs text-white/30">No cameras found</div>
-            {/if}
-          </div>
-          <div>
             <div class="flex justify-between mb-1 text-xs text-white/70">
-              <span>Motion Sensitivity</span>
+              <span>Sensitivity</span>
               <span class="font-mono text-white/40">{cameraState.sensitivity}</span>
             </div>
             <input type="range" min={0} max={100} step={1} bind:value={cameraState.sensitivity}
@@ -1125,7 +1136,7 @@
           </div>
           <div>
             <div class="flex justify-between mb-1 text-xs text-white/70">
-              <span>Motion Level</span>
+              <span>Level</span>
               <span class="font-mono text-white/40">{cameraState.level}</span>
             </div>
             <input type="range" min={0} max={100} step={1} value={cameraState.level}
@@ -1216,14 +1227,18 @@
           {#each Object.entries(PALETTE_DEFAULTS) as [key]}
             {@const k = key as PaletteKey}
             <div class="flex items-center gap-2">
-              <input
-                type="color"
-                value={palette[k]}
-                oninput={(e) => { palette[k] = (e.target as HTMLInputElement).value; savePalette(); }}
-                class="h-7 w-10 cursor-pointer rounded border border-white/20 bg-transparent p-0.5 shrink-0"
-              />
+              <div class="h-5 w-5 rounded shrink-0 border border-white/20" style="background:{palette[k]}"></div>
               <span class="text-xs text-white/70 capitalize w-16 shrink-0">{key}</span>
-              <span class="font-mono text-xs text-white/40 flex-1">{palette[k]}</span>
+              <input
+                type="text"
+                value={palette[k]}
+                placeholder="#rrggbb"
+                oninput={(e) => {
+                  const v = (e.target as HTMLInputElement).value.trim();
+                  if (/^#[0-9a-fA-F]{6}$/.test(v)) { palette[k] = v; savePalette(); }
+                }}
+                class="min-w-0 flex-1 rounded bg-white/10 px-2 py-0.5 font-mono text-xs text-white outline-none placeholder-white/30 focus:bg-white/15"
+              />
               {#if palette[k] !== PALETTE_DEFAULTS[k]}
                 <button
                   onclick={() => resetPaletteColor(k)}
@@ -1483,17 +1498,21 @@
                     {/each}
                   </select>
                 {:else if ctrl.type === "color"}
+                  {@const hexVal = String(ctrlVals[ctrl.label] ?? ctrl.get())}
                   <div class="flex items-center gap-2">
+                    <div class="h-5 w-5 rounded shrink-0 border border-white/20" style="background:{hexVal}"></div>
                     <input
-                      type="color"
-                      value={String(ctrlVals[ctrl.label] ?? ctrl.get())}
+                      type="text"
+                      value={hexVal}
+                      placeholder="#rrggbb"
                       oninput={(e) => {
-                        const v = (e.target as HTMLInputElement).value;
-                        ctrl.set(v); ctrlVals[ctrl.label] = v; saveSettings(patterns);
+                        const v = (e.target as HTMLInputElement).value.trim();
+                        if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+                          ctrl.set(v); ctrlVals[ctrl.label] = v; saveSettings(patterns);
+                        }
                       }}
-                      class="h-7 w-10 cursor-pointer rounded border border-white/20 bg-transparent p-0.5"
+                      class="min-w-0 flex-1 rounded bg-white/10 px-2 py-1 font-mono text-xs text-white outline-none placeholder-white/30 focus:bg-white/15"
                     />
-                    <span class="font-mono text-xs text-white/40">{String(ctrlVals[ctrl.label] ?? ctrl.get())}</span>
                   </div>
                 {:else if ctrl.type === "text"}
                   <input
@@ -1565,6 +1584,18 @@
           {/if}
         </div>
         <div class="flex flex-col items-end gap-1.5">
+          {#if isIosBrowser}
+            <div class="mt-0.5 max-w-[140px] text-right text-[10px] leading-snug text-white/40">
+              Tap <span class="text-white/60">Share ↑</span> → Add to Home Screen for fullscreen
+            </div>
+          {:else if !isIosStandalone}
+            <button
+              class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
+              onclick={() => { fs.enter(document.documentElement); }}
+            >
+              {fs.isFullscreen() ? "Exit ⛶" : "⛶ Fullscreen"}
+            </button>
+          {/if}
           <button
             class="pointer-events-auto rounded-md border px-3 py-1.5 text-xs transition-colors {demoActive ? 'border-white/40 bg-white/15 text-white' : 'border-white/15 bg-white/[0.07] text-white/70 hover:border-white/40 hover:bg-white/15'} active:bg-white/20"
             onclick={() => { demoActive ? stopDemo() : startDemo(); }}
@@ -1573,62 +1604,50 @@
           </button>
           <div class="flex gap-1">
             <button
-              class="pointer-events-auto flex-1 rounded-md border px-3 py-1.5 text-xs transition-colors active:bg-white/20
-                {poseActive ? 'border-green-400/50 bg-green-400/10 text-green-300' : poseError ? 'border-red-400/40 bg-red-400/10 text-red-300' : patternUsesPose ? 'border-white/15 bg-white/[0.07] text-white/70 hover:border-white/40 hover:bg-white/15' : 'border-white/10 bg-white/[0.03] text-white/30 hover:border-white/20 hover:bg-white/[0.06]'}"
-              onclick={togglePoseTracking}
-              title={poseError ?? (poseActive ? "Stop body tracking (T)" : patternUsesPose ? "Start body tracking (T)" : "This pattern doesn't use pose tracking")}
-              disabled={poseLoading}
-            >
-              {#if poseLoading}
-                ⟳ Pose…
-              {:else if poseActive}
-                ◉ Pose {posePersonCount > 0 ? `(${posePersonCount})` : ''}
-              {:else if poseError}
-                ✕ Pose
-              {:else}
-                ◎ Pose
-              {/if}
-            </button>
-            {#if poseActive}
-              <button
-                class="pointer-events-auto rounded-md border px-2 py-1.5 text-xs transition-colors active:bg-white/20
-                  {poseDebug ? 'border-yellow-400/50 bg-yellow-400/10 text-yellow-300' : 'border-white/15 bg-white/[0.07] text-white/50 hover:border-white/40'}"
-                onclick={() => { poseDebug = !poseDebug; }}
-                title="Toggle landmark debug overlay"
-              >⊹</button>
-            {/if}
-          </div>
-          {#if isIosBrowser}
-            <div class="mt-0.5 max-w-[140px] text-right text-[10px] leading-snug text-white/40">
-              Tap <span class="text-white/60">Share ↑</span> → Add to Home Screen for fullscreen
-            </div>
-          {:else if !isIosStandalone}
+              class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
+              onclick={() => { optionsVisible = true; }}
+              title="Options (O)"
+            >⚙</button>
             <button
               class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
-              onclick={() => { handleAction({ type: "fullscreen" }); }}
-            >
-              {fs.isFullscreen() ? "Exit ⛶" : "⛶ Fullscreen"}
-            </button>
-          {/if}
+              onclick={() => { cheatsheetVisible = true; }}
+              title="About / Controls (M)"
+            >?</button>
+          </div>
         </div>
       </div>
       <div class="mt-3 flex gap-1.5">
         <button
           class="pointer-events-auto flex-1 rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
-          onclick={() => { if (fs.isFullscreen()) fs.exit(); focusedIndex = index; appState = "overview"; }}
+          onclick={() => { focusedIndex = index; appState = "overview"; }}
         >
           ← Patterns
         </button>
         <button
-          class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
-          onclick={() => { optionsVisible = true; }}
-          title="Options (O)"
-        >⚙</button>
-        <button
-          class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
-          onclick={() => { cheatsheetVisible = true; }}
-          title="About / Controls (M)"
-        >?</button>
+          class="pointer-events-auto flex-1 rounded-md border px-3 py-1.5 text-xs transition-colors active:bg-white/20
+            {poseActive ? 'border-green-400/50 bg-green-400/10 text-green-300' : poseError ? 'border-red-400/40 bg-red-400/10 text-red-300' : patternUsesPose ? 'border-white/15 bg-white/[0.07] text-white/70 hover:border-white/40 hover:bg-white/15' : 'border-white/10 bg-white/[0.03] text-white/30 hover:border-white/20 hover:bg-white/[0.06]'}"
+          onclick={togglePoseTracking}
+          title={poseError ?? (poseActive ? "Stop body tracking (T)" : patternUsesPose ? "Start body tracking (T)" : "This pattern doesn't use pose tracking")}
+          disabled={poseLoading}
+        >
+          {#if poseLoading}
+            ⟳ Pose…
+          {:else if poseActive}
+            ◉ Pose {posePersonCount > 0 ? `(${posePersonCount})` : ''}
+          {:else if poseError}
+            ✕ Pose
+          {:else}
+            ◎ Pose
+          {/if}
+        </button>
+        {#if poseActive}
+          <button
+            class="pointer-events-auto rounded-md border px-2 py-1.5 text-xs transition-colors active:bg-white/20
+              {poseDebug ? 'border-yellow-400/50 bg-yellow-400/10 text-yellow-300' : 'border-white/15 bg-white/[0.07] text-white/50 hover:border-white/40'}"
+            onclick={() => { poseDebug = !poseDebug; }}
+            title="Toggle landmark debug overlay"
+          >⊹</button>
+        {/if}
         <button
           class="pointer-events-auto rounded-md border px-3 py-1.5 text-xs transition-colors {copiedLink ? 'border-green-400/50 bg-green-400/10 text-green-300' : 'border-white/15 bg-white/[0.07] text-white/70 hover:border-white/40 hover:bg-white/15'}"
           onclick={copyShare}

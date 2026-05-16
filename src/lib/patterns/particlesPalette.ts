@@ -3,10 +3,18 @@ import type { Pattern, PatternContext } from "./types";
 
 const COUNT = 50000;
 
-let pointSize = 7.0;
-let flowSpeed = 0.2;
+let pointSize  = 7.0;
+let flowSpeed  = 0.2;
 let brightness = 1.0;
 let saturation = 0.80;
+
+// Per-color brightness multipliers (0–1)
+let colCyan    = 1.0;
+let colMagenta = 1.0;
+let colPurple  = 1.0;
+let colGold    = 1.0;
+let colWhite   = 1.0;
+let colBlack   = 1.0;
 
 let points: THREE.Points | null = null;
 let geometry: THREE.BufferGeometry | null = null;
@@ -45,6 +53,12 @@ const vertexShader = /* glsl */ `
 const fragmentShader = /* glsl */ `
   uniform float uSaturation;
   uniform float uBrightness;
+  uniform float uColCyan;
+  uniform float uColMagenta;
+  uniform float uColPurple;
+  uniform float uColGold;
+  uniform float uColWhite;
+  uniform float uColBlack;
   varying float vSeed;
 
   void main() {
@@ -55,12 +69,12 @@ const fragmentShader = /* glsl */ `
 
     // Standard palette: cyan, magenta, purple, gold, white, black
     vec3 palette[6];
-    palette[0] = vec3(0.0,  1.0,  1.0);    // cyan
-    palette[1] = vec3(1.0,  0.0,  1.0);    // magenta
-    palette[2] = vec3(0.6,  0.0,  1.0);    // purple
-    palette[3] = vec3(1.0,  0.843, 0.0);   // gold
-    palette[4] = vec3(1.0,  1.0,  1.0);    // white
-    palette[5] = vec3(0.02, 0.02, 0.05);   // near-black (avoids fully invisible)
+    palette[0] = vec3(0.0,  1.0,  1.0)    * uColCyan;
+    palette[1] = vec3(1.0,  0.0,  1.0)    * uColMagenta;
+    palette[2] = vec3(0.6,  0.0,  1.0)    * uColPurple;
+    palette[3] = vec3(1.0,  0.843, 0.0)   * uColGold;
+    palette[4] = vec3(1.0,  1.0,  1.0)    * uColWhite;
+    palette[5] = vec3(0.02, 0.02, 0.05)   * uColBlack;
 
     int idx = int(fract(vSeed) * 6.0);
     vec3 col = palette[idx];
@@ -82,6 +96,13 @@ export const particlesPalette: Pattern = {
     { label: "Flow Speed",  type: "range", min: 0.0, max: 3.0,  step: 0.1,  default: 0.2, get: () => flowSpeed,  set: (v) => { flowSpeed = v; } },
     { label: "Brightness",  type: "range", min: 0.0, max: 1.0,  step: 0.05, default: 1.0, get: () => brightness, set: (v) => { brightness = v; } },
     { label: "Saturation",  type: "range", min: 0.0, max: 1.0,  step: 0.05, default: 0.8, get: () => saturation, set: (v) => { saturation = v; } },
+    { label: "separator", type: "separator" },
+    { label: "Cyan",    type: "range", min: 0.0, max: 1.0, step: 0.05, default: 1.0, get: () => colCyan,    set: (v) => { colCyan = v; } },
+    { label: "Magenta", type: "range", min: 0.0, max: 1.0, step: 0.05, default: 1.0, get: () => colMagenta, set: (v) => { colMagenta = v; } },
+    { label: "Purple",  type: "range", min: 0.0, max: 1.0, step: 0.05, default: 1.0, get: () => colPurple,  set: (v) => { colPurple = v; } },
+    { label: "Gold",    type: "range", min: 0.0, max: 1.0, step: 0.05, default: 1.0, get: () => colGold,    set: (v) => { colGold = v; } },
+    { label: "White",   type: "range", min: 0.0, max: 1.0, step: 0.05, default: 1.0, get: () => colWhite,   set: (v) => { colWhite = v; } },
+    { label: "Dark",    type: "range", min: 0.0, max: 1.0, step: 0.05, default: 1.0, get: () => colBlack,   set: (v) => { colBlack = v; } },
   ],
 
   init(ctx: PatternContext) {
@@ -111,6 +132,12 @@ export const particlesPalette: Pattern = {
         uSize:       { value: pointSize },
         uBrightness: { value: brightness },
         uSaturation: { value: saturation },
+        uColCyan:    { value: colCyan },
+        uColMagenta: { value: colMagenta },
+        uColPurple:  { value: colPurple },
+        uColGold:    { value: colGold },
+        uColWhite:   { value: colWhite },
+        uColBlack:   { value: colBlack },
       },
       vertexShader,
       fragmentShader,
@@ -130,6 +157,12 @@ export const particlesPalette: Pattern = {
     material.uniforms.uSize.value       = pointSize;
     material.uniforms.uBrightness.value = brightness;
     material.uniforms.uSaturation.value = saturation;
+    material.uniforms.uColCyan.value    = colCyan;
+    material.uniforms.uColMagenta.value = colMagenta;
+    material.uniforms.uColPurple.value  = colPurple;
+    material.uniforms.uColGold.value    = colGold;
+    material.uniforms.uColWhite.value   = colWhite;
+    material.uniforms.uColBlack.value   = colBlack;
   },
 
   resize() {},
@@ -144,5 +177,6 @@ export const particlesPalette: Pattern = {
     accTime = 0;
     brightness = 1.0;
     saturation = 0.80;
+    colCyan = colMagenta = colPurple = colGold = colWhite = colBlack = 1.0;
   },
 };

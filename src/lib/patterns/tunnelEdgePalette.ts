@@ -16,6 +16,11 @@ let brightness  = 1.0;
 let saturation  = 1.0;
 let colorSet    = 0;
 
+// Per-color-stop brightness multipliers
+let colCenter = 1.0;
+let colMid    = 1.0;
+let colOuter  = 1.0;
+
 let accTime = 0;
 
 // center, mid, outer — each as [r,g,b]
@@ -56,6 +61,9 @@ const fragmentShader = /* glsl */ `
   uniform vec3  uColorCenter;
   uniform vec3  uColorMid;
   uniform vec3  uColorOuter;
+  uniform float uColCenter;
+  uniform float uColMid;
+  uniform float uColOuter;
 
   const float PI = 3.14159265358979;
 
@@ -102,9 +110,9 @@ const fragmentShader = /* glsl */ `
     float colorT = clamp(d0 * 2.2, 0.0, 1.0);
     vec3 col;
     if (colorT < 0.5) {
-      col = mix(uColorCenter, uColorMid,   colorT * 2.0);
+      col = mix(uColorCenter * uColCenter, uColorMid * uColMid, colorT * 2.0);
     } else {
-      col = mix(uColorMid,    uColorOuter, (colorT - 0.5) * 2.0);
+      col = mix(uColorMid * uColMid, uColorOuter * uColOuter, (colorT - 0.5) * 2.0);
     }
 
     float shadow = smoothstep(0.0, uShadowWidth, stripe);
@@ -142,6 +150,10 @@ export const tunnelEdgePalette: Pattern = {
     { label: "Shadow Width", type: "range", min: 0.05,  max: 0.8,  step: 0.01, default: 0.35, get: () => shadowWidth, set: (v) => { shadowWidth = v; } },
     { label: "Brightness",   type: "range", min: 0.0,   max: 1.0,  step: 0.05, default: 1,    get: () => brightness,  set: (v) => { brightness = v; } },
     { label: "Saturation",   type: "range", min: 0.0,   max: 1.0,  step: 0.05, default: 1,    get: () => saturation,  set: (v) => { saturation = v; } },
+    { label: "separator", type: "separator" },
+    { label: "Center",    type: "range", min: 0.0, max: 1.0, step: 0.05, default: 1, get: () => colCenter, set: (v) => { colCenter = v; } },
+    { label: "Mid",       type: "range", min: 0.0, max: 1.0, step: 0.05, default: 1, get: () => colMid,    set: (v) => { colMid = v; } },
+    { label: "Outer",     type: "range", min: 0.0, max: 1.0, step: 0.05, default: 1, get: () => colOuter,  set: (v) => { colOuter = v; } },
   ],
 
   init(ctx: PatternContext) {
@@ -162,6 +174,9 @@ export const tunnelEdgePalette: Pattern = {
         uColorCenter: { value: new THREE.Vector3(...cs.center as [number, number, number]) },
         uColorMid:    { value: new THREE.Vector3(...cs.mid as [number, number, number]) },
         uColorOuter:  { value: new THREE.Vector3(...cs.outer as [number, number, number]) },
+        uColCenter:   { value: colCenter },
+        uColMid:      { value: colMid },
+        uColOuter:    { value: colOuter },
       },
       vertexShader,
       fragmentShader,
@@ -185,6 +200,9 @@ export const tunnelEdgePalette: Pattern = {
     material.uniforms.uShadowWidth.value = shadowWidth;
     material.uniforms.uBrightness.value  = brightness;
     material.uniforms.uSaturation.value  = saturation;
+    material.uniforms.uColCenter.value   = colCenter;
+    material.uniforms.uColMid.value      = colMid;
+    material.uniforms.uColOuter.value    = colOuter;
   },
 
   resize(width: number, height: number) {
@@ -200,5 +218,6 @@ export const tunnelEdgePalette: Pattern = {
     accTime = 0;
     brightness = 1.0;
     saturation = 1.0;
+    colCenter = colMid = colOuter = 1.0;
   },
 };

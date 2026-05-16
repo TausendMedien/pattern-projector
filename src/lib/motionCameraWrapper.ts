@@ -29,6 +29,20 @@ export function addMotionCamera(pattern: Pattern): Pattern {
   const baseVals: number[]      = firstTwoRange.map((c) => c.get());
   const effectiveVals: number[] = [...baseVals];
 
+  // Wrap the boosted controls so user drags update baseVals only;
+  // the actual pattern value is written by update() using effectiveVals.
+  const wrappedControls: PatternControl[] = (pattern.controls ?? []).map((ctrl) => {
+    const idx = firstTwoRange.indexOf(ctrl as RangeCtrl);
+    if (idx === -1) return ctrl;
+    baseVals[idx] = (ctrl as RangeCtrl).get();
+    effectiveVals[idx] = baseVals[idx];
+    return {
+      ...ctrl,
+      get: () => effectiveVals[idx],
+      set: (v: number) => { baseVals[idx] = v; },
+    } as RangeCtrl;
+  });
+
   // ── Camera helpers ─────────────────────────────────────────────────────────
   function startCamera() {
     stopCamera();
@@ -64,8 +78,7 @@ export function addMotionCamera(pattern: Pattern): Pattern {
 
   return {
     ...pattern,
-    // Pass through the pattern's own controls unchanged — no camera controls added
-    controls: pattern.controls,
+    controls: wrappedControls,
 
     init(ctx: PatternContext) {
       canvasRef = ctx.renderer.domElement;
