@@ -59,18 +59,18 @@ function buildText() {
   const group = new THREE.Group();
 
   if (styleIndex === 1) {
-    // Wireframe — primary color lines + glow color additive overlay
-    const edges = new THREE.EdgesGeometry(geo);
-    const mat = new THREE.LineBasicMaterial({ color: hexToColor(primaryColor) });
-    group.add(new THREE.LineSegments(edges, mat));
+    // Wireframe — glow color base + primary color additive overlay for two-color look
     const glowEdges = new THREE.EdgesGeometry(geo);
-    const glowMat = new THREE.LineBasicMaterial({
-      color: hexToColor(glowColor),
+    const glowMat = new THREE.LineBasicMaterial({ color: hexToColor(glowColor) });
+    group.add(new THREE.LineSegments(glowEdges, glowMat));
+    const primaryEdges = new THREE.EdgesGeometry(geo);
+    const primaryMat = new THREE.LineBasicMaterial({
+      color: hexToColor(primaryColor),
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.7,
       blending: THREE.AdditiveBlending,
     });
-    group.add(new THREE.LineSegments(glowEdges, glowMat));
+    group.add(new THREE.LineSegments(primaryEdges, primaryMat));
     geo.dispose();
   } else if (styleIndex === 2) {
     // Neon — two meshes: inner solid + outer emissive glow
@@ -90,12 +90,14 @@ function buildText() {
     // Solid — use MeshBasicMaterial so it's always visible regardless of lighting
     const mat = new THREE.MeshBasicMaterial({ color: hexToColor(primaryColor) });
     group.add(new THREE.Mesh(geo, mat));
-    // Glow color as a thin edge overlay
+    // Glow color as edge overlay (depthTest: false so it renders on top of the mesh)
     const edges = new THREE.EdgesGeometry(geo);
     const edgeMat = new THREE.LineBasicMaterial({
       color: hexToColor(glowColor),
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
     });
     group.add(new THREE.LineSegments(edges, edgeMat));
   }

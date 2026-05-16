@@ -1083,64 +1083,69 @@
 
       <!-- Camera Controls section -->
       <div class="mb-5">
-        <div class="mb-2 flex items-center gap-2">
+        <div class="mb-3 flex items-center gap-2">
           <div class="h-px flex-1 bg-white/15"></div>
           <span class="text-[10px] uppercase tracking-widest text-white/40">Camera Controls</span>
           <div class="h-px flex-1 bg-white/15"></div>
         </div>
-        <div>
-          <div class="mb-1 text-xs text-white/70">Camera</div>
-          {#if cameraState.devices.length > 0}
-            <select
-              value={cameraState.devices.findIndex(d => d.deviceId === cameraState.deviceId)}
-              onchange={(e) => { const i = parseInt((e.target as HTMLSelectElement).value); cameraState.deviceId = cameraState.devices[i]?.deviceId ?? ''; }}
-              class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
+        <div class="flex flex-col gap-2.5">
+          <!-- Camera on/off toggle -->
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-white/70">Camera</span>
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <div
+              class="relative h-[14px] w-[22px] flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 {cameraState.enabled ? 'bg-white/60' : 'bg-white/20'}"
+              onclick={() => { cameraState.enabled = !cameraState.enabled; if (cameraState.enabled) enumerateCameras(); }}
+              role="switch"
+              aria-checked={cameraState.enabled}
+              tabindex="0"
             >
-              {#each cameraState.devices as d, i}
-                <option value={i}>{d.label}</option>
-              {/each}
-            </select>
-          {:else}
-            <button
-              onclick={() => enumerateCameras()}
-              class="text-xs text-white/40 hover:text-white/70 transition-colors cursor-pointer"
-            >Detect cameras</button>
-          {/if}
-        </div>
-      </div>
-
-      <!-- Motion Detection section -->
-      <div class="mb-5">
-        <div class="mb-2 flex items-center gap-2">
-          <div class="h-px flex-1 bg-white/15"></div>
-          <span class="text-[10px] uppercase tracking-widest text-white/40">Motion Detection</span>
-          <div
-            class="relative h-[14px] w-[22px] flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 {cameraState.enabled ? 'bg-white/60' : 'bg-white/20'}"
-            onclick={() => { cameraState.enabled = !cameraState.enabled; if (cameraState.enabled) enumerateCameras(); }}
-            role="switch"
-            aria-checked={cameraState.enabled}
-            tabindex="0"
-          >
-            <div class="absolute top-[2px] h-[10px] w-[10px] rounded-full bg-white shadow transition-transform duration-200 {cameraState.enabled ? 'translate-x-[10px]' : 'translate-x-[2px]'}"></div>
-          </div>
-          <div class="h-px flex-1 bg-white/15"></div>
-        </div>
-        <div class="flex flex-col gap-2.5 {cameraState.enabled ? '' : 'opacity-40 pointer-events-none'}">
-          <div>
-            <div class="flex justify-between mb-1 text-xs text-white/70">
-              <span>Sensitivity</span>
-              <span class="font-mono text-white/40">{cameraState.sensitivity}</span>
+              <div class="absolute top-[2px] h-[10px] w-[10px] rounded-full bg-white shadow transition-transform duration-200 {cameraState.enabled ? 'translate-x-[10px]' : 'translate-x-[2px]'}"></div>
             </div>
-            <input type="range" min={0} max={100} step={1} bind:value={cameraState.sensitivity}
-              class="w-full accent-white cursor-pointer" />
           </div>
+          <!-- Camera Selection -->
           <div>
-            <div class="flex justify-between mb-1 text-xs text-white/70">
-              <span>Level</span>
-              <span class="font-mono text-white/40">{cameraState.level}</span>
+            <div class="mb-1 text-xs text-white/70">Camera Selection</div>
+            {#if cameraState.devices.length > 0}
+              <select
+                value={cameraState.devices.findIndex(d => d.deviceId === cameraState.deviceId)}
+                onchange={(e) => { const i = parseInt((e.target as HTMLSelectElement).value); cameraState.deviceId = cameraState.devices[i]?.deviceId ?? ''; }}
+                class="w-full rounded bg-white/10 px-2 py-1 text-xs text-white outline-none cursor-pointer"
+              >
+                {#each cameraState.devices as d, i}
+                  <option value={i}>{d.label}</option>
+                {/each}
+              </select>
+            {:else}
+              <button
+                onclick={() => enumerateCameras()}
+                class="text-xs text-white/40 hover:text-white/70 transition-colors cursor-pointer"
+              >Detect cameras</button>
+            {/if}
+          </div>
+          <!-- Motion Detection settings -->
+          <div class="mt-1 flex items-center gap-2">
+            <div class="h-px flex-1 bg-white/10"></div>
+            <span class="text-[10px] uppercase tracking-widest text-white/30">Motion Detection</span>
+            <div class="h-px flex-1 bg-white/10"></div>
+          </div>
+          <div class="{cameraState.enabled ? '' : 'opacity-40 pointer-events-none'} flex flex-col gap-2.5">
+            <div>
+              <div class="flex justify-between mb-1 text-xs text-white/70">
+                <span>Sensitivity</span>
+                <span class="font-mono text-white/40">{cameraState.sensitivity}</span>
+              </div>
+              <input type="range" min={0} max={100} step={1} bind:value={cameraState.sensitivity}
+                class="w-full accent-white cursor-pointer" />
             </div>
-            <input type="range" min={0} max={100} step={1} value={cameraState.level}
-              class="w-full accent-white pointer-events-none" />
+            <div>
+              <div class="flex justify-between mb-1 text-xs text-white/70">
+                <span>Level</span>
+                <span class="font-mono text-white/40">{cameraState.level}</span>
+              </div>
+              <input type="range" min={0} max={100} step={1} value={cameraState.level}
+                class="w-full accent-white pointer-events-none" />
+            </div>
           </div>
         </div>
       </div>
@@ -1500,7 +1505,15 @@
                 {:else if ctrl.type === "color"}
                   {@const hexVal = String(ctrlVals[ctrl.label] ?? ctrl.get())}
                   <div class="flex items-center gap-2">
-                    <div class="h-5 w-5 rounded shrink-0 border border-white/20" style="background:{hexVal}"></div>
+                    <input
+                      type="color"
+                      value={hexVal}
+                      oninput={(e) => {
+                        const v = (e.target as HTMLInputElement).value;
+                        ctrl.set(v); ctrlVals[ctrl.label] = v; saveSettings(patterns);
+                      }}
+                      class="h-7 w-10 shrink-0 cursor-pointer rounded border border-white/20 bg-transparent p-0.5"
+                    />
                     <input
                       type="text"
                       value={hexVal}
@@ -1602,18 +1615,16 @@
           >
             {demoActive ? "● Demo" : "Demo"}
           </button>
-          <div class="flex gap-1">
-            <button
-              class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
-              onclick={() => { optionsVisible = true; }}
-              title="Options (O)"
-            >⚙</button>
-            <button
-              class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
-              onclick={() => { cheatsheetVisible = true; }}
-              title="About / Controls (M)"
-            >?</button>
-          </div>
+          <button
+            class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
+            onclick={() => { optionsVisible = true; }}
+            title="Options (O)"
+          >⚙ Options</button>
+          <button
+            class="pointer-events-auto rounded-md border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/40 hover:bg-white/15 active:bg-white/20"
+            onclick={() => { cheatsheetVisible = true; }}
+            title="About / Controls (M)"
+          >? About</button>
         </div>
       </div>
       <div class="mt-3 flex gap-1.5">
