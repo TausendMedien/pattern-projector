@@ -111,12 +111,16 @@
       stopPoseTracking();
       poseActive = false;
       poseError = null;
+      // Turn camera off in Options if motion detection isn't also using it
+      if (!cameraState.motionEnabled) cameraState.enabled = false;
     } else {
       poseLoading = true;
       poseError = null;
       try {
         await startPoseTracking();
         poseActive = true;
+        // Reflect that camera is now active in the Options panel
+        if (!cameraState.enabled) { cameraState.enabled = true; enumerateCameras(); }
       } catch (e) {
         poseError = e instanceof Error ? e.message : "Camera access denied";
         poseActive = false;
@@ -410,6 +414,11 @@
 
   function toggleCamera() {
     cameraState.enabled = !cameraState.enabled;
+    if (cameraState.enabled) {
+      enumerateCameras();
+    } else if (poseActive) {
+      stopPoseTracking(); poseActive = false; poseError = null;
+    }
   }
 
   function applyFreeze() {
@@ -1097,7 +1106,15 @@
             <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
             <div
               class="relative h-[14px] w-[22px] flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 {cameraState.enabled ? 'bg-white/60' : 'bg-white/20'}"
-              onclick={() => { cameraState.enabled = !cameraState.enabled; if (cameraState.enabled) enumerateCameras(); }}
+              onclick={() => {
+                cameraState.enabled = !cameraState.enabled;
+                if (cameraState.enabled) {
+                  enumerateCameras();
+                } else if (poseActive) {
+                  // Turning camera off also stops pose tracking
+                  stopPoseTracking(); poseActive = false; poseError = null;
+                }
+              }}
               role="switch"
               aria-checked={cameraState.enabled}
               tabindex="0"
