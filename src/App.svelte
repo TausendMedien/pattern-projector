@@ -1125,13 +1125,23 @@
               >Detect cameras</button>
             {/if}
           </div>
-          <!-- Motion Detection settings -->
+          <!-- Motion Detection sub-section with its own toggle -->
           <div class="mt-1 flex items-center gap-2">
             <div class="h-px flex-1 bg-white/10"></div>
             <span class="text-[10px] uppercase tracking-widest text-white/30">Motion Detection</span>
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <div
+              class="relative h-[14px] w-[22px] flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 {cameraState.enabled && cameraState.motionEnabled ? 'bg-white/60' : 'bg-white/20'}"
+              onclick={() => { cameraState.motionEnabled = !cameraState.motionEnabled; }}
+              role="switch"
+              aria-checked={cameraState.motionEnabled}
+              tabindex="0"
+            >
+              <div class="absolute top-[2px] h-[10px] w-[10px] rounded-full bg-white shadow transition-transform duration-200 {cameraState.motionEnabled ? 'translate-x-[10px]' : 'translate-x-[2px]'}"></div>
+            </div>
             <div class="h-px flex-1 bg-white/10"></div>
           </div>
-          <div class="{cameraState.enabled ? '' : 'opacity-40 pointer-events-none'} flex flex-col gap-2.5">
+          <div class="{cameraState.enabled && cameraState.motionEnabled ? '' : 'opacity-40 pointer-events-none'} flex flex-col gap-2.5">
             <div>
               <div class="flex justify-between mb-1 text-xs text-white/70">
                 <span>Sensitivity</span>
@@ -1254,7 +1264,7 @@
               {#if palette[k] !== PALETTE_DEFAULTS[k]}
                 <button
                   onclick={() => resetPaletteColor(k)}
-                  class="text-[10px] text-white/40 hover:text-white/70 border border-white/15 hover:border-white/40 rounded px-1.5 py-0.5 transition-colors cursor-pointer shrink-0"
+                  class="text-sm text-white/50 hover:text-white/80 border border-white/20 hover:border-white/50 rounded px-2 py-1 transition-colors cursor-pointer shrink-0"
                 >↺</button>
               {/if}
             </div>

@@ -39,7 +39,9 @@ export function addMotionCamera(pattern: Pattern): Pattern {
     return {
       ...ctrl,
       get: () => effectiveVals[idx],
-      set: (v: number) => { baseVals[idx] = v; },
+      // Update both baseVals AND effectiveVals so liveSync sees the new value
+      // immediately (before update() runs) — fixes slider snapping on drag.
+      set: (v: number) => { baseVals[idx] = v; effectiveVals[idx] = v; },
     } as RangeCtrl;
   });
 
@@ -111,8 +113,8 @@ export function addMotionCamera(pattern: Pattern): Pattern {
       }
       prevDeviceId = nowDeviceId;
 
-      // Motion detection
-      if (motionCamera) {
+      // Motion detection (only when motionEnabled)
+      if (motionCamera && cameraState.motionEnabled) {
         const diff = motionCamera.tick();
         if (diff) {
           const raw = Math.min(detector.update(diff), 1.0);
@@ -120,11 +122,15 @@ export function addMotionCamera(pattern: Pattern): Pattern {
             ? 0.90 * smoothedMotion + 0.10 * raw
             : 0.97 * smoothedMotion + 0.03 * raw;
         }
+      } else if (!cameraState.motionEnabled) {
+        smoothedMotion = Math.max(0, smoothedMotion * 0.95); // decay when disabled
       }
       cameraState.level = Math.round(smoothedMotion * 100);
 
-      // Boost first two controls
-      const scaledMotion = smoothedMotion * (cameraState.sensitivity / 10) * (8 / 7);
+      // Boost first two controls only when motion detection is enabled
+      const scaledMotion = cameraState.motionEnabled
+        ? smoothedMotion * (cameraState.sensitivity / 10) * (8 / 7)
+        : 0;
       for (let i = 0; i < firstTwoRange.length; i++) {
         const ctrl = firstTwoRange[i];
         const range = ctrl.max - ctrl.min;

@@ -90,13 +90,11 @@ function buildText() {
     // Solid — use MeshBasicMaterial so it's always visible regardless of lighting
     const mat = new THREE.MeshBasicMaterial({ color: hexToColor(primaryColor) });
     group.add(new THREE.Mesh(geo, mat));
-    // Glow color as edge overlay (depthTest: false so it renders on top of the mesh)
+    // Glow color as solid edge overlay — depthTest:false renders on top of mesh,
+    // normal blending keeps glow color clearly distinct from primaryColor fill.
     const edges = new THREE.EdgesGeometry(geo);
     const edgeMat = new THREE.LineBasicMaterial({
       color: hexToColor(glowColor),
-      transparent: true,
-      opacity: 0.85,
-      blending: THREE.AdditiveBlending,
       depthTest: false,
     });
     group.add(new THREE.LineSegments(edges, edgeMat));

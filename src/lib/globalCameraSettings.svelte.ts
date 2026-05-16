@@ -3,11 +3,12 @@
 export type DeviceInfo = { deviceId: string; label: string };
 
 export const cameraState = $state({
-  enabled:    false,
-  deviceId:   '',
-  devices:    [] as DeviceInfo[],
-  sensitivity: 50,
-  level:       0,
+  enabled:        false,  // camera hardware on/off (starts the stream)
+  motionEnabled:  true,   // motion detection on/off (uses stream to boost controls)
+  deviceId:       '',
+  devices:        [] as DeviceInfo[],
+  sensitivity:    50,
+  level:          0,
 });
 
 export async function enumerateCameras(): Promise<void> {
